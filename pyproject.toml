@@ -1,0 +1,92 @@
+[project]
+name = "llama-parser"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.116.1",
+    "requests>=2.31.0",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.10.1",
+    "uvicorn>=0.35.0",
+    "langchain>=0.3.27",
+    "langchain-openai>=0.3.28",
+    "langchain-postgres>=0.0.15",
+    "langchain-community>=0.3.27",
+    "openai>=1.98.0",
+    "asyncpg>=0.30.0",
+    "click>=8.2.1",
+    "typer>=0.12.5",
+    "python-multipart>=0.0.20",
+    "psycopg2>=2.9.10",
+    "notebook>=7.4.4",
+    "python-dotenv>=1.1.1",
+    "langchain-docling>=1.0.0",
+    "loguru>=0.7.3",
+    "types-requests>=2.32.4.20250611",
+    "asyncio>=4.0.0",
+    "aioboto3>=15.0.0",
+    "langgraph>=0.6.3",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.16",
+    "mkdocs-mermaid2-plugin>=1.2.1",
+    "sqlmodel>=0.0.24",
+    "greenlet>=3.2.3",
+    "pandas>=2.3.1",
+    "easyocr>=1.7.2",
+    "docling>=2.44.0",
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "opencv-python-headless>=4.11.0.86",
+]
+
+[tool.pyrefly]
+project-includes = ["**/*"]
+project-excludes = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/*venv/**/*",
+]
+
+[dependency-groups]
+dev = [
+    "dill>=0.4.0",
+    "iprogress>=0.4",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "ruff>=0.12.7",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-xdist>=3.8.0",
+    "isort>=6.0.1",
+    "ssort>=0.15.0",
+    "ty>=0.0.1a17",
+    "vulture>=2.14",
+    "typer>=0.16.0",
+    "pyrefly>=0.31.1",
+]
+
+[tool.pytest.ini_options]
+# Limit discovery & keep noise low
+testpaths = ["tests"]
+norecursedirs = [".venv", "build", "dist", ".mypy_cache", ".ruff_cache", ".pytest_cache", "docs"]
+addopts = "-q -ra -m 'not e2e and not slow and not integration'"
+asyncio_mode = "auto"
+markers = [
+  "integration: mark tests as integration tests that may access external services or resources",
+  "e2e: end-to-end tests",
+  "slow: slow-running tests",
+  "requires_env(*vars): skip test if these env vars are missing",
+  "needs_postgres: shorthand for requires_env('POSTGRES_URL')",
+  "needs_aws: shorthand for requires_env('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET')",
+]
+
+# Replace any old `ignore = ...` with proper filters:
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::UserWarning"
+]
+
+[tool.ruff.format]
+quote-style = "single"

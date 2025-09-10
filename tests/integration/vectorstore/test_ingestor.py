@@ -1,0 +1,74 @@
+import pytest
+
+from app.repositories.factory import get_embedding_repository
+from app.schemas.enums import CollectionEnum
+from app.vector.ingestor import DocumentIngestor
+from app.vector.models import IngestorSettings
+
+
+@pytest.fixture
+def ingestor() -> DocumentIngestor:
+    """Create DocumentIngestor instance for testing."""
+    ingest_settings = IngestorSettings(max_docs_per_batch=2)
+    return DocumentIngestor(
+        collection=CollectionEnum.DEFAULT, ingest_settings=ingest_settings
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_ingest_creates_embeddings(ingestor, sample_documents, digest_str):
+    """Test that ingest method creates embeddings in the vector."""
+    # Use only first 2 documents for faster testing
+
+    test_docs = sample_documents[:2]
+    await ingestor.ingest(docs=test_docs, digest=digest_str)
+
+    # Search for content from the first document
+    first_doc_content = test_docs[0].page_content[:100]  # First 100 chars
+    results = ingestor.vectorstore.similarity_search(first_doc_content, k=1)
+
+    assert len(results) > 0, 'No documents found in vector after ingestion'
+    assert any(first_doc_content[:50] in result.page_content for result in results), (
+        'Ingested document content not found in search results'
+    )
+
+    await ingestor.delete_embeddings(digest=digest_str)
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_ingest_creates_embeddings_with_metadata(
+    ingestor, sample_documents, digest_str
+):
+    """Test that ingest method creates embeddings in the vector."""
+    repo = get_embedding_repository()
+    test_docs = sample_documents[:2]
+
+    await ingestor.ingest(docs=test_docs, digest=digest_str)
+    metadata = await repo.get_metadata(
+        digest=digest_str, collection=CollectionEnum.DEFAULT.value
+    )
+    assert metadata[0]['digest'] == digest_str
+
+    await ingestor.delete_embeddings(digest=digest_str)
+
+
+@pytest.mark.integration
+def test_batch_documents_with_max_docs_per_batch(ingestor, sample_documents):
+    """Test that batch_documents_by_tokens respects max_docs_per_batch=2."""
+    # Use all 4 sample documents
+    batches = ingestor.batch_documents_by_tokens(sample_documents)
+
+    # With max_docs_per_batch=2, we should get at least 2 batches
+    assert len(batches) >= 2, f'Expected at least 2 batches, got {len(batches)}'
+
+    # Each batch should have at most 2 documents
+    for i, batch in enumerate(batches):
+        assert len(batch) <= 2, f'Batch {i} has {len(batch)} documents, expected max 2'
+
+    # All documents should be included in batches
+    total_docs_in_batches = sum(len(batch) for batch in batches)
+    assert total_docs_in_batches == len(sample_documents), (
+        f'Expected {len(sample_documents)} documents in batches, got {total_docs_in_batches}'
+    )

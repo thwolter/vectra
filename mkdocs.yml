@@ -1,0 +1,48 @@
+site_name: VecAPI Backend Docs
+site_description: FastAPI backend for Financials_RAG — ingestion, storage (S3), vector, and RAG agents.
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.tracking
+    - content.code.copy
+    - content.code.select
+plugins:
+  - search
+nav:
+  - Home: index.md
+  - API: api.md
+  - Ingestion: ingestion.md
+  - Parsers: parsers.md
+  - Vectorstore: vector.md
+  - RAG Agent: rag.md
+  - Dev Guide: dev_guide.md
+  - Reference:
+    - UploadJobService: upload_job_service.md
+    - Protocols: protocols.md
+    - S3DocumentStore: s3_document_store.md
+    - DocumentIngestor: document_ingestor.md
+    - IngestionService: ingestion_service.md
+    - MetadataRepository: metadata_repository.md
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.emoji
+extra:
+  generator: false
+extra_css:
+  - assets/stylesheets/extra.css
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - assets/javascripts/mermaid-init.js
