@@ -67,7 +67,11 @@ def make_retrieve_node(vs: VectorStore):
 def make_extract_node(llm: BaseChatModel, strategy: Strategy):
     async def _extract(state: ExtractState) -> ExtractState:
         if not state.get('docs'):
-            state['metadata'] = ProposedMetadata()  # empty info
+            # Ensure callers always see a structured payload with the expected keys
+            # even when no documents could be retrieved.
+            state['metadata'] = ProposedMetadata(
+                metadata={'metadata': {}, 'evidence': {}}
+            )
             return state
 
         context = strategy.make_context(state['docs'])

@@ -11,7 +11,8 @@ from app.metadata.schemas import FinanceReportHints, ProposedMetadata
 @pytest.fixture
 def ingestor():
     return DocumentIngestor(
-        CollectionEnum.FINANCIAL, ingest_settings=IngestorSettings(max_docs_per_batch=3)
+        collection=CollectionEnum.FINANCIAL.value,
+        ingest_settings=IngestorSettings(max_docs_per_batch=3),
     )
 
 
@@ -42,7 +43,7 @@ async def sanitize(sample_documents):
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_document_info_with_sample_docs(
-    sample_documents, ingestor, digest_str
+    sample_documents, ingestor, random_digest, session
 ):
     """
     Integration test: ingest sample documents into the vector, then retrieve
@@ -53,14 +54,16 @@ async def test_get_document_info_with_sample_docs(
 
     try:
         await ingestor.ingest(
+            session,
             docs=test_documents,
-            digest=digest_str,
+            digest=random_digest,
         )
     except EmbeddingsAlreadyExistError:
         pass
 
     result = await extract_metadata(
-        digest=digest_str,
+        session,
+        digest=random_digest,
         collection=CollectionEnum.FINANCIAL,
         hints=FinanceReportHints(),
     )

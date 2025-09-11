@@ -1,21 +1,35 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 
-from app.api.v1.upload_routes import router as upload_router
-from app.api.v1.profile_routes import router as profile_router
-from app.api.v1.document_routes import router as document_router
-from app.api.v1.job_routes import router as job_router
-
+from app.api.v1 import ROUTERS
 from app.core.config import get_settings
-
+from app.core.dependencies import get_database_manager
 
 settings = get_settings()
 
-app = FastAPI(title=settings.app_name)
 
-app.include_router(upload_router, prefix='/api')
-app.include_router(profile_router, prefix='/api')
-app.include_router(document_router, prefix='/api')
-app.include_router(job_router, prefix='/api')
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """App lifespan hook to initialize database and ensure schema once.
+
+    Uses DatabaseManager to initialize the async engine, ensure required
+    extensions and create tables (dev/test convenience). In production,
+    migrations should be responsible for schema, but this provides a
+    safety net and satisfies test environment needs.
+    """
+    db = get_database_manager()
+    await db.initialize()
+    await db.ensure_schema()
+    try:
+        yield
+    finally:
+        await db.close()
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+for router, prefix in ROUTERS:
+    app.include_router(router, prefix=prefix)
 
 
 @app.get('/health', tags=['health'])

@@ -1,11 +1,11 @@
-from functools import cached_property
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from typing import List, Sequence
 
 from langchain_core.documents import Document
 from loguru import logger
 
-from app.repositories.factory import get_ingestion_repository, get_embedding_repository
 from app.utils.types import SHA256B64
+from app.repositories import Ingestion, Embeddings
 from .errors import EmbeddingsAlreadyExistError
 from .protocols import IngestorProtocol
 from .schemas import IngestionVersionInsert, IngestionResult
@@ -13,46 +13,32 @@ from .schemas import IngestionVersionInsert, IngestionResult
 from .batching import BatchBuilder
 from .factory import get_vectorstore
 from .models import IngestorSettings
-from app.schemas.enums import CollectionEnum
 
 
 class DocumentIngestor(IngestorProtocol):
     """
     Handles document ingestion and processing for vector storage.
+    Collection is a plain `str`; tenant scoping is enforced by DB RLS.
     This class focuses on document batching, token estimation, and metadata management.
     """
 
     def __init__(
         self,
-        collection: CollectionEnum,
+        collection: str,
         *,
         ingest_settings: IngestorSettings | None = None,
-        vectorstore=None,
         ingestion_repo=None,
         embedding_repo=None,
     ) -> None:
         """Initialize the ingestor with a collection and optional settings."""
-        self.collection: CollectionEnum = collection
+        self.collection: str = collection
         self.ingest_settings: IngestorSettings = ingest_settings or IngestorSettings()
         self.batcher = BatchBuilder(self.ingest_settings)
-        self._vectorstore = vectorstore
         self._ingestion_repo = ingestion_repo
         self._embedding_repo = embedding_repo
 
-    @cached_property
-    def vectorstore(self):
-        return self._vectorstore or get_vectorstore(self.collection.value)
-
-    @cached_property
-    def ingestion_repo(self):
-        return self._ingestion_repo or get_ingestion_repository()
-
-    @cached_property
-    def embedding_repo(self):
-        return self._embedding_repo or get_embedding_repository()
-
     async def ingest(
-        self, *, docs: List[Document], digest: SHA256B64
+        self, session: AsyncSession, *, docs: List[Document], digest: SHA256B64
     ) -> IngestionResult:
         """
         Ingests documents in batches into the vector.
@@ -66,14 +52,14 @@ class DocumentIngestor(IngestorProtocol):
             logger.warning('No documents provided for ingestion; skipping.')
             return IngestionResult(
                 digest=digest,
-                collection=self.collection.value,
+                collection=self.collection,
                 total_docs=0,
                 batches=0,
                 skipped=True,
                 reason='no_documents',
             )
 
-        embeddings_exist = await self.embeddings_exist(digest=digest)
+        embeddings_exist = await self.embeddings_exist(session=session, digest=digest)
         if embeddings_exist:
             raise EmbeddingsAlreadyExistError(
                 f'Embeddings already exist for digest {digest}.'
@@ -81,23 +67,27 @@ class DocumentIngestor(IngestorProtocol):
 
         batches = self.batch_documents_by_tokens(docs)
 
+        vs = get_vectorstore(
+            collection=self.collection, tenant_id=session.info['tenant_id']
+        )
+
         total_ingested = 0
         for batch in batches:
             self.enrich_metadata(batch, digest=digest, offset=total_ingested)
-            self.vectorstore.add_documents(documents=batch)
+            vs.add_documents(documents=batch)
             total_ingested += len(batch)
             logger.debug(
-                f"Added {len(batch)} docs with digest {digest}) to collection '{self.vectorstore.collection_name}'"
+                f"Added {len(batch)} docs with digest {digest}) to collection '{vs.collection_name}'"
             )
 
-        await self.mark_ingestion(digest=digest)
+        await self.mark_ingestion(session=session, digest=digest)
 
         logger.success(
-            f"Ingested {total_ingested} documents into collection '{self.collection.value}'"
+            f"Ingested {total_ingested} documents into collection '{self.collection}'"
         )
         return IngestionResult(
             digest=digest,
-            collection=self.collection.value,
+            collection=self.collection,
             total_docs=total_ingested,
             batches=len(batches),
         )
@@ -123,30 +113,34 @@ class DocumentIngestor(IngestorProtocol):
     def plan_batches(self, docs: list[Document]) -> list[list[Document]]:
         return self.batcher.batch_documents_by_tokens(docs)
 
-    async def mark_ingestion(self, digest: SHA256B64) -> None:
+    async def mark_ingestion(self, session: AsyncSession, *, digest: SHA256B64) -> None:
         """Persist an ingestion version row for traceability and idempotency."""
         payload = IngestionVersionInsert(
-            collection=self.collection.value,
+            collection=self.collection,
             digest=digest,
             chunker_version=self.ingest_settings.chunker_version,
             embed_model=self.ingest_settings.model_name,
             embed_model_ver=self.ingest_settings.embed_model_ver,
         )
-        await self.ingestion_repo.insert_Key(payload)
+        await Ingestion.create(session=session, key=payload)
 
-    async def delete_embeddings(self, *, digest: SHA256B64) -> None:
+    async def delete_embeddings(
+        self, session: AsyncSession, *, digest: SHA256B64
+    ) -> None:
         """Delete embeddings for a given digest."""
         try:
-            await self.embedding_repo.delete(digest=digest)
-            await self.ingestion_repo.delete_by_digest(
-                digest=digest, collection=self.collection.value
+            await Embeddings.delete(session, digest=digest)
+            await Ingestion.delete(
+                session=session, digest=digest, collection=self.collection
             )
         except Exception as e:
             logger.error(f'Failed to delete embeddings for digest {digest}: {e}')
             raise
 
-    async def embeddings_exist(self, *, digest: SHA256B64) -> bool:
+    async def embeddings_exist(
+        self, session: AsyncSession, *, digest: SHA256B64
+    ) -> bool:
         """Check if embeddings exist for a given digest."""
-        return await self.ingestion_repo.exists_by_digest(
-            digest=digest, collection=self.collection.value
+        return await Ingestion.exists(
+            session=session, digest=digest, collection=self.collection
         )

@@ -10,8 +10,17 @@ from fastapi import UploadFile
 from langchain_core.documents import Document
 from starlette.datastructures import Headers
 
+# Load session-level fixtures (auth, tenant, httpx client) for all tests
+pytest_plugins = [
+    'tests.fixtures.session',
+    'tests.fixtures.jobs',
+    'tests.fixtures.digest',
+    'tests.fixtures.client',
+    'tests.fixtures.vector',
+]
+
 if TYPE_CHECKING:
-    from app.utils.types import SHA256B64
+    pass
 
 # Ensure project app/ is on sys.path for `from app...` imports in tests
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -110,16 +119,6 @@ def tiny_pdf_upload() -> Generator[UploadFile, Any, None]:
             os.unlink(tmp.name)
         except FileNotFoundError:
             pass
-
-
-@pytest.fixture
-def digest_str() -> 'SHA256B64':
-    return '47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='
-
-
-@pytest.fixture
-def another_digest_str() -> 'SHA256B64':
-    return '50DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='
 
 
 @pytest.fixture

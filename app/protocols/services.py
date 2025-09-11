@@ -1,6 +1,8 @@
 from typing import Protocol
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.schemas.upload import (
     UploadInitResponse,
     StartUploadInput,
@@ -13,15 +15,17 @@ from app.schemas.upload import (
 
 class UploadServiceProtocol(Protocol):
     async def start_document_upload(
-        self, job_input: StartUploadInput
+        self, session: AsyncSession, *, payload: StartUploadInput
     ) -> UploadInitResponse: ...
 
-    async def continue_processing(self, job_input: ContinueProcessingInput) -> None: ...
+    async def continue_processing(self, payload: ContinueProcessingInput) -> None: ...
 
 
 class JobServiceProtocol(Protocol):
-    async def get_status(self, *, job_id: UUID) -> JobStatusResponse: ...
+    async def get_status(
+        self, status: AsyncSession, *, job_id: UUID
+    ) -> JobStatusResponse: ...
 
     async def review_job(
-        self, *, job_id: UUID, payload: JobReviewPayload
+        self, status: AsyncSession, *, job_id: UUID, payload: JobReviewPayload
     ) -> JobReviewResponse: ...

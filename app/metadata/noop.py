@@ -23,7 +23,7 @@ class NoopStrategy(Strategy):
 
     def proposed_metadata(self) -> ProposedMetadata:
         return ProposedMetadata(
-            metadata=self.hints.model_dump(exclude_none=True),
+            metadata={},
             confidence={},
             conflicts=[],
         )

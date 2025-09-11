@@ -1,28 +1,27 @@
 import pytest
 
-from app.repositories.factory import get_ingestion_repository
 from app.vector.schemas import IngestionVersionInsert
+from app.repositories import Ingestion
 
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_delete_by_digest_scoped_by_collection(digest_str, another_digest_str):
-    repo = get_ingestion_repository()
-    await repo.ensure_ingestion_versions_table()
-
+async def test_delete_by_digest_scoped_by_collection(
+    random_digest, another_digest_str, session
+):
     # Seed two digests across two collections
     insert_rows = [
         IngestionVersionInsert(
             collection='default',
-            digest=digest_str,
+            digest=random_digest,
             chunker_version='cv1',
             embed_model='em',
             embed_model_ver='v1',
         ),
         IngestionVersionInsert(
             collection='financial',
-            digest=digest_str,
+            digest=random_digest,
             chunker_version='cv2',
             embed_model='em',
             embed_model_ver='v1',
@@ -30,26 +29,34 @@ async def test_delete_by_digest_scoped_by_collection(digest_str, another_digest_
     ]
 
     for row in insert_rows:
-        await repo.insert_Key(row)
+        await Ingestion.create(session, key=row)
 
-    assert await repo.exists_by_digest(digest=digest_str, collection='default') is True
-    assert (
-        await repo.exists_by_digest(digest=digest_str, collection='financial') is True
+    exists_default = await Ingestion.exists(
+        session, digest=random_digest, collection='default'
     )
-
-    await repo.delete_by_digest(digest=digest_str, collection='default')
-
-    # Verify rows for target digest are gone only in 'default'
-    assert await repo.exists_by_digest(digest=digest_str, collection='default') is False
-    assert (
-        await repo.exists_by_digest(digest=digest_str, collection='financial') is True
+    exists_financial = await Ingestion.exists(
+        session, digest=random_digest, collection='financial'
     )
+    assert exists_default is True
+    assert exists_financial is True
+
+    await Ingestion.delete(session, digest=random_digest, collection='default')
+
+    exists_default = await Ingestion.exists(
+        session, digest=random_digest, collection='default'
+    )
+    exists_financial = await Ingestion.exists(
+        session, digest=random_digest, collection='financial'
+    )
+    assert exists_default is False
+    assert exists_financial is False
 
     # Deleting again (idempotent) should be a no-op
-    await repo.delete_by_digest(digest=digest_str, collection='default')
+    await Ingestion.delete(session, digest=random_digest, collection='default')
 
     # Now delete the other collection and ensure it's removed
-    await repo.delete_by_digest(digest=digest_str, collection='financial')
-    assert (
-        await repo.exists_by_digest(digest=digest_str, collection='financial') is False
+    await Ingestion.delete(session, digest=random_digest, collection='financial')
+    exists = await Ingestion.exists(
+        session, digest=random_digest, collection='financial'
     )
+    assert exists is False

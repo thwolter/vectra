@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import uuid
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
-from sqlalchemy import Column, DateTime
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Column, DateTime, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+
+from app.utils.types import SHA256B64
 
 
-class Document(SQLModel, table=True):
+class DocumentRecord(SQLModel, table=True):
     """Canonical documents table keyed by (collection, binary_hash).
 
     Stores immutable original_filename (first-seen wins) and basic attributes.
@@ -17,15 +18,27 @@ class Document(SQLModel, table=True):
 
     __tablename__ = 'documents'
     __table_args__ = (
-        UniqueConstraint('collection', 'digest', name='uq_documents_collection_digest'),
+        UniqueConstraint(
+            'tenant_id',
+            'collection',
+            'digest',
+            name='uq_documents_tenant_collection_digest',
+        ),
     )
 
-    id: uuid.UUID = Field(
+    id: UUID = Field(
         default_factory=uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
+    )
+    tenant_id: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            server_default=text("current_setting('app.tenant_id', true)::uuid"),
+        )
     )
     collection: str = Field(index=True)
-    digest: str = Field(index=True, max_length=44)
+    digest: SHA256B64 = Field(index=True)
     original_filename: str | None = Field(default=None)
     content_type: str | None = Field(default=None)
     size_bytes: int | None = Field(default=None)
@@ -37,9 +50,24 @@ class Document(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("timezone('utc', now())"),
+        )
+    )
+    created_by: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            index=True,
+            server_default=text("current_setting('app.user_id', true)::uuid"),
+        )
+    )
 
 
-class IngestionVersion(SQLModel, table=True):
+class IngestionRecord(SQLModel, table=True):
     """SQLModel representation of the ingestion_versions table.
 
     Uniqueness is enforced across the tuple:
@@ -49,27 +77,50 @@ class IngestionVersion(SQLModel, table=True):
     __tablename__ = 'ingestion_versions'
     __table_args__ = (
         UniqueConstraint(
+            'tenant_id',
             'collection',
             'digest',
             'chunker_version',
             'embed_model',
             'embed_model_ver',
-            name='uq_ingestion_versions_composite',
+            name='uq_ingestion_tenant_composite',
         ),
     )
 
-    id: uuid.UUID = Field(
+    id: UUID = Field(
         default_factory=uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
+    )
+    tenant_id: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            server_default=text("current_setting('app.tenant_id', true)::uuid"),
+        )
     )
     collection: str = Field(index=True)
-    digest: str = Field(index=True, max_length=44)
+    digest: SHA256B64 = Field(index=True)
     chunker_version: str
     embed_model: str
     embed_model_ver: str
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("timezone('utc', now())"),
+        )
+    )
+    created_by: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            index=True,
+            server_default=text("current_setting('app.user_id', true)::uuid"),
+        )
     )
 
 
@@ -83,19 +134,35 @@ class JobRecord(SQLModel, table=True):
     """
 
     __tablename__ = 'upload_jobs'
+    __table_args__ = (
+        UniqueConstraint(
+            'tenant_id',
+            'document_uuid',
+            'collection',
+            'digest',
+            name='uq_job_tenant_document_collection_digest',
+        ),
+    )
 
-    job_id: uuid.UUID = Field(
+    id: UUID = Field(
         default_factory=uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
+    )
+    tenant_id: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            server_default=text("current_setting('app.tenant_id', true)::uuid"),
+        )
     )
     status: str = Field(index=True)
     percent: int = Field(default=0)
     step: str | None = Field(default=None)
 
     # Linkage to Document
-    document_uuid: uuid.UUID | None = Field(default=None, index=True)
-    collection: str | None = Field(default=None, index=True)
-    digest: str | None = Field(default=None, index=True, max_length=44)
+    document_uuid: UUID | None = Field(default=None, index=True)
+    collection: str = Field(index=True)
+    digest: str = Field(index=True, max_length=44)
 
     # Descriptive fields
     original_filename: str | None = Field(default=None)
@@ -111,6 +178,17 @@ class JobRecord(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("timezone('utc', now())"),
+        )
+    )
+    created_by: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            index=True,
+            server_default=text("current_setting('app.user_id', true)::uuid"),
+        )
     )

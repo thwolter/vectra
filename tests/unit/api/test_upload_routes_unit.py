@@ -3,11 +3,8 @@ import uuid
 from unittest.mock import create_autospec, AsyncMock
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.v1.upload_routes import router as upload_router
-from app.api.v1.job_routes import router as job_router
 from app.protocols.services import UploadServiceProtocol, JobServiceProtocol
 from app.schemas.upload import (
     UploadInitResponse,
@@ -18,22 +15,16 @@ from app.schemas.upload import (
     JobReviewPayload,
 )
 from app.metadata.schemas import NoopHints, FinanceReportHints
-from app.services.factory import get_upload_service, get_job_service
+from app.services.dependencies import get_upload_service, get_job_service
 
 JOB_ID = uuid.uuid4()
 DOCUMENT_ID = uuid.uuid4()
 
 
-class TestClientWithMocks(TestClient):
-    upload_mock: UploadServiceProtocol
-    job_mock: JobServiceProtocol
-
-
 @pytest.fixture()
-def api_client(monkeypatch: pytest.MonkeyPatch, digest_str) -> TestClient:
-    app = FastAPI()
-    app.include_router(upload_router, prefix='/api')
-    app.include_router(job_router, prefix='/api')
+def api_client(monkeypatch, digest_str, auth_client) -> TestClient:
+    client = auth_client
+    app = client.app
 
     upload_mock: UploadServiceProtocol = create_autospec(
         UploadServiceProtocol, instance=True, spec_set=True
@@ -71,16 +62,15 @@ def api_client(monkeypatch: pytest.MonkeyPatch, digest_str) -> TestClient:
         )
     )
 
-    app.dependency_overrides[get_upload_service] = lambda: upload_mock  # type: ignore[attr-defined]
-    app.dependency_overrides[get_job_service] = lambda: job_mock  # type: ignore[attr-defined]
+    app.dependency_overrides[get_upload_service] = lambda: upload_mock
+    app.dependency_overrides[get_job_service] = lambda: job_mock
 
-    client = TestClientWithMocks(app)
     client.upload_mock = upload_mock
     client.job_mock = job_mock
     return client
 
 
-def test_upload_document_with_finance_hints_is_parsed(api_client: TestClient):
+def test_upload_document_with_finance_hints_is_parsed(api_client):
     # Prepare a small file
     file_bytes = b'%PDF-1.4\n%\xe2\xe3\xcf\xd3'  # trivial PDF header bytes
     hints_json = FinanceReportHints(
@@ -93,7 +83,7 @@ def test_upload_document_with_finance_hints_is_parsed(api_client: TestClient):
     data = {'hints': hints_json}
 
     r = api_client.post('/api/v1/uploads', files=files, data=data)
-    assert r.status_code == 200, r.text
+    assert r.status_code == 201, r.text
 
     data = r.json()
     assert data['job_id'] == str(JOB_ID)
@@ -103,8 +93,8 @@ def test_upload_document_with_finance_hints_is_parsed(api_client: TestClient):
     assert mock_service.start_document_upload.await_count == 1
     assert mock_service.continue_processing.await_count == 1
 
-    args, kwargs = mock_service.start_document_upload.await_args
-    passed_hints = args[0].hints
+    _, kwargs = mock_service.start_document_upload.await_args
+    passed_hints = kwargs['payload'].hints
     assert isinstance(passed_hints, FinanceReportHints)
 
 
@@ -112,7 +102,7 @@ def test_upload_document_allows_missing_hints(api_client: TestClient):
     files = {'file': ('tiny.txt', io.BytesIO(b'hello world'), 'text/plain')}
 
     r = api_client.post('/api/v1/uploads', files=files, data=None)
-    assert r.status_code == 200, r.text
+    assert r.status_code == 201, r.text
 
     data = r.json()
     assert data['job_id'] == str(JOB_ID)
@@ -122,8 +112,8 @@ def test_upload_document_allows_missing_hints(api_client: TestClient):
     assert mock_service.start_document_upload.await_count == 1
     assert mock_service.continue_processing.await_count == 1
 
-    args, kwargs = mock_service.start_document_upload.await_args
-    passed_hints = args[0].hints
+    _, kwargs = mock_service.start_document_upload.await_args
+    passed_hints = kwargs['payload'].hints
     assert isinstance(passed_hints, NoopHints)
 
 

@@ -21,7 +21,6 @@ class InitJob(BaseModel):
     the job row is created in the database.
     """
 
-    job_id: UUID
     document_uuid: UUID
     collection: str
     digest: SHA256B64
@@ -57,7 +56,9 @@ class CreateJob(InitJob):
     Inherits fields from InitJob and adds persistence defaults.
     """
 
-    status: str = Field(default=JobStatus.PROCESSING.value)
+    status: str = Field(
+        default=JobStatus.PROCESSING.value
+    )  # todo: make it a JubStatus field
     percent: Annotated[int, Field(default=0, strict=True, ge=0, le=100)]
     step: str | None = 'hash'
 

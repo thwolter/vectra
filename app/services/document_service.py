@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Literal, AsyncIterator
+from typing import Optional, Literal, AsyncIterator, Tuple
 from uuid import UUID
 
 from app.schemas.documents import (
@@ -10,12 +10,13 @@ from app.schemas.documents import (
 
 
 from app.schemas.enums import CollectionEnum
-from app.repositories.factory import get_document_repository
 from app.repositories.schemas import DocumentCreate
 from app.store.protocols import StoreProtocol
 from app.store.providers import default_store_provider
 from app.store.local_store import make_uri
 from app.store.schemas import FileInfo
+from app.repositories import Document
+from app.utils.types import SHA256B64
 
 
 class DocumentService:
@@ -28,23 +29,24 @@ class DocumentService:
 
     def __init__(self, *, collection: CollectionEnum):
         self.collection = collection
-        self.repo = get_document_repository()
         self.store: StoreProtocol = default_store_provider(self.collection)
 
     async def ensure_canonical_document(
         self,
+        session,
         *,
-        digest: str,
+        digest: SHA256B64,
         original_filename: str | None,
         content_type: str | None,
         size_bytes: int | None,
-    ) -> UUID:
+    ) -> Tuple[UUID, bool]:
         """Create (or fetch) the canonical Document row and return its UUID string.
 
         Implements first-seen-wins for original_filename via repository upsert.
         """
 
-        document_id = await self.repo.create(
+        return await Document.upsert(
+            session,
             data=DocumentCreate(
                 collection=self.collection.value,
                 digest=digest,
@@ -52,12 +54,12 @@ class DocumentService:
                 content_type=content_type,
                 size_bytes=size_bytes,
                 meta=None,
-            )
+            ),
         )
-        return document_id
 
     async def update_document_uris(
         self,
+        session,
         *,
         document_id: UUID,
         original_key: str | None = None,
@@ -75,7 +77,8 @@ class DocumentService:
         if not original_uri and not markdown_uri:
             return
 
-        await self.repo.update_uris_by_id(
+        await Document.update_uris(
+            session,
             id=document_id,
             original_uri=original_uri,
             markdown_uri=markdown_uri,

@@ -6,10 +6,9 @@ from fastapi.testclient import TestClient
 
 from app.metadata.schemas import FinanceReportHints
 from app.schemas.enums import CollectionEnum
-from app.repositories.factory import (
-    get_embedding_repository,
-)
+
 from app.store.local_store import LocalFileStore
+from app.repositories import Embeddings
 from tests.helper import make_files_param, make_client_financial
 
 
@@ -41,7 +40,7 @@ def _store_keys_for_digest(document_id: UUID, tmp_path) -> list[str]:
 
 @pytest.mark.e2e
 @pytest.mark.needs_postgres
-def test_financial_upload_review_then_patch(apple_report_first_page, tmp_path):
+def test_financial_upload_review_then_patch(apple_report_first_page, tmp_path, session):
     client = make_client_financial(tmp_path)
     files = make_files_param(apple_report_first_page)
 
@@ -97,12 +96,9 @@ def test_financial_upload_review_then_patch(apple_report_first_page, tmp_path):
     ), keys
     assert any(k.endswith('document.md') for k in keys), keys
 
-    # Verify embeddings metadata reflect corrections
-    meta_repo = get_embedding_repository()
-
     async def _get_all_md(*args, **kwargs):
-        return await meta_repo.get_metadata(
-            digest, collection=CollectionEnum.FINANCIAL.value
+        return await Embeddings.get_metadata(
+            session, digest=digest, collection=CollectionEnum.FINANCIAL.value
         )
 
     import anyio

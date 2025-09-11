@@ -1,4 +1,6 @@
 from __future__ import annotations
+from sqlalchemy.ext.asyncio.session import AsyncSession
+
 
 from dataclasses import replace as dc_replace
 
@@ -13,15 +15,16 @@ from app.vector.providers import default_ingestor_provider
 from app.store.providers import default_store_provider
 from app.parsers.providers import parser_provider
 
-from app.repositories.factory import get_ingestion_repository, get_document_repository
 
 from app.services.document_service import DocumentService
 
-from app.repositories.factory import get_embedding_repository
+from app.repositories import Document as DBDocument
 from app.vector.schemas import IngestionVersionKey
+from app.repositories import Ingestion
 from app.store.protocols import StoreProtocol
 from app.store.schemas import ArtifactInfo
 from app.vector.models import IngestorSettings
+from app.repositories import Embeddings
 
 
 class UploadPipeline:
@@ -37,7 +40,6 @@ class UploadPipeline:
         self.store = store
         self.parser = parser
         self.ingestor = ingestor
-        self.repo = get_ingestion_repository()
 
     def init(self, ctx: JobCtx) -> UploadPipeline:
         """Initialize the pipeline with a new ctx."""
@@ -91,7 +93,7 @@ class UploadPipeline:
         self.ctx = dc_replace(self.ctx, docs=docs, markdown_text=markdown)
         return self
 
-    async def ingest_documents(self) -> UploadPipeline:
+    async def ingest_documents(self, session: AsyncSession) -> UploadPipeline:
         """Ingest documents into vector store with idempotency check.
 
         Computes a stable content fingerprint based on parsed docs and checks the
@@ -108,7 +110,7 @@ class UploadPipeline:
         )
 
         try:
-            exists = await self.repo.exists_by_key(key)
+            exists = await Ingestion.exists(session=session, key=key)
         except Exception as e:
             logger.error(
                 f'Failed to check ingestion version for {self.ctx.job_id}: {e}'
@@ -128,6 +130,7 @@ class UploadPipeline:
                 collection=self.ctx.collection,
             )
             await ingestor.ingest(
+                session=session,
                 docs=self.ctx.docs,
                 digest=self.ctx.digest,
             )
@@ -174,17 +177,13 @@ class UploadPipeline:
             d.metadata.update(pm.metadata)  # type: ignore[arg-type]
             docs.append(d)
 
-        metadata = (
-            self.ctx.metadata.update(pm.metadata) if self.ctx.metadata else pm.metadata
-        )
+        # Merge proposed metadata into the context metadata without mutating in-place
+        base_meta: dict = dict(self.ctx.metadata) if self.ctx.metadata else {}
+        if pm.metadata:
+            base_meta.update(pm.metadata)
+        metadata = base_meta
 
-        if metadata:
-            documents = get_document_repository()
-            await documents.update_metadata(
-                id=self.ctx.document_id,
-                metadata=metadata,
-            )
-
+        # Do not persist here; persistence happens in persist_metadata step
         self.ctx = dc_replace(
             self.ctx,
             docs=docs,
@@ -194,33 +193,29 @@ class UploadPipeline:
         )
         return self
 
-    async def persist_metadata(self) -> UploadPipeline:
+    async def persist_metadata(self, session: AsyncSession) -> UploadPipeline:
         """Ensure required metadata keys are set on the DocumentMetadata.
 
         Uses MetadataService.required_fields to determine which keys are required for the
         current collection, and only attaches those keys when values are available.
         """
-        embeddings = get_embedding_repository()
-        documents = get_document_repository()
         if not self.ctx.metadata:
             return self
 
-        try:
-            await embeddings.update_metadata(
-                self.ctx.digest,
-                collection=self.ctx.collection.value,
-                metadata=self.ctx.metadata,
-            )
-            await documents.update_metadata(
-                id=self.ctx.document_id,
-                metadata=self.ctx.metadata,
-            )
-        except Exception as e:
-            raise Exception(f'Failed to persist metadata: {e}')
-
+        await Embeddings.update_metadata(
+            session,
+            digest=self.ctx.digest,
+            collection=self.ctx.collection.value,
+            metadata=self.ctx.metadata,
+        )
+        await DBDocument.update_metadata(
+            session=session,
+            id=self.ctx.document_id,
+            metadata=self.ctx.metadata,
+        )
         return self
 
-    async def update_document_uris(self) -> UploadPipeline:
+    async def update_document_uris(self, session: AsyncSession) -> UploadPipeline:
         """Update URI fields on the canonical Document via service.
 
         The service converts store keys to fully-qualified URIs using the collection's
@@ -230,6 +225,7 @@ class UploadPipeline:
         document_service = DocumentService(collection=self.ctx.collection)
         try:
             await document_service.update_document_uris(
+                session=session,
                 document_id=self.ctx.document_id,
                 original_key=self.ctx.original_key,
                 markdown_key=self.ctx.markdown_key,

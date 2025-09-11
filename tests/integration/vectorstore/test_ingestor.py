@@ -1,9 +1,10 @@
 import pytest
 
-from app.repositories.factory import get_embedding_repository
 from app.schemas.enums import CollectionEnum
 from app.vector.ingestor import DocumentIngestor
 from app.vector.models import IngestorSettings
+from app.repositories import Embeddings
+from app.vector.factory import get_vectorstore
 
 
 @pytest.fixture
@@ -11,47 +12,51 @@ def ingestor() -> DocumentIngestor:
     """Create DocumentIngestor instance for testing."""
     ingest_settings = IngestorSettings(max_docs_per_batch=2)
     return DocumentIngestor(
-        collection=CollectionEnum.DEFAULT, ingest_settings=ingest_settings
+        collection=CollectionEnum.DEFAULT.value, ingest_settings=ingest_settings
     )
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_ingest_creates_embeddings(ingestor, sample_documents, digest_str):
+async def test_ingest_creates_embeddings(
+    ingestor, sample_documents, random_digest, session
+):
     """Test that ingest method creates embeddings in the vector."""
     # Use only first 2 documents for faster testing
 
     test_docs = sample_documents[:2]
-    await ingestor.ingest(docs=test_docs, digest=digest_str)
+    await ingestor.ingest(session, docs=test_docs, digest=random_digest)
 
     # Search for content from the first document
     first_doc_content = test_docs[0].page_content[:100]  # First 100 chars
-    results = ingestor.vectorstore.similarity_search(first_doc_content, k=1)
+    vs = get_vectorstore(
+        collection=CollectionEnum.DEFAULT.value, tenant_id=session.info['tenant_id']
+    )
+    results = vs.similarity_search(first_doc_content, k=1)
 
     assert len(results) > 0, 'No documents found in vector after ingestion'
     assert any(first_doc_content[:50] in result.page_content for result in results), (
         'Ingested document content not found in search results'
     )
 
-    await ingestor.delete_embeddings(digest=digest_str)
+    await ingestor.delete_embeddings(session=session, digest=random_digest)
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_ingest_creates_embeddings_with_metadata(
-    ingestor, sample_documents, digest_str
+    ingestor, sample_documents, random_digest, session
 ):
     """Test that ingest method creates embeddings in the vector."""
-    repo = get_embedding_repository()
     test_docs = sample_documents[:2]
 
-    await ingestor.ingest(docs=test_docs, digest=digest_str)
-    metadata = await repo.get_metadata(
-        digest=digest_str, collection=CollectionEnum.DEFAULT.value
+    await ingestor.ingest(session, docs=test_docs, digest=random_digest)
+    metadata = await Embeddings.get_metadata(
+        session, digest=random_digest, collection=CollectionEnum.DEFAULT.value
     )
-    assert metadata[0]['digest'] == digest_str
+    assert metadata[0]['digest'] == random_digest
 
-    await ingestor.delete_embeddings(digest=digest_str)
+    await ingestor.delete_embeddings(session, digest=random_digest)
 
 
 @pytest.mark.integration
