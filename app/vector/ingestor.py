@@ -1,3 +1,4 @@
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from functools import cached_property
 from typing import List, Sequence
 
@@ -52,7 +53,7 @@ class DocumentIngestor(IngestorProtocol):
         return self._embedding_repo or get_embedding_repository()
 
     async def ingest(
-        self, *, docs: List[Document], digest: SHA256B64
+        self, session: AsyncSession, *, docs: List[Document], digest: SHA256B64
     ) -> IngestionResult:
         """
         Ingests documents in batches into the vector.
@@ -73,7 +74,7 @@ class DocumentIngestor(IngestorProtocol):
                 reason='no_documents',
             )
 
-        embeddings_exist = await self.embeddings_exist(digest=digest)
+        embeddings_exist = await self.embeddings_exist(session=session, digest=digest)
         if embeddings_exist:
             raise EmbeddingsAlreadyExistError(
                 f'Embeddings already exist for digest {digest}.'
@@ -90,7 +91,7 @@ class DocumentIngestor(IngestorProtocol):
                 f"Added {len(batch)} docs with digest {digest}) to collection '{self.vectorstore.collection_name}'"
             )
 
-        await self.mark_ingestion(digest=digest)
+        await self.mark_ingestion(session=session, digest=digest)
 
         logger.success(
             f"Ingested {total_ingested} documents into collection '{self.collection.value}'"
@@ -123,7 +124,7 @@ class DocumentIngestor(IngestorProtocol):
     def plan_batches(self, docs: list[Document]) -> list[list[Document]]:
         return self.batcher.batch_documents_by_tokens(docs)
 
-    async def mark_ingestion(self, digest: SHA256B64) -> None:
+    async def mark_ingestion(self, session: AsyncSession, *, digest: SHA256B64) -> None:
         """Persist an ingestion version row for traceability and idempotency."""
         payload = IngestionVersionInsert(
             collection=self.collection.value,
@@ -132,21 +133,25 @@ class DocumentIngestor(IngestorProtocol):
             embed_model=self.ingest_settings.model_name,
             embed_model_ver=self.ingest_settings.embed_model_ver,
         )
-        await self.ingestion_repo.insert_Key(payload)
+        await self.ingestion_repo.insert_key(session=session, key=payload)
 
-    async def delete_embeddings(self, *, digest: SHA256B64) -> None:
+    async def delete_embeddings(
+        self, session: AsyncSession, *, digest: SHA256B64
+    ) -> None:
         """Delete embeddings for a given digest."""
         try:
             await self.embedding_repo.delete(digest=digest)
             await self.ingestion_repo.delete_by_digest(
-                digest=digest, collection=self.collection.value
+                session=session, digest=digest, collection=self.collection.value
             )
         except Exception as e:
             logger.error(f'Failed to delete embeddings for digest {digest}: {e}')
             raise
 
-    async def embeddings_exist(self, *, digest: SHA256B64) -> bool:
+    async def embeddings_exist(
+        self, session: AsyncSession, *, digest: SHA256B64
+    ) -> bool:
         """Check if embeddings exist for a given digest."""
         return await self.ingestion_repo.exists_by_digest(
-            digest=digest, collection=self.collection.value
+            session=session, digest=digest, collection=self.collection.value
         )

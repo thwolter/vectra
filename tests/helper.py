@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import pickle
-import uuid
 from pathlib import Path
 
 from langchain_core.documents import Document
@@ -21,7 +20,7 @@ from app.store.protocols import StoreProtocol
 
 import hashlib
 import numpy as np
-from typing import List, Tuple, Any, cast
+from typing import List, Any, cast
 
 from langchain_core.embeddings import Embeddings
 from langchain_postgres import PGVector
@@ -29,10 +28,6 @@ from langchain_postgres import PGVector
 from app.vector.ingestor import DocumentIngestor
 
 # Imports for job test arrangement helpers
-from app.services.job_service import JobService
-from app.repositories.factory import get_job_repository
-from app.schemas.jobs import InitJob
-from app.metadata.schemas import ProposedMetadata
 
 
 def make_files_param(apple_report_first_page):
@@ -166,53 +161,6 @@ def build_test_upload_service(*, collection, base_prefix, sample_docs_path=None)
         ingestor=fake_ingestor,
         parser=FakeSampleParser(sample_docs_path),
     )
-
-
-# -------------------------------
-# Integration test arrangement helpers for job routes
-# -------------------------------
-async def arrange_job_with_metadata(
-    *,
-    company: str,
-    financial_year: int,
-    document_type: str,
-    digest: str,
-    original_filename: str,
-    content_type: str = 'application/pdf',
-    size_bytes: int = 1024,
-    collection: str = 'default',
-) -> Tuple[uuid.UUID, Any]:
-    """Create a job row in the database with proposed metadata.
-
-    Returns a tuple of (job_id, job_repository).
-    """
-    job_service = JobService()
-    job_repo = get_job_repository()
-    job_id = uuid.uuid4()
-    document_id = uuid.uuid4()
-
-    proposed = ProposedMetadata(
-        metadata={
-            'company': company,
-            'financial_year': financial_year,
-            'document_type': document_type,
-        },
-        confidence={},
-        conflicts=[],
-    )
-
-    init = InitJob(
-        job_id=job_id,
-        document_uuid=document_id,
-        collection=collection,
-        digest=digest,
-        original_filename=original_filename,
-        content_type=content_type,
-        size_bytes=size_bytes,
-        proposed_metadata=proposed,
-    )
-    await job_service.init_job(init)
-    return job_id, job_repo
 
 
 def make_api_client() -> TestClient:

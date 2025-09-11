@@ -33,6 +33,7 @@ class DocumentService:
 
     async def ensure_canonical_document(
         self,
+        session,
         *,
         digest: str,
         original_filename: str | None,
@@ -45,6 +46,7 @@ class DocumentService:
         """
 
         document_id = await self.repo.create(
+            session,
             data=DocumentCreate(
                 collection=self.collection.value,
                 digest=digest,
@@ -52,12 +54,13 @@ class DocumentService:
                 content_type=content_type,
                 size_bytes=size_bytes,
                 meta=None,
-            )
+            ),
         )
         return document_id
 
     async def update_document_uris(
         self,
+        session,
         *,
         document_id: UUID,
         original_key: str | None = None,
@@ -76,6 +79,7 @@ class DocumentService:
             return
 
         await self.repo.update_uris_by_id(
+            session,
             id=document_id,
             original_uri=original_uri,
             markdown_uri=markdown_uri,

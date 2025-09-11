@@ -1,4 +1,6 @@
 from __future__ import annotations
+from sqlalchemy.ext.asyncio.session import AsyncSession
+
 
 from dataclasses import replace as dc_replace
 
@@ -91,7 +93,7 @@ class UploadPipeline:
         self.ctx = dc_replace(self.ctx, docs=docs, markdown_text=markdown)
         return self
 
-    async def ingest_documents(self) -> UploadPipeline:
+    async def ingest_documents(self, session: AsyncSession) -> UploadPipeline:
         """Ingest documents into vector store with idempotency check.
 
         Computes a stable content fingerprint based on parsed docs and checks the
@@ -108,7 +110,7 @@ class UploadPipeline:
         )
 
         try:
-            exists = await self.repo.exists_by_key(key)
+            exists = await self.repo.exists_by_key(session=session, key=key)
         except Exception as e:
             logger.error(
                 f'Failed to check ingestion version for {self.ctx.job_id}: {e}'
@@ -128,6 +130,7 @@ class UploadPipeline:
                 collection=self.ctx.collection,
             )
             await ingestor.ingest(
+                session=session,
                 docs=self.ctx.docs,
                 digest=self.ctx.digest,
             )
@@ -178,13 +181,7 @@ class UploadPipeline:
             self.ctx.metadata.update(pm.metadata) if self.ctx.metadata else pm.metadata
         )
 
-        if metadata:
-            documents = get_document_repository()
-            await documents.update_metadata(
-                id=self.ctx.document_id,
-                metadata=metadata,
-            )
-
+        # Do not persist here; persistence happens in persist_metadata step
         self.ctx = dc_replace(
             self.ctx,
             docs=docs,
@@ -194,7 +191,7 @@ class UploadPipeline:
         )
         return self
 
-    async def persist_metadata(self) -> UploadPipeline:
+    async def persist_metadata(self, session: AsyncSession) -> UploadPipeline:
         """Ensure required metadata keys are set on the DocumentMetadata.
 
         Uses MetadataService.required_fields to determine which keys are required for the
@@ -212,6 +209,7 @@ class UploadPipeline:
                 metadata=self.ctx.metadata,
             )
             await documents.update_metadata(
+                session=session,
                 id=self.ctx.document_id,
                 metadata=self.ctx.metadata,
             )
@@ -220,7 +218,7 @@ class UploadPipeline:
 
         return self
 
-    async def update_document_uris(self) -> UploadPipeline:
+    async def update_document_uris(self, session: AsyncSession) -> UploadPipeline:
         """Update URI fields on the canonical Document via service.
 
         The service converts store keys to fully-qualified URIs using the collection's
@@ -230,6 +228,7 @@ class UploadPipeline:
         document_service = DocumentService(collection=self.ctx.collection)
         try:
             await document_service.update_document_uris(
+                session=session,
                 document_id=self.ctx.document_id,
                 original_key=self.ctx.original_key,
                 markdown_key=self.ctx.markdown_key,

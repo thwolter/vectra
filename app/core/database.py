@@ -126,7 +126,11 @@ class DatabaseManager:
                 f'Failed to import repositories.models before schema creation: {e}'
             )
         async with self._engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
+            await conn.execute(text('SELECT pg_advisory_lock(72727272)'))
+            try:
+                await conn.run_sync(SQLModel.metadata.create_all)
+            finally:
+                await conn.execute(text('SELECT pg_advisory_unlock(72727272)'))
 
     async def close(self) -> None:
         """Dispose the database async engine."""

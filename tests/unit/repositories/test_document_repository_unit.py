@@ -12,8 +12,8 @@ async def test_create_inserts_then_selects_and_returns_id(
 ):
     # Prepare session that will return a row with (id,) for fetchone
     new_id = uuid.uuid4()
-    session = fake_session_class(rows=[(new_id,)])
-    repo = DocumentRepository(fake_db_manager_class(session))
+    unit_session = fake_session_class(rows=[(new_id,)], scalar=str(uuid.uuid4()))
+    repo = DocumentRepository(fake_db_manager_class(unit_session))
 
     # Stable store name for assertions in later tests (not strictly needed here)
     import app.repositories.documents as docrepo_module
@@ -31,12 +31,16 @@ async def test_create_inserts_then_selects_and_returns_id(
         meta={'k': 'v'},
     )
 
-    got_id = await repo.create(data=data)
+    got_id = await repo.create(unit_session, data=data)
 
-    # Assertions: an INSERT and a SELECT were executed, commit called once
-    assert any('INSERT INTO documents' in sql for sql, _ in session.executed)
-    assert any('SELECT id FROM documents' in sql for sql, _ in session.executed)
-    assert session.commits == 1
+    # Assertions: a single INSERT ... RETURNING was executed, commit called once
+    assert len(unit_session.executed) >= 1
+    insert_sqls = [
+        sql for sql, _ in unit_session.executed if 'INSERT INTO documents' in sql
+    ]
+    assert insert_sqls, 'No INSERT executed'
+    assert 'RETURNING id' in insert_sqls[0]
+    assert unit_session.commits == 1
     assert got_id == new_id
 
 
@@ -47,23 +51,27 @@ async def test_get_returns_document_model(fake_session_class, fake_db_manager_cl
     from datetime import datetime
 
     created_at = datetime.now()
-    row = (
-        doc_id,  # id
-        'default',  # collection
-        'b' * 64,  # digest
-        'x.pdf',  # original_filename
-        'application/pdf',  # content_type
-        456,  # size_bytes
-        's3://bucket/original',  # original_uri
-        's3://bucket/markdown',  # markdown_uri
-        {'m': 1},  # meta
-        created_at,  # created_at
-    )
+    row = {
+        'id': doc_id,
+        'tenant_id': None,
+        'collection': 'default',
+        'digest': 'b' * 64,
+        'original_filename': 'x.pdf',
+        'content_type': 'application/pdf',
+        'size_bytes': 456,
+        'original_uri': 's3://bucket/original',
+        'markdown_uri': 's3://bucket/markdown',
+        'store': None,
+        'meta': {'m': 1},
+        'created_at': created_at,
+        'updated_at': created_at,
+        'created_by': None,
+    }
 
-    session = fake_session_class(rows=[row])
-    repo = DocumentRepository(fake_db_manager_class(session))
+    unit_session = fake_session_class(rows=[row])
+    repo = DocumentRepository(fake_db_manager_class(unit_session))
 
-    doc = await repo.get(id=doc_id)
+    doc = await repo.get(unit_session, id=doc_id)
 
     # Build expected dict and compare with the dumped model
     expected = {
@@ -87,7 +95,7 @@ async def test_get_returns_document_model(fake_session_class, fake_db_manager_cl
 async def test_update_uris_by_id_updates_store_and_uris(
     monkeypatch, fake_session_class, fake_db_manager_class
 ):
-    session = fake_session_class()
+    unit_session = fake_session_class()
 
     import app.repositories.documents as docrepo_module
 
@@ -95,42 +103,43 @@ async def test_update_uris_by_id_updates_store_and_uris(
         docrepo_module.settings, 'document_store', 'test-store', raising=True
     )
 
-    repo = DocumentRepository(fake_db_manager_class(session))
+    repo = DocumentRepository(fake_db_manager_class(unit_session))
     did = uuid.uuid4()
     await repo.update_uris_by_id(
+        unit_session,
         id=did,
         original_uri='s3://b/o',
         markdown_uri='s3://b/m',
     )
 
     # Ensure execute was called with params containing our id, store, and URIs
-    assert len(session.executed) == 1
-    sql, params = session.executed[0]
+    assert len(unit_session.executed) == 1
+    sql, params = unit_session.executed[0]
     assert 'UPDATE documents SET' in sql
     assert params['id'] == did
     assert params['store'] == 'test-store'
     assert params['original_uri'] == 's3://b/o'
     assert params['markdown_uri'] == 's3://b/m'
-    assert session.commits == 1
+    assert unit_session.commits == 1
 
 
 @pytest.mark.asyncio
 async def test_update_meta_by_id_updates_meta(
     fake_session_class, fake_db_manager_class
 ):
-    session = fake_session_class()
+    unit_session = fake_session_class()
 
-    repo = DocumentRepository(fake_db_manager_class(session))
+    repo = DocumentRepository(fake_db_manager_class(unit_session))
     did = uuid.uuid4()
     new_meta = {'company': 'ACME', 'year': 2024}
-    await repo.update_metadata(id=did, metadata=new_meta)
+    await repo.update_metadata(unit_session, id=did, metadata=new_meta)
 
-    assert len(session.executed) == 1
-    sql, params = session.executed[0]
+    assert len(unit_session.executed) == 1
+    sql, params = unit_session.executed[0]
     assert 'UPDATE documents SET meta' in sql
     assert params['id'] == did
     assert params['meta'] == new_meta
-    assert session.commits == 1
+    assert unit_session.commits == 1
 
 
 @pytest.mark.asyncio
@@ -139,16 +148,16 @@ async def test_delete_by_id_executes_and_commits(
 ):
     # Prepare session to simulate a successful DELETE ... RETURNING with one row
     did = uuid.uuid4()
-    session = fake_session_class(rows=[(did,)])
-    repo = DocumentRepository(fake_db_manager_class(session))
+    unit_session = fake_session_class(rows=[(did,)])
+    repo = DocumentRepository(fake_db_manager_class(unit_session))
 
-    deleted = await repo.delete(id=did)
+    deleted = await repo.delete(unit_session, id=did)
 
     # Assertions
     assert deleted is True
-    assert len(session.executed) == 1
-    sql, params = session.executed[0]
+    assert len(unit_session.executed) == 1
+    sql, params = unit_session.executed[0]
     assert 'DELETE FROM documents' in sql
     assert 'RETURNING id' in sql
     assert params['id'] == did
-    assert session.commits == 1
+    assert unit_session.commits == 1

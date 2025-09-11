@@ -8,7 +8,7 @@ from app.metadata.schemas import NoopHints
 
 def build_job_ctx(
     *,
-    upload_input: ContinueProcessingInput,
+    payload: ContinueProcessingInput,
     collection: CollectionEnum,
 ) -> JobCtx:
     """Build a JobCtx from ContinueProcessingInput and a temporary path.
@@ -17,14 +17,14 @@ def build_job_ctx(
     while avoiding import cycles at module import time.
     """
 
-    if upload_input.hints is None:
-        upload_input.hints = NoopHints()
+    if payload.hints is None:
+        payload.hints = NoopHints()
 
     return JobCtx(
-        job_id=upload_input.job_id,
+        job_id=payload.job_id,
         collection=collection,
-        file=upload_input.file,
-        hints=upload_input.hints,
-        digest=upload_input.digest,
-        document_id=upload_input.document_id,
+        file=payload.file,
+        hints=payload.hints,
+        digest=payload.digest,
+        document_id=payload.document_id,
     )

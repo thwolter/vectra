@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import uuid
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
-from sqlalchemy import Column, DateTime
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Column, DateTime, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 
 
 class Document(SQLModel, table=True):
@@ -17,13 +16,20 @@ class Document(SQLModel, table=True):
 
     __tablename__ = 'documents'
     __table_args__ = (
-        UniqueConstraint('collection', 'digest', name='uq_documents_collection_digest'),
+        UniqueConstraint(
+            'tenant_id',
+            'collection',
+            'digest',
+            name='uq_documents_tenant_collection_digest',
+        ),
     )
 
-    id: uuid.UUID = Field(
+    id: UUID = Field(
         default_factory=uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
     )
+    tenant_id: UUID = Field(sa_column=Column(PGUUID(as_uuid=True), nullable=False))
+
     collection: str = Field(index=True)
     digest: str = Field(index=True, max_length=44)
     original_filename: str | None = Field(default=None)
@@ -37,6 +43,16 @@ class Document(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("timezone('utc', now())"),
+        )
+    )
+    created_by: UUID = Field(
+        sa_column=Column(PGUUID(as_uuid=True), nullable=False, index=True)
+    )
 
 
 class IngestionVersion(SQLModel, table=True):
@@ -49,19 +65,21 @@ class IngestionVersion(SQLModel, table=True):
     __tablename__ = 'ingestion_versions'
     __table_args__ = (
         UniqueConstraint(
+            'tenant_id',
             'collection',
             'digest',
             'chunker_version',
             'embed_model',
             'embed_model_ver',
-            name='uq_ingestion_versions_composite',
+            name='uq_ingestion_versions_tenant_composite',
         ),
     )
 
-    id: uuid.UUID = Field(
+    id: UUID = Field(
         default_factory=uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
     )
+    tenant_id: UUID = Field(sa_column=Column(PGUUID(as_uuid=True), nullable=False))
     collection: str = Field(index=True)
     digest: str = Field(index=True, max_length=44)
     chunker_version: str
@@ -70,6 +88,16 @@ class IngestionVersion(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("timezone('utc', now())"),
+        )
+    )
+    created_by: UUID = Field(
+        sa_column=Column(PGUUID(as_uuid=True), nullable=False, index=True)
     )
 
 
@@ -84,16 +112,19 @@ class JobRecord(SQLModel, table=True):
 
     __tablename__ = 'upload_jobs'
 
-    job_id: uuid.UUID = Field(
+    id: UUID = Field(
         default_factory=uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, nullable=False),
+        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
+    )
+    tenant_id: UUID = Field(
+        default_factory=uuid4, sa_column=Column(PGUUID(as_uuid=True), nullable=False)
     )
     status: str = Field(index=True)
     percent: int = Field(default=0)
     step: str | None = Field(default=None)
 
     # Linkage to Document
-    document_uuid: uuid.UUID | None = Field(default=None, index=True)
+    document_uuid: UUID | None = Field(default=None, index=True)
     collection: str | None = Field(default=None, index=True)
     digest: str | None = Field(default=None, index=True, max_length=44)
 
@@ -111,6 +142,12 @@ class JobRecord(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=text("timezone('utc', now())"),
+        )
+    )
+    created_by: UUID = Field(
+        sa_column=Column(PGUUID(as_uuid=True), nullable=False, index=True)
     )

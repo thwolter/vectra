@@ -13,8 +13,9 @@ from app.services.upload_steps import UploadPipeline
 
 @pytest.mark.asyncio
 async def test_continue_processing_calls_all_upload_handlers(
-    tiny_pdf_upload: UploadFile, digest_str
+    tiny_pdf_upload: UploadFile, digest_str, fake_session_class, session
 ):
+    session = fake_session_class()
     pipeline = create_autospec(UploadPipeline, instance=True, spec_set=True)
     pipeline.init.return_value = pipeline
 
@@ -32,7 +33,7 @@ async def test_continue_processing_calls_all_upload_handlers(
         hints=None,
     )
 
-    await service.continue_processing(process_input)
+    await service.continue_processing(session, payload=process_input)
 
     # Verify each pipeline step was awaited exactly once
     assert pipeline.store_original.await_count == 1

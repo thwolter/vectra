@@ -1,19 +1,7 @@
 import pytest
 
 from app.repositories.ingestion_repository import IngestionVersions
-
-
-@pytest.mark.asyncio
-async def test_ensure_ingestion_versions_table_uses_sqlmodel_schema(
-    fake_session_class, fake_db_manager_class
-):
-    session = fake_session_class()
-    repo = IngestionVersions(fake_db_manager_class(session))
-
-    await repo.ensure_ingestion_versions_table()
-
-    # ensure_schema invoked; no direct SQL executed here
-    assert session.executed == []
+import uuid
 
 
 @pytest.mark.asyncio
@@ -32,7 +20,7 @@ async def test_check_ingestion_version_exists_true_and_false(
         embed_model='em',
         embed_model_ver='v1',
     )
-    exists = await repo_true.exists_by_key(key)
+    exists = await repo_true.exists_by_key(session_true, key=key)
     assert exists is True
 
     # False case: scalar None
@@ -45,7 +33,7 @@ async def test_check_ingestion_version_exists_true_and_false(
         embed_model='em',
         embed_model_ver='v1',
     )
-    not_exists = await repo_false.exists_by_key(key2)
+    not_exists = await repo_false.exists_by_key(session_false, key=key2)
     assert not_exists is False
 
 
@@ -53,8 +41,8 @@ async def test_check_ingestion_version_exists_true_and_false(
 async def test_insert_ingestion_version_executes_insert_with_named_params(
     fake_session_class, fake_db_manager_class, digest_str
 ):
-    session = fake_session_class()
-    repo = IngestionVersions(fake_db_manager_class(session))
+    fake_session = fake_session_class(rows=[(uuid.uuid4(),)])
+    repo = IngestionVersions(fake_db_manager_class(fake_session))
 
     from app.vector.schemas import IngestionVersionInsert
 
@@ -65,8 +53,10 @@ async def test_insert_ingestion_version_executes_insert_with_named_params(
         embed_model='em',
         embed_model_ver='v1',
     )
-    await repo.insert_Key(payload)
+    await repo.insert_key(fake_session, key=payload)
 
     # Should have executed one INSERT with named params and committed
-    assert any('INSERT INTO ingestion_versions' in sql for sql, _ in session.executed)
-    assert session.commits == 1
+    assert any(
+        'INSERT INTO ingestion_versions' in sql for sql, _ in fake_session.executed
+    )
+    assert fake_session.commits == 1

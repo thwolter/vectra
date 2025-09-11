@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.metadata.base import Strategy
 from app.parsers.protocols import ParserProtocol
 from app.schemas.enums import CollectionEnum
@@ -15,15 +17,15 @@ from app.store.protocols import StoreProtocol
 
 from app.utils.job import build_job_ctx
 from loguru import logger
-import uuid
 
 from app.services.document_service import DocumentService
 from app.repositories.factory import get_ingestion_repository
 from app.schemas.jobs import InitJob
 from app.vector.protocols import IngestorProtocol
+from app.protocols.services import UploadServiceProtocol
 
 
-class UploadService:
+class UploadService(UploadServiceProtocol):
     """Ingestion service orchestrating upload → parse → store → embed.
 
     Responsibilities:
@@ -50,8 +52,7 @@ class UploadService:
         self.job_service = JobService()
 
     async def start_document_upload(
-        self,
-        upload_input: StartUploadInput,
+        self, session: AsyncSession, *, payload: StartUploadInput
     ) -> UploadInitResponse:
         """Initialize a job and immediately return UploadInitResponse.
 
@@ -59,36 +60,36 @@ class UploadService:
         """
 
         # Compute stable hash from the uploaded file (streamed)
-        digest = await upload_input.file.sha256_b64()
-        job_id = uuid.uuid4()
+        digest = await payload.file.sha256_b64()
 
         document_service = DocumentService(collection=self.collection)
         document_uuid = await document_service.ensure_canonical_document(
+            session,
             digest=digest,
-            original_filename=upload_input.file.filename,
-            content_type=upload_input.file.content_type,
-            size_bytes=upload_input.file.size,
+            original_filename=payload.file.filename,
+            content_type=payload.file.content_type,
+            size_bytes=payload.file.size,
         )
 
-        strategy: Strategy = Strategy.from_hints(upload_input.hints)
+        strategy: Strategy = Strategy.from_hints(payload.hints)
         propose_metadata = strategy.proposed_metadata()
 
         init_job = InitJob(
-            job_id=job_id,
             document_uuid=document_uuid,
             collection=self.collection.value,
             digest=digest,
-            original_filename=upload_input.file.filename,
-            content_type=upload_input.file.content_type,
-            size_bytes=upload_input.file.size,
+            original_filename=payload.file.filename,
+            content_type=payload.file.content_type,
+            size_bytes=payload.file.size,
             proposed_metadata=propose_metadata,
         )
 
-        await self.job_service.init_job(init_job)
+        job_id = await self.job_service.init_job(session, job=init_job)
 
         # Early dedup signal based on any existing ingestion version for (collection, digest)
         ingestion_repo = get_ingestion_repository()
         dedup = await ingestion_repo.exists_by_digest(
+            session,
             digest=digest,
             collection=self.collection.value,
         )
@@ -99,12 +100,14 @@ class UploadService:
             status=JobStatus.PROCESSING,  # init call returns processing per API; job status endpoint shows completed
             deduplicated=dedup,
             digest=digest,
-            original_filename=upload_input.file.filename,
+            original_filename=payload.file.filename,
         )
 
     async def continue_processing(
         self,
-        upload_input: ContinueProcessingInput,
+        session: AsyncSession,
+        *,
+        payload: ContinueProcessingInput,
     ) -> None:
         """Perform the heavy processing steps for an initialized job.
 
@@ -112,45 +115,45 @@ class UploadService:
         and is intended to be scheduled via FastAPI BackgroundTasks.
         """
 
-        init_ctx = build_job_ctx(upload_input=upload_input, collection=self.collection)
+        init_ctx = build_job_ctx(payload=payload, collection=self.collection)
         pipeline = self.pipeline.init(init_ctx)
         job_id = init_ctx.job_id
 
         try:
             await self.job_service.update_progress(
-                job_id=job_id, percent=10, step='store_original'
+                session, job_id=job_id, percent=10, step='store_original'
             )
             await pipeline.store_original()
 
             await self.job_service.update_progress(
-                job_id=job_id, percent=20, step='parse'
+                session, job_id=job_id, percent=20, step='parse'
             )
             await pipeline.parse_document()
 
             await self.job_service.update_progress(
-                job_id=job_id, percent=50, step='store_markdown'
+                session, job_id=job_id, percent=50, step='store_markdown'
             )
             await pipeline.store_markdown()
 
             await self.job_service.update_progress(
-                job_id=job_id, percent=60, step='prepare_metadata'
+                session, job_id=job_id, percent=60, step='prepare_metadata'
             )
             await pipeline.enrich_docs_metadata()
 
             await self.job_service.update_progress(
-                job_id=job_id, percent=70, step='ingest'
+                session, job_id=job_id, percent=70, step='ingest'
             )
-            await pipeline.ingest_documents()
+            await pipeline.ingest_documents(session=session)
 
             await self.job_service.update_progress(
-                job_id=job_id, percent=90, step='ensure_metadata'
+                session, job_id=job_id, percent=90, step='ensure_metadata'
             )
-            await pipeline.persist_metadata()
+            await pipeline.persist_metadata(session=session)
 
             await self.job_service.update_progress(
-                job_id=job_id, percent=95, step='update_s3_uris'
+                session, job_id=job_id, percent=95, step='update_s3_uris'
             )
-            await pipeline.update_document_uris()
+            await pipeline.update_document_uris(session=session)
 
             job_status = (
                 JobStatus.NEEDS_REVIEW
@@ -158,6 +161,7 @@ class UploadService:
                 else JobStatus.COMPLETED
             )
             await self.job_service.update_status(
+                session,
                 job_id=job_id,
                 status=job_status,
                 proposed_metadata=pipeline.ctx.proposed_metadata,
@@ -166,6 +170,6 @@ class UploadService:
 
         except Exception as e:
             logger.exception(
-                f'Background processing failed for job {upload_input.job_id}: {e}'
+                f'Background processing failed for job {payload.job_id}: {e}'
             )
-            await self.job_service.fail_job(job_id=upload_input.job_id, exc=e)
+            await self.job_service.fail_job(session, job_id=payload.job_id, exc=e)

@@ -97,7 +97,10 @@ async def test_parse_document_uses_parser_provider_and_sets_docs_and_markdown(
 
 
 @pytest.mark.asyncio
-async def test_ingest_documents_skips_when_version_exists(tiny_pdf_upload: UploadFile):
+async def test_ingest_documents_skips_when_version_exists(
+    tiny_pdf_upload: UploadFile, fake_session_class
+):
+    session = fake_session_class()
     ctx = await _make_ctx(tiny_pdf_upload)
 
     ingestor = create_autospec(IngestorProtocol, instance=True, spec_set=True)
@@ -108,15 +111,16 @@ async def test_ingest_documents_skips_when_version_exists(tiny_pdf_upload: Uploa
 
     pipeline = UploadPipeline(ingestor=ingestor)
     pipeline.repo = repo
-    pipeline = await pipeline.init(ctx).ingest_documents()
+    pipeline = await pipeline.init(ctx).ingest_documents(session=session)
     assert pipeline.ctx.skip_embed is True
     assert ingestor.ingest.await_count == 0
 
 
 @pytest.mark.asyncio
 async def test_ingest_documents_ingests_when_not_exists_and_has_docs(
-    tiny_pdf_upload: UploadFile,
+    tiny_pdf_upload: UploadFile, fake_session_class
 ):
+    session = fake_session_class()
     ctx = await _make_ctx(tiny_pdf_upload, docs=[Document(page_content='Hello World')])
 
     ingestor = create_autospec(IngestorProtocol, instance=True, spec_set=True)
@@ -127,15 +131,16 @@ async def test_ingest_documents_ingests_when_not_exists_and_has_docs(
 
     pipeline = UploadPipeline(ingestor=ingestor)
     pipeline.repo = repo
-    pipeline = await pipeline.init(ctx).ingest_documents()
+    pipeline = await pipeline.init(ctx).ingest_documents(session=session)
     assert pipeline.ctx.skip_embed is False
     assert ingestor.ingest.await_count == 1
 
 
 @pytest.mark.asyncio
 async def test_ingest_documents_does_not_call_ingestor_when_docs_empty(
-    tiny_pdf_upload: UploadFile,
+    tiny_pdf_upload: UploadFile, fake_session_class
 ):
+    session = fake_session_class()
     ctx = await _make_ctx(tiny_pdf_upload)
 
     ingestor = create_autospec(IngestorProtocol, instance=True, spec_set=True)
@@ -146,7 +151,7 @@ async def test_ingest_documents_does_not_call_ingestor_when_docs_empty(
 
     pipeline = UploadPipeline(ingestor=ingestor)
     pipeline.repo = repo
-    pipeline = await pipeline.init(ctx).ingest_documents()
+    pipeline = await pipeline.init(ctx).ingest_documents(session=session)
     assert pipeline.ctx.skip_embed is False
     assert ingestor.ingest.await_count == 0
 
@@ -174,7 +179,7 @@ async def test_store_markdown_saves_when_presents(tiny_pdf_upload: UploadFile):
 
 @pytest.mark.asyncio
 async def test_store_markdown_skips_when_none(tiny_pdf_upload: UploadFile):
-    ctx = await _make_ctx(tiny_pdf_upload, markdown_text=None)
+    ctx = await _make_ctx(tiny_pdf_upload)
 
     store = create_autospec(StoreProtocol, instance=True, spec_set=True)
     store.save_markdown = AsyncMock(

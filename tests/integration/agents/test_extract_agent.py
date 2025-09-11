@@ -42,7 +42,7 @@ async def sanitize(sample_documents):
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_document_info_with_sample_docs(
-    sample_documents, ingestor, digest_str
+    sample_documents, ingestor, digest_str, session
 ):
     """
     Integration test: ingest sample documents into the vector, then retrieve
@@ -53,6 +53,7 @@ async def test_get_document_info_with_sample_docs(
 
     try:
         await ingestor.ingest(
+            session,
             docs=test_documents,
             digest=digest_str,
         )

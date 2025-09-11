@@ -42,7 +42,7 @@ async def test_upload_then_continue_processing_and_status_completed(
 
     # Step 1: init upload via API
     r = api_client.post('/api/v1/uploads', files=files)
-    assert r.status_code == 200, r.text
+    assert r.status_code == 201, r.text
     init = r.json()
 
     # Step 2: check job status via API
@@ -83,13 +83,13 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
     r1 = api_client.post(
         '/api/v1/uploads', files=files, data={'hints_json': json.dumps({})}
     )
-    assert r1.status_code == 200
+    assert r1.status_code == 201
 
     # Second upload init should report deduplicated True
     r2 = api_client.post(
         '/api/v1/uploads', files=files, data={'hints_json': json.dumps({})}
     )
-    assert r2.status_code == 200
+    assert r2.status_code == 201
     init2 = r2.json()
     assert init2['deduplicated'] is True
 
@@ -118,7 +118,7 @@ def test_hints_influence_proposed_metadata_on_job(tiny_pdf_bytes, base_prefix):
         data={'hints_json': json.dumps(hints)},
         headers={'Idempotency-Key': 'route-int-key-1'},
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     init = r.json()
 
     # Immediately fetch job status; proposed metadata should be persisted from hints
