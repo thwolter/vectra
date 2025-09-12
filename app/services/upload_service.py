@@ -87,7 +87,7 @@ class UploadService(UploadServiceProtocol):
         job_id = await self.job_service.init_job(session, job=init_job)
 
         # Early dedup signal based on any existing ingestion version for (collection, digest)
-        dedup = await Ingestion.exists_by_digest(
+        dedup = await Ingestion.exists(
             session,
             digest=digest,
             collection=self.collection.value,

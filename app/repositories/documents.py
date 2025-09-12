@@ -69,7 +69,7 @@ class Document:
         return row[0]
 
     @staticmethod
-    async def update_uris_by_id(
+    async def update_uris(
         session: AsyncSession,
         *,
         id: UUID,

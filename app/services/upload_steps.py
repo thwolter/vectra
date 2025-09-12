@@ -110,7 +110,7 @@ class UploadPipeline:
         )
 
         try:
-            exists = await Ingestion.exists_by_key(session=session, key=key)
+            exists = await Ingestion.exists(session=session, key=key)
         except Exception as e:
             logger.error(
                 f'Failed to check ingestion version for {self.ctx.job_id}: {e}'

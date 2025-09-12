@@ -12,8 +12,8 @@ from app.vector.ingestor import DocumentIngestor
 @pytest.fixture
 def ingestor():
     repo = create_autospec(Ingestion, instance=True)
-    repo.insert_key = AsyncMock(return_value=None)
-    repo.exists_by_digest = AsyncMock(return_value=False)
+    repo.create = AsyncMock(return_value=None)
+    repo.exists = AsyncMock(return_value=False)
 
     ingestor = DocumentIngestor(CollectionEnum.DEFAULT)
     ingestor._ingestion_repo = repo
@@ -36,8 +36,10 @@ async def test_ingest_calls_add_documents(
 ):
     # Patch the repository used inside DocumentIngestor to avoid real DB calls
     FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
-    FakeIngestion.exists_by_digest = AsyncMock(return_value=False)
-    FakeIngestion.insert_key = AsyncMock(return_value=None)
+    # The ingestor checks embeddings via classmethod exists_by_digest
+    FakeIngestion.exists = AsyncMock(return_value=False)
+    # Marking ingestion uses insert_key
+    FakeIngestion.create = AsyncMock(return_value=None)
     monkeypatch.setattr('app.vector.ingestor.Ingestion', FakeIngestion)
 
     vstore = create_autospec(PGVector, instance=True)

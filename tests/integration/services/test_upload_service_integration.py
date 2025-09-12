@@ -57,7 +57,7 @@ async def test_init_upload_end_to_end_uses_database(
 
     # Assert database has embeddings for the source (exists by source)
     digest = await file.sha256_b64()
-    exists = await Embeddings.exists_by_digest(
+    exists = await Embeddings.exists(
         session, digest=digest, collection=CollectionEnum.DEFAULT.value
     )
     assert exists, 'Expected embeddings to exist in DB for the uploaded document'

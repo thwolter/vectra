@@ -126,7 +126,7 @@ class DocumentIngestor(IngestorProtocol):
             embed_model=self.ingest_settings.model_name,
             embed_model_ver=self.ingest_settings.embed_model_ver,
         )
-        await Ingestion.insert_key(session=session, key=payload)
+        await Ingestion.create(session=session, key=payload)
 
     async def delete_embeddings(
         self, session: AsyncSession, *, digest: SHA256B64
@@ -134,7 +134,7 @@ class DocumentIngestor(IngestorProtocol):
         """Delete embeddings for a given digest."""
         try:
             await Embeddings.delete(session, digest=digest)
-            await Ingestion.delete_by_digest(
+            await Ingestion.delete(
                 session=session, digest=digest, collection=self.collection.value
             )
         except Exception as e:
@@ -145,6 +145,6 @@ class DocumentIngestor(IngestorProtocol):
         self, session: AsyncSession, *, digest: SHA256B64
     ) -> bool:
         """Check if embeddings exist for a given digest."""
-        return await Ingestion.exists_by_digest(
+        return await Ingestion.exists(
             session=session, digest=digest, collection=self.collection.value
         )

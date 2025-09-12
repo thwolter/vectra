@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from loguru import logger
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, overload
 
 from app.utils.types import SHA256B64
 from app.vector.schemas import IngestionVersionKey
@@ -13,53 +14,55 @@ from uuid import uuid4, UUID
 
 class Ingestion:
     @staticmethod
-    async def exists_by_key(session: AsyncSession, *, key: IngestionVersionKey) -> bool:
-        """Return True if an ingestion version row exists for the given parameters."""
-        sql = (
-            'SELECT id FROM ingestion_versions WHERE '
-            " tenant_id = current_setting('app.tenant_id', true)::uuid AND "
-            ' collection = :collection AND digest = :digest AND '
-            ' chunker_version = :chunker_version AND embed_model = :embed_model AND '
-            ' embed_model_ver = :embed_model_ver LIMIT 1'
-        )
-        params = {
-            'collection': key.collection,
-            'digest': key.digest,
-            'chunker_version': key.chunker_version,
-            'embed_model': key.embed_model,
-            'embed_model_ver': key.embed_model_ver,
-        }
-        res = await session.execute(text(sql), params)
-        found = res.scalar_one_or_none() if hasattr(res, 'scalar_one_or_none') else None
-        return found is not None
+    @overload
+    async def exists(session: AsyncSession, *, key: IngestionVersionKey) -> bool: ...
 
     @staticmethod
-    async def exists_by_digest(
-        session: AsyncSession,
-        *,
-        digest: SHA256B64,
-        collection: str,
-    ) -> bool:
-        """Return True if any ingestion version row exists for the given collection and digest.
+    @overload
+    async def exists(
+        session: AsyncSession, *, digest: SHA256B64, collection: str
+    ) -> bool: ...
 
-        Supports two call styles for backward compatibility:
-        - exists_by_digest(session, digest=..., collection=...)
-        - exists_by_digest(digest, collection=...)  # session omitted
+    @staticmethod
+    async def exists(session: AsyncSession, **kwargs: Any) -> bool:
         """
-
-        sql = (
-            'SELECT id FROM ingestion_versions WHERE '
-            " tenant_id = current_setting('app.tenant_id', true)::uuid AND "
-            ' collection = :collection AND digest = :digest LIMIT 1'
-        )
-        params = {'collection': collection, 'digest': digest}
-
-        res = await session.execute(text(sql), params)
-        found = res.scalar_one_or_none() if hasattr(res, 'scalar_one_or_none') else None
-        return found is not None
+        Return True if an ingestion version row exists for the given parameters.
+        Provide either key=IngestionVersionKey or digest=..., collection=...
+        """
+        if 'key' in kwargs:
+            key = kwargs['key']
+            sql = (
+                'SELECT EXISTS (SELECT 1 FROM ingestion_versions WHERE '
+                "tenant_id = current_setting('app.tenant_id', true)::uuid AND "
+                'collection = :collection AND digest = :digest AND '
+                'chunker_version = :chunker_version AND embed_model = :embed_model AND '
+                'embed_model_ver = :embed_model_ver)'
+            )
+            params = {
+                'collection': key.collection,
+                'digest': key.digest,
+                'chunker_version': key.chunker_version,
+                'embed_model': key.embed_model,
+                'embed_model_ver': key.embed_model_ver,
+            }
+            result = await session.execute(text(sql), params)
+            return bool(result.scalar())
+        elif 'digest' in kwargs and 'collection' in kwargs:
+            digest = kwargs['digest']
+            collection = kwargs['collection']
+            sql = (
+                'SELECT EXISTS (SELECT 1 FROM ingestion_versions WHERE '
+                "tenant_id = current_setting('app.tenant_id', true)::uuid AND "
+                'collection = :collection AND digest = :digest)'
+            )
+            params = {'collection': collection, 'digest': digest}
+            result = await session.execute(text(sql), params)
+            return bool(result.scalar())
+        else:
+            raise ValueError('Provide either key=... or digest=... and collection=...')
 
     @staticmethod
-    async def insert_key(session: AsyncSession, *, key: IngestionVersionKey) -> UUID:
+    async def create(session: AsyncSession, *, key: IngestionVersionKey) -> UUID:
         sql = (
             'INSERT INTO ingestion_versions ('
             'id, tenant_id, created_by, collection, digest, chunker_version, embed_model, embed_model_ver, created_at'
@@ -92,7 +95,7 @@ class Ingestion:
         return row[0]
 
     @staticmethod
-    async def delete_by_digest(
+    async def delete(
         session: AsyncSession, *, digest: SHA256B64, collection: str
     ) -> None:
         """Delete all ingestion version rows for the given digest across the tenant.

@@ -134,32 +134,32 @@ async def test_check_documents_exists_scoped_by_collection(
     )
 
     assert (
-        await Embeddings.exists_by_digest(
+        await Embeddings.exists(
             session, digest=digest, collection=CollectionEnum.DEFAULT.value
         )
         is True
     )
     assert (
-        await Embeddings.exists_by_digest(
+        await Embeddings.exists(
             session, digest=digest, collection=CollectionEnum.FINANCIAL.value
         )
         is False
     )
     assert (
-        await Embeddings.exists_by_digest(
+        await Embeddings.exists(
             session, digest='123', collection=CollectionEnum.FINANCIAL.value
         )
         is False
     )
 
     assert (
-        await Embeddings.exists_by_source(
+        await Embeddings.exists(
             session, source='key.pdf', collection=CollectionEnum.DEFAULT.value
         )
         is True
     )
     assert (
-        await Embeddings.exists_by_source(
+        await Embeddings.exists(
             session, source='key.pdf', collection=CollectionEnum.FINANCIAL.value
         )
         is False

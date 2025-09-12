@@ -77,7 +77,7 @@ class DocumentService:
         if not original_uri and not markdown_uri:
             return
 
-        await Document.update_uris_by_id(
+        await Document.update_uris(
             session,
             id=document_id,
             original_uri=original_uri,

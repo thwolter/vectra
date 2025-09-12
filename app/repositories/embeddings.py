@@ -4,7 +4,7 @@ Repositories for metadata-related data access.
 Contains MetadataRepository responsible for metadata queries and updates.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, overload
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,11 @@ _metadata = SQLModel.metadata
 
 
 class Embeddings:
+    _ALLOWED_FILTER = {
+        'digest': "e.cmetadata->>'digest'",
+        'source': "e.cmetadata->>'source'",
+    }
+
     @staticmethod
     async def update_metadata(
         session: AsyncSession,
@@ -56,47 +61,39 @@ class Embeddings:
         except Exception as e:
             logger.error(f"Failed to update metadata for digest '{digest}': {e}")
 
+    @overload
     @staticmethod
-    async def exists_by_digest(
-        session: AsyncSession, *, digest: SHA256B64, collection: str
-    ) -> bool:
-        """
-        Check if a document with the given digest exists in the collection.
-        """
-        sql = """
-            SELECT e.id
-            FROM langchain_pg_embedding e
-            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
-            WHERE c.name = :collection AND e.cmetadata->>'digest' = :digest
-            LIMIT 1
+    async def exists(
+        session: AsyncSession, *, collection: str, digest: str
+    ) -> bool: ...
+
+    @overload
+    @staticmethod
+    async def exists(
+        session: AsyncSession, *, collection: str, source: str
+    ) -> bool: ...
+
+    @staticmethod
+    async def exists(session: AsyncSession, *, collection: str, **filters: Any) -> bool:
+        if not filters:
+            raise ValueError('Provide at least one filter (digest=..., source=...).')
+
+        unknown = set(filters) - set(Embeddings._ALLOWED_FILTER)
+        if unknown:
+            raise ValueError(f'Unsupported filters: {", ".join(sorted(unknown))}')
+
+        where = ' AND '.join(f'{Embeddings._ALLOWED_FILTER[k]} = :{k}' for k in filters)
+        sql = f"""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM langchain_pg_embedding e
+                    JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+                    WHERE c.name = :collection AND {where}
+                )
             """
-        result = await session.execute(
-            text(sql), {'collection': collection, 'digest': digest}
-        )
-        rows = result.fetchall()
-
-        return len(rows) > 0
-
-    @staticmethod
-    async def exists_by_source(
-        session: AsyncSession, *, source: str, collection: str
-    ) -> bool:
-        """
-        Check if a document with the given source key exists in the collection.
-        This is used by integration/E2E tests to verify embeddings by S3 source key.
-        """
-        sql = """
-            SELECT e.id
-            FROM langchain_pg_embedding e
-            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
-            WHERE c.name = :collection AND e.cmetadata->>'source' = :source
-            LIMIT 1
-        """
-        result = await session.execute(
-            text(sql), {'collection': collection, 'source': source}
-        )
-        rows = result.fetchall()
-        return len(rows) > 0
+        params = {'collection': collection, **filters}
+        result = await session.execute(text(sql), params)
+        return bool(result.scalar())
 
     @staticmethod
     async def get_metadata(

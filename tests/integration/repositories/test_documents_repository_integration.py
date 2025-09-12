@@ -101,7 +101,7 @@ async def test_update_uris_updates_fields(session, random_digest):
         ),
     )
 
-    await Document.update_uris_by_id(
+    await Document.update_uris(
         session,
         id=doc_id,
         original_uri='s3://bucket/path/original.pdf',

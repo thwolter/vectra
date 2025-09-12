@@ -107,7 +107,7 @@ async def test_ingest_documents_skips_when_version_exists(
     ingestor.ingest = AsyncMock(return_value='docid')
 
     FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
-    FakeIngestion.exists_by_key = AsyncMock(return_value=True)
+    FakeIngestion.exists = AsyncMock(return_value=True)
     # Patch the Ingestion used inside UploadPipeline module
     monkeypatch.setattr('app.services.upload_steps.Ingestion', FakeIngestion)
 
@@ -128,7 +128,7 @@ async def test_ingest_documents_ingests_when_not_exists_and_has_docs(
     ingestor.ingest = AsyncMock(return_value='docid')
 
     FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
-    FakeIngestion.exists_by_key = AsyncMock(return_value=False)
+    FakeIngestion.exists = AsyncMock(return_value=False)
     monkeypatch.setattr('app.services.upload_steps.Ingestion', FakeIngestion)
 
     pipeline = UploadPipeline(ingestor=ingestor)
@@ -148,7 +148,7 @@ async def test_ingest_documents_does_not_call_ingestor_when_docs_empty(
     ingestor.ingest = AsyncMock(return_value='docid')
 
     FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
-    FakeIngestion.exists_by_key = AsyncMock(return_value=False)
+    FakeIngestion.exists = AsyncMock(return_value=False)
     monkeypatch.setattr('app.services.upload_steps.Ingestion', FakeIngestion)
 
     pipeline = UploadPipeline(ingestor=ingestor)

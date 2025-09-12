@@ -103,7 +103,7 @@ async def test_update_uris_by_id_updates_store_and_uris(
     )
 
     did = uuid.uuid4()
-    await Document.update_uris_by_id(
+    await Document.update_uris(
         unit_session,
         id=did,
         original_uri='s3://b/o',

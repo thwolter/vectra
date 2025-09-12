@@ -130,6 +130,10 @@ def fake_result_class():
         def scalar_one_or_none(self):
             return self._scalar
 
+        # Added to match SQLAlchemy Result API used by repositories
+        def scalar(self):
+            return self._scalar
+
         @property
         def rowcount(self):
             return len(self._rows)
