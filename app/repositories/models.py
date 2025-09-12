@@ -8,7 +8,7 @@ from sqlalchemy import Column, DateTime, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 
 
-class Document(SQLModel, table=True):
+class DocumentRecord(SQLModel, table=True):
     """Canonical documents table keyed by (collection, binary_hash).
 
     Stores immutable original_filename (first-seen wins) and basic attributes.
@@ -55,7 +55,7 @@ class Document(SQLModel, table=True):
     )
 
 
-class IngestionVersion(SQLModel, table=True):
+class IngestionRecord(SQLModel, table=True):
     """SQLModel representation of the ingestion_versions table.
 
     Uniqueness is enforced across the tuple:

@@ -2,24 +2,23 @@ import uuid
 
 import pytest
 
-from app.repositories.documents import DocumentRepository
+from app.repositories.documents import Document
 from app.repositories.schemas import DocumentCreate
 
 
 @pytest.mark.asyncio
 async def test_create_inserts_then_selects_and_returns_id(
-    monkeypatch, fake_session_class, fake_db_manager_class, digest_str
+    monkeypatch, fake_session_class, digest_str
 ):
     # Prepare session that will return a row with (id,) for fetchone
     new_id = uuid.uuid4()
     unit_session = fake_session_class(rows=[(new_id,)], scalar=str(uuid.uuid4()))
-    repo = DocumentRepository(fake_db_manager_class(unit_session))
 
     # Stable store name for assertions in later tests (not strictly needed here)
-    import app.repositories.documents as docrepo_module
+    import app.repositories.documents as docDocument_module
 
     monkeypatch.setattr(
-        docrepo_module.settings, 'document_store', 'test-store', raising=True
+        docDocument_module.settings, 'document_store', 'test-store', raising=True
     )
 
     data = DocumentCreate(
@@ -31,7 +30,7 @@ async def test_create_inserts_then_selects_and_returns_id(
         meta={'k': 'v'},
     )
 
-    got_id = await repo.create(unit_session, data=data)
+    got_id = await Document.create(unit_session, data=data)
 
     # Assertions: a single INSERT ... RETURNING was executed, commit called once
     assert len(unit_session.executed) >= 1
@@ -45,8 +44,8 @@ async def test_create_inserts_then_selects_and_returns_id(
 
 
 @pytest.mark.asyncio
-async def test_get_returns_document_model(fake_session_class, fake_db_manager_class):
-    # Prepare row matching SELECT order in repository
+async def test_get_returns_document_model(fake_session_class):
+    # Prepare row matching SELECT order in Documentsitory
     doc_id = uuid.uuid4()
     from datetime import datetime
 
@@ -69,9 +68,8 @@ async def test_get_returns_document_model(fake_session_class, fake_db_manager_cl
     }
 
     unit_session = fake_session_class(rows=[row])
-    repo = DocumentRepository(fake_db_manager_class(unit_session))
 
-    doc = await repo.get(unit_session, id=doc_id)
+    doc = await Document.get(unit_session, id=doc_id)
 
     # Build expected dict and compare with the dumped model
     expected = {
@@ -93,19 +91,19 @@ async def test_get_returns_document_model(fake_session_class, fake_db_manager_cl
 
 @pytest.mark.asyncio
 async def test_update_uris_by_id_updates_store_and_uris(
-    monkeypatch, fake_session_class, fake_db_manager_class
+    monkeypatch,
+    fake_session_class,
 ):
     unit_session = fake_session_class()
 
-    import app.repositories.documents as docrepo_module
+    import app.repositories.documents as docDocument_module
 
     monkeypatch.setattr(
-        docrepo_module.settings, 'document_store', 'test-store', raising=True
+        docDocument_module.settings, 'document_store', 'test-store', raising=True
     )
 
-    repo = DocumentRepository(fake_db_manager_class(unit_session))
     did = uuid.uuid4()
-    await repo.update_uris_by_id(
+    await Document.update_uris_by_id(
         unit_session,
         id=did,
         original_uri='s3://b/o',
@@ -125,14 +123,13 @@ async def test_update_uris_by_id_updates_store_and_uris(
 
 @pytest.mark.asyncio
 async def test_update_meta_by_id_updates_meta(
-    fake_session_class, fake_db_manager_class
+    fake_session_class,
 ):
     unit_session = fake_session_class()
 
-    repo = DocumentRepository(fake_db_manager_class(unit_session))
     did = uuid.uuid4()
     new_meta = {'company': 'ACME', 'year': 2024}
-    await repo.update_metadata(unit_session, id=did, metadata=new_meta)
+    await Document.update_metadata(unit_session, id=did, metadata=new_meta)
 
     assert len(unit_session.executed) == 1
     sql, params = unit_session.executed[0]
@@ -144,14 +141,13 @@ async def test_update_meta_by_id_updates_meta(
 
 @pytest.mark.asyncio
 async def test_delete_by_id_executes_and_commits(
-    fake_session_class, fake_db_manager_class
+    fake_session_class,
 ):
     # Prepare session to simulate a successful DELETE ... RETURNING with one row
     did = uuid.uuid4()
     unit_session = fake_session_class(rows=[(did,)])
-    repo = DocumentRepository(fake_db_manager_class(unit_session))
 
-    deleted = await repo.delete(unit_session, id=did)
+    deleted = await Document.delete(unit_session, id=did)
 
     # Assertions
     assert deleted is True

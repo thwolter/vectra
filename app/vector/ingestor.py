@@ -5,8 +5,9 @@ from typing import List, Sequence
 from langchain_core.documents import Document
 from loguru import logger
 
-from app.repositories.factory import get_ingestion_repository, get_embedding_repository
 from app.utils.types import SHA256B64
+from app.repositories.ingestion_repository import Ingestion
+from app.repositories.embeddings import Embeddings
 from .errors import EmbeddingsAlreadyExistError
 from .protocols import IngestorProtocol
 from .schemas import IngestionVersionInsert, IngestionResult
@@ -43,14 +44,6 @@ class DocumentIngestor(IngestorProtocol):
     @cached_property
     def vectorstore(self):
         return self._vectorstore or get_vectorstore(self.collection.value)
-
-    @cached_property
-    def ingestion_repo(self):
-        return self._ingestion_repo or get_ingestion_repository()
-
-    @cached_property
-    def embedding_repo(self):
-        return self._embedding_repo or get_embedding_repository()
 
     async def ingest(
         self, session: AsyncSession, *, docs: List[Document], digest: SHA256B64
@@ -133,15 +126,15 @@ class DocumentIngestor(IngestorProtocol):
             embed_model=self.ingest_settings.model_name,
             embed_model_ver=self.ingest_settings.embed_model_ver,
         )
-        await self.ingestion_repo.insert_key(session=session, key=payload)
+        await Ingestion.insert_key(session=session, key=payload)
 
     async def delete_embeddings(
         self, session: AsyncSession, *, digest: SHA256B64
     ) -> None:
         """Delete embeddings for a given digest."""
         try:
-            await self.embedding_repo.delete(digest=digest)
-            await self.ingestion_repo.delete_by_digest(
+            await Embeddings.delete(session, digest=digest)
+            await Ingestion.delete_by_digest(
                 session=session, digest=digest, collection=self.collection.value
             )
         except Exception as e:
@@ -152,6 +145,6 @@ class DocumentIngestor(IngestorProtocol):
         self, session: AsyncSession, *, digest: SHA256B64
     ) -> bool:
         """Check if embeddings exist for a given digest."""
-        return await self.ingestion_repo.exists_by_digest(
+        return await Ingestion.exists_by_digest(
             session=session, digest=digest, collection=self.collection.value
         )

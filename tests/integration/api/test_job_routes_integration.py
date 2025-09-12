@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.repositories.factory import get_job_repository
+from app.repositories.job_repository import Job
 from tests.helper import make_api_client
 from app.schemas.upload import JobStatus
 
@@ -29,7 +29,6 @@ async def test_get_job_returns_status(session, created_job_id):
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_review_job_confirm_only(session, created_job_id):
-    job_repo = get_job_repository()
     api_client = make_api_client()
     body = {
         'confirm': True,
@@ -44,7 +43,7 @@ async def test_review_job_confirm_only(session, created_job_id):
     assert resp['status'] == JobStatus.COMPLETED.value
 
     # Verify DB entry updated
-    status = await job_repo.get_status(session, job_id=created_job_id)
+    status = await Job.get_status(session, job_id=created_job_id)
     assert status is not None
     assert status.status == JobStatus.COMPLETED
 
@@ -60,7 +59,6 @@ async def test_review_job_confirm_only(session, created_job_id):
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_review_job_with_corrections(session, created_job_id):
-    job_repo = get_job_repository()
     api_client = make_api_client()
     body = {
         'confirm': True,
@@ -78,7 +76,7 @@ async def test_review_job_with_corrections(session, created_job_id):
     assert resp['status'] == JobStatus.COMPLETED.value
 
     # Verify DB reflects corrected metadata
-    status = await job_repo.get_status(session, job_id=created_job_id)
+    status = await Job.get_status(session, job_id=created_job_id)
     assert status is not None
     assert status.status == JobStatus.COMPLETED
 

@@ -4,14 +4,14 @@ import pytest
 from langchain_core.documents import Document
 from langchain_postgres import PGVector
 
-from app.repositories.ingestion_repository import IngestionVersions
+from app.repositories.ingestion_repository import Ingestion
 from app.schemas.enums import CollectionEnum
 from app.vector.ingestor import DocumentIngestor
 
 
 @pytest.fixture
 def ingestor():
-    repo = create_autospec(IngestionVersions, instance=True)
+    repo = create_autospec(Ingestion, instance=True)
     repo.insert_key = AsyncMock(return_value=None)
     repo.exists_by_digest = AsyncMock(return_value=False)
 
@@ -21,9 +21,9 @@ def ingestor():
 
 
 @pytest.mark.asyncio
-async def test_ingest_empty_docs_returns_none(ingestor, digest_str, mock_session):
+async def test_ingest_empty_docs_returns_none(ingestor, random_digest, mock_session):
     docs = []
-    result = await ingestor.ingest(mock_session, docs=docs, digest=digest_str)
+    result = await ingestor.ingest(mock_session, docs=docs, digest=random_digest)
     assert result is not None
     assert result.skipped is True
     assert result.total_docs == 0
@@ -31,7 +31,15 @@ async def test_ingest_empty_docs_returns_none(ingestor, digest_str, mock_session
 
 
 @pytest.mark.asyncio
-async def test_ingest_calls_add_documents(ingestor, digest_str, mock_session):
+async def test_ingest_calls_add_documents(
+    ingestor, random_digest, mock_session, monkeypatch
+):
+    # Patch the repository used inside DocumentIngestor to avoid real DB calls
+    FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
+    FakeIngestion.exists_by_digest = AsyncMock(return_value=False)
+    FakeIngestion.insert_key = AsyncMock(return_value=None)
+    monkeypatch.setattr('app.vector.ingestor.Ingestion', FakeIngestion)
+
     vstore = create_autospec(PGVector, instance=True)
     vstore.add_documents = Mock(return_value=None)
     vstore.collection_name = 'default'
@@ -40,6 +48,6 @@ async def test_ingest_calls_add_documents(ingestor, digest_str, mock_session):
 
     docs = [Document(page_content='Hello World')]
 
-    result = await ingestor.ingest(mock_session, docs=docs, digest=digest_str)
+    result = await ingestor.ingest(mock_session, docs=docs, digest=random_digest)
     assert result is not None
     assert vstore.add_documents.call_count == 1

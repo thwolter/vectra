@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 
 class EnsureTableMixin:
     _schema_ready: bool = False
@@ -15,7 +17,7 @@ class EnsureTableMixin:
         if not self.db_manager.is_initialized:
             await self.db_manager.initialize()
 
-    async def _ensure_schema_once(self) -> None:
+    async def _ensure_schema_once(self, session: AsyncSession) -> None:
         if self._schema_ready:
             return
         async with self._schema_lock:

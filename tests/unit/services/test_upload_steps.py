@@ -8,7 +8,7 @@ from langchain_core.documents import Document
 from app.api.file import TemporaryUploadFile
 from app.parsers.protocols import ParserProtocol
 from app.parsers.schemas import ParseResult
-from app.repositories.ingestion_repository import IngestionVersions
+from app.repositories.ingestion_repository import Ingestion
 from app.schemas.jobs import JobCtx
 from app.services.upload_steps import UploadPipeline
 from app.schemas.enums import CollectionEnum
@@ -98,7 +98,7 @@ async def test_parse_document_uses_parser_provider_and_sets_docs_and_markdown(
 
 @pytest.mark.asyncio
 async def test_ingest_documents_skips_when_version_exists(
-    tiny_pdf_upload: UploadFile, fake_session_class
+    tiny_pdf_upload: UploadFile, fake_session_class, monkeypatch
 ):
     session = fake_session_class()
     ctx = await _make_ctx(tiny_pdf_upload)
@@ -106,11 +106,12 @@ async def test_ingest_documents_skips_when_version_exists(
     ingestor = create_autospec(IngestorProtocol, instance=True, spec_set=True)
     ingestor.ingest = AsyncMock(return_value='docid')
 
-    repo = create_autospec(IngestionVersions, instance=True, spec_set=True)
-    repo.exists_by_key = AsyncMock(return_value=True)
+    FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
+    FakeIngestion.exists_by_key = AsyncMock(return_value=True)
+    # Patch the Ingestion used inside UploadPipeline module
+    monkeypatch.setattr('app.services.upload_steps.Ingestion', FakeIngestion)
 
     pipeline = UploadPipeline(ingestor=ingestor)
-    pipeline.repo = repo
     pipeline = await pipeline.init(ctx).ingest_documents(session=session)
     assert pipeline.ctx.skip_embed is True
     assert ingestor.ingest.await_count == 0
@@ -118,7 +119,7 @@ async def test_ingest_documents_skips_when_version_exists(
 
 @pytest.mark.asyncio
 async def test_ingest_documents_ingests_when_not_exists_and_has_docs(
-    tiny_pdf_upload: UploadFile, fake_session_class
+    tiny_pdf_upload: UploadFile, fake_session_class, monkeypatch
 ):
     session = fake_session_class()
     ctx = await _make_ctx(tiny_pdf_upload, docs=[Document(page_content='Hello World')])
@@ -126,11 +127,11 @@ async def test_ingest_documents_ingests_when_not_exists_and_has_docs(
     ingestor = create_autospec(IngestorProtocol, instance=True, spec_set=True)
     ingestor.ingest = AsyncMock(return_value='docid')
 
-    repo = create_autospec(IngestionVersions, instance=True, spec_set=True)
-    repo.exists_by_key = AsyncMock(return_value=False)
+    FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
+    FakeIngestion.exists_by_key = AsyncMock(return_value=False)
+    monkeypatch.setattr('app.services.upload_steps.Ingestion', FakeIngestion)
 
     pipeline = UploadPipeline(ingestor=ingestor)
-    pipeline.repo = repo
     pipeline = await pipeline.init(ctx).ingest_documents(session=session)
     assert pipeline.ctx.skip_embed is False
     assert ingestor.ingest.await_count == 1
@@ -138,7 +139,7 @@ async def test_ingest_documents_ingests_when_not_exists_and_has_docs(
 
 @pytest.mark.asyncio
 async def test_ingest_documents_does_not_call_ingestor_when_docs_empty(
-    tiny_pdf_upload: UploadFile, fake_session_class
+    tiny_pdf_upload: UploadFile, fake_session_class, monkeypatch
 ):
     session = fake_session_class()
     ctx = await _make_ctx(tiny_pdf_upload)
@@ -146,11 +147,11 @@ async def test_ingest_documents_does_not_call_ingestor_when_docs_empty(
     ingestor = create_autospec(IngestorProtocol, instance=True, spec_set=True)
     ingestor.ingest = AsyncMock(return_value='docid')
 
-    repo = create_autospec(IngestionVersions, instance=True, spec_set=True)
-    repo.exists_by_key = AsyncMock(return_value=False)
+    FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
+    FakeIngestion.exists_by_key = AsyncMock(return_value=False)
+    monkeypatch.setattr('app.services.upload_steps.Ingestion', FakeIngestion)
 
     pipeline = UploadPipeline(ingestor=ingestor)
-    pipeline.repo = repo
     pipeline = await pipeline.init(ctx).ingest_documents(session=session)
     assert pipeline.ctx.skip_embed is False
     assert ingestor.ingest.await_count == 0

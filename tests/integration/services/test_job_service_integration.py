@@ -2,7 +2,6 @@ import uuid
 
 import pytest
 
-from app.repositories.factory import get_job_repository
 from app.services.job_service import JobService
 from app.schemas.upload import JobStatus
 from app.schemas.jobs import InitJob
@@ -11,8 +10,7 @@ from app.schemas.jobs import InitJob
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_job_service_lifecycle_persists_in_db(random_digest, session):
-    repo = get_job_repository()
-    service = JobService(job_repo=repo)
+    service = JobService()
 
     init_job = InitJob(
         digest=random_digest,
@@ -63,8 +61,7 @@ async def test_job_service_lifecycle_persists_in_db(random_digest, session):
 async def test_invalid_transition_after_completed_raises_and_state_stays_completed(
     random_digest, session
 ):
-    repo = get_job_repository()
-    service = JobService(job_repo=repo)
+    service = JobService()
 
     from app.schemas.jobs import InitJob
 

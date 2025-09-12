@@ -15,15 +15,16 @@ from app.vector.providers import default_ingestor_provider
 from app.store.providers import default_store_provider
 from app.parsers.providers import parser_provider
 
-from app.repositories.factory import get_ingestion_repository, get_document_repository
 
 from app.services.document_service import DocumentService
 
-from app.repositories.factory import get_embedding_repository
+from app.repositories.documents import Document as DBDocument
 from app.vector.schemas import IngestionVersionKey
+from app.repositories.ingestion_repository import Ingestion
 from app.store.protocols import StoreProtocol
 from app.store.schemas import ArtifactInfo
 from app.vector.models import IngestorSettings
+from app.repositories.embeddings import Embeddings
 
 
 class UploadPipeline:
@@ -39,7 +40,6 @@ class UploadPipeline:
         self.store = store
         self.parser = parser
         self.ingestor = ingestor
-        self.repo = get_ingestion_repository()
 
     def init(self, ctx: JobCtx) -> UploadPipeline:
         """Initialize the pipeline with a new ctx."""
@@ -110,7 +110,7 @@ class UploadPipeline:
         )
 
         try:
-            exists = await self.repo.exists_by_key(session=session, key=key)
+            exists = await Ingestion.exists_by_key(session=session, key=key)
         except Exception as e:
             logger.error(
                 f'Failed to check ingestion version for {self.ctx.job_id}: {e}'
@@ -197,18 +197,17 @@ class UploadPipeline:
         Uses MetadataService.required_fields to determine which keys are required for the
         current collection, and only attaches those keys when values are available.
         """
-        embeddings = get_embedding_repository()
-        documents = get_document_repository()
         if not self.ctx.metadata:
             return self
 
         try:
-            await embeddings.update_metadata(
-                self.ctx.digest,
+            await Embeddings.update_metadata(
+                session,
+                digest=self.ctx.digest,
                 collection=self.ctx.collection.value,
                 metadata=self.ctx.metadata,
             )
-            await documents.update_metadata(
+            await DBDocument.update_metadata(
                 session=session,
                 id=self.ctx.document_id,
                 metadata=self.ctx.metadata,

@@ -42,7 +42,7 @@ async def sanitize(sample_documents):
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_document_info_with_sample_docs(
-    sample_documents, ingestor, digest_str, session
+    sample_documents, ingestor, random_digest, session
 ):
     """
     Integration test: ingest sample documents into the vector, then retrieve
@@ -55,13 +55,13 @@ async def test_get_document_info_with_sample_docs(
         await ingestor.ingest(
             session,
             docs=test_documents,
-            digest=digest_str,
+            digest=random_digest,
         )
     except EmbeddingsAlreadyExistError:
         pass
 
     result = await extract_metadata(
-        digest=digest_str,
+        digest=random_digest,
         collection=CollectionEnum.FINANCIAL,
         hints=FinanceReportHints(),
     )

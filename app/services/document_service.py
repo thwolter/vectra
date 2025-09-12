@@ -10,12 +10,12 @@ from app.schemas.documents import (
 
 
 from app.schemas.enums import CollectionEnum
-from app.repositories.factory import get_document_repository
 from app.repositories.schemas import DocumentCreate
 from app.store.protocols import StoreProtocol
 from app.store.providers import default_store_provider
 from app.store.local_store import make_uri
 from app.store.schemas import FileInfo
+from app.repositories.documents import Document
 
 
 class DocumentService:
@@ -28,7 +28,6 @@ class DocumentService:
 
     def __init__(self, *, collection: CollectionEnum):
         self.collection = collection
-        self.repo = get_document_repository()
         self.store: StoreProtocol = default_store_provider(self.collection)
 
     async def ensure_canonical_document(
@@ -45,7 +44,7 @@ class DocumentService:
         Implements first-seen-wins for original_filename via repository upsert.
         """
 
-        document_id = await self.repo.create(
+        document_id = await Document.create(
             session,
             data=DocumentCreate(
                 collection=self.collection.value,
@@ -78,7 +77,7 @@ class DocumentService:
         if not original_uri and not markdown_uri:
             return
 
-        await self.repo.update_uris_by_id(
+        await Document.update_uris_by_id(
             session,
             id=document_id,
             original_uri=original_uri,

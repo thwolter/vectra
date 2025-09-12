@@ -6,18 +6,15 @@ from loguru import logger
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.mixins import EnsureTableMixin
 from app.utils.types import SHA256B64
 from app.vector.schemas import IngestionVersionKey
 from uuid import uuid4, UUID
 
 
-class IngestionVersions(EnsureTableMixin):
-    async def exists_by_key(
-        self, session: AsyncSession, *, key: IngestionVersionKey
-    ) -> bool:
+class Ingestion:
+    @staticmethod
+    async def exists_by_key(session: AsyncSession, *, key: IngestionVersionKey) -> bool:
         """Return True if an ingestion version row exists for the given parameters."""
-        await self._ensure_schema_once()
         sql = (
             'SELECT id FROM ingestion_versions WHERE '
             " tenant_id = current_setting('app.tenant_id', true)::uuid AND "
@@ -36,8 +33,8 @@ class IngestionVersions(EnsureTableMixin):
         found = res.scalar_one_or_none() if hasattr(res, 'scalar_one_or_none') else None
         return found is not None
 
+    @staticmethod
     async def exists_by_digest(
-        self,
         session: AsyncSession,
         *,
         digest: SHA256B64,
@@ -49,7 +46,6 @@ class IngestionVersions(EnsureTableMixin):
         - exists_by_digest(session, digest=..., collection=...)
         - exists_by_digest(digest, collection=...)  # session omitted
         """
-        await self._ensure_schema_once()
 
         sql = (
             'SELECT id FROM ingestion_versions WHERE '
@@ -62,11 +58,8 @@ class IngestionVersions(EnsureTableMixin):
         found = res.scalar_one_or_none() if hasattr(res, 'scalar_one_or_none') else None
         return found is not None
 
-    async def insert_key(
-        self, session: AsyncSession, *, key: IngestionVersionKey
-    ) -> UUID:
-        await self._ensure_schema_once()
-
+    @staticmethod
+    async def insert_key(session: AsyncSession, *, key: IngestionVersionKey) -> UUID:
         sql = (
             'INSERT INTO ingestion_versions ('
             'id, tenant_id, created_by, collection, digest, chunker_version, embed_model, embed_model_ver, created_at'
@@ -98,8 +91,9 @@ class IngestionVersions(EnsureTableMixin):
             raise RuntimeError('Insert into ingestion_versions did not return an id')
         return row[0]
 
+    @staticmethod
     async def delete_by_digest(
-        self, session: AsyncSession, *, digest: SHA256B64, collection: str
+        session: AsyncSession, *, digest: SHA256B64, collection: str
     ) -> None:
         """Delete all ingestion version rows for the given digest across the tenant.
 
@@ -113,7 +107,6 @@ class IngestionVersions(EnsureTableMixin):
             # keep validation for compatibility; value is unused in the query
             raise ValueError('collection must be a non-empty string')
 
-        await self._ensure_schema_once()
         try:
             stmt = text(
                 "DELETE FROM ingestion_versions WHERE tenant_id = current_setting('app.tenant_id', true)::uuid AND digest = :digest"

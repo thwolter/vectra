@@ -8,20 +8,19 @@ from sqlalchemy import text, bindparam
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.repositories.models import Document
+from app.repositories.models import DocumentRecord
 
 from app.core.config import get_settings
 from uuid import UUID, uuid4
 
 from app.repositories.schemas import DocumentCreate
-from app.repositories.mixins import EnsureTableMixin
 
 settings = get_settings()
 
 
-class DocumentRepository(EnsureTableMixin):
-    async def get(self, session: AsyncSession, *, id: UUID) -> Document:
-        await self._ensure_schema_once()
+class Document:
+    @staticmethod
+    async def get(session: AsyncSession, *, id: UUID) -> DocumentRecord:
         sql = (
             'SELECT id, tenant_id, collection, digest, original_filename, content_type, size_bytes, original_uri, '
             'markdown_uri, store, meta, created_at, COALESCE(updated_at, created_at) AS updated_at, created_by '
@@ -31,11 +30,10 @@ class DocumentRepository(EnsureTableMixin):
         row = res.mappings().first()
         if not row:
             raise RuntimeError('Document row not found for given id')
-        return Document(**dict(row))
+        return DocumentRecord(**dict(row))
 
-    async def create(self, session: AsyncSession, *, data: DocumentCreate) -> UUID:
-        await self._ensure_schema_once()
-
+    @staticmethod
+    async def create(session: AsyncSession, *, data: DocumentCreate) -> UUID:
         sql = (
             'INSERT INTO documents ('
             ' id, tenant_id, created_by, collection, digest, original_filename, content_type, '
@@ -70,8 +68,8 @@ class DocumentRepository(EnsureTableMixin):
             raise RuntimeError('Insert into documents did not return an id')
         return row[0]
 
+    @staticmethod
     async def update_uris_by_id(
-        self,
         session: AsyncSession,
         *,
         id: UUID,
@@ -83,7 +81,6 @@ class DocumentRepository(EnsureTableMixin):
         Expects fully-qualified URIs to be provided by the caller (service layer).
         Does not modify original_filename. Also persists the backing store name.
         """
-        await self._ensure_schema_once()
         sets = []
         params: dict[str, Any] = {
             'id': id,
@@ -108,8 +105,8 @@ class DocumentRepository(EnsureTableMixin):
             await session.rollback()
             logger.error(f'Failed to update URIs for id {id}: {e}')
 
+    @staticmethod
     async def update_metadata(
-        self,
         session: AsyncSession,
         *,
         id: UUID,
@@ -117,7 +114,6 @@ class DocumentRepository(EnsureTableMixin):
         replace: bool = False,
     ) -> None:
         """Update the meta JSONB field for a canonical document identified by primary key id."""
-        await self._ensure_schema_once()
         if replace:
             sql = 'UPDATE documents SET meta = :meta, updated_at = :updated_at WHERE id = :id'
             meta_payload = metadata
@@ -140,7 +136,8 @@ class DocumentRepository(EnsureTableMixin):
             await session.rollback()
             raise Exception(f'Failed to update metadata for id {id}: {e}')
 
-    async def delete(self, session: AsyncSession, *, id: UUID) -> bool:
+    @staticmethod
+    async def delete(session: AsyncSession, *, id: UUID) -> bool:
         """Delete a canonical document by primary key.
 
         Uses DELETE ... RETURNING to determine if a row was removed.
@@ -148,7 +145,6 @@ class DocumentRepository(EnsureTableMixin):
         Returns:
             True if a row was deleted; False if no matching row existed.
         """
-        await self._ensure_schema_once()
         sql = 'DELETE FROM documents WHERE id = :id RETURNING id'
         try:
             res = await session.execute(text(sql), {'id': id})

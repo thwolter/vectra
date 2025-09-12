@@ -144,11 +144,3 @@ class DatabaseManager:
                 await session.execute(text("SELECT 1"))
         """
         return _SessionAcquire(self)
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if the database engine is initialized for the current loop."""
-        try:
-            return self._engine is not None and self._loop is asyncio.get_running_loop()
-        except RuntimeError:
-            return self._engine is not None and self._loop is not None

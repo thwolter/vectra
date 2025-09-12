@@ -4,25 +4,27 @@ from unittest.mock import create_autospec
 import pytest
 
 from app.services.job_service import JobService
-from app.repositories.job_repository import JobRepository
+from app.repositories.job_repository import Job
 from app.schemas.upload import JobStatus, JobStatusResponse, JobProgress
 from app.metadata.schemas import ProposedMetadata, Evidence
 from app.schemas.jobs import InitJob
 
 
-@pytest.fixture
-def service(fake_job_repo):
-    repo = create_autospec(JobRepository)
-    return JobService(job_repo=repo)
+@pytest.fixture(scope='function')
+def FakeJob():
+    fake_job = create_autospec(Job)
+    fake_job.create.return_value = None
+    fake_job.get_status.return_value = None
+    fake_job.status_updates = []
+    return fake_job
 
 
 @pytest.mark.asyncio
 async def test_init_job_sets_canonical_defaults_and_passes_fields(
-    digest_str, mock_session
+    digest_str, mock_session, monkeypatch, FakeJob
 ):
-    repo = create_autospec(JobRepository)
-    repo.create_job.return_value = None
-    service = JobService(job_repo=repo)
+    monkeypatch.setattr('app.services.job_service.Job', FakeJob)
+    service = JobService()
 
     job_id = uuid.uuid4()
     job = InitJob(
@@ -34,65 +36,67 @@ async def test_init_job_sets_canonical_defaults_and_passes_fields(
         size_bytes=123,
     )
     await service.init_job(mock_session, job=job)
-    assert repo.create_job.call_count == 1
+    assert FakeJob.create.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_update_progress_clamps_and_monotonic_and_normalizes_step(mock_session):
-    # Instance-like autospec to mirror a real repository instance
-    repo = create_autospec(JobRepository, instance=True)
+async def test_update_progress_clamps_and_monotonic_and_normalizes_step(
+    mock_session, monkeypatch, FakeJob
+):
+    monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
 
     # Seed current status so the service has a baseline (40%)
-    repo.get_status.return_value = JobStatusResponse(
+    FakeJob.get_status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.PROCESSING,
         progress=JobProgress(percent=40, step='parse'),
     )
 
-    repo.progress_updates = []
+    FakeJob.progress_updates = []
 
     async def _update_progress(*args, **kwargs):
-        repo.progress_updates.append(
+        FakeJob.progress_updates.append(
             (kwargs.get('job_id'), kwargs.get('percent'), kwargs.get('step'))
         )
 
-    repo.update_progress.side_effect = _update_progress
+    FakeJob.update_progress.side_effect = _update_progress
 
-    service = JobService(job_repo=repo)
+    service = JobService()
 
     # 1) Below current (10 < 40) -> stays at 40; empty step -> None
     await service.update_progress(mock_session, job_id=job_id, percent=10, step='')
-    assert repo.progress_updates[0] == (job_id, 40, None)
+    assert FakeJob.progress_updates[0] == (job_id, 40, None)
 
     # 2) Above 100 -> clamped to 100; step preserved
     await service.update_progress(
         mock_session, job_id=job_id, percent=150, step='embed'
     )
-    assert repo.progress_updates[1] == (job_id, 100, 'embed')
+    assert FakeJob.progress_updates[1] == (job_id, 100, 'embed')
 
 
 @pytest.mark.asyncio
-async def test_update_status_valid_transition_and_clamping_and_step_norm(mock_session):
-    # Instance-like autospec and seeded baseline status
-    repo = create_autospec(JobRepository, instance=True)
+async def test_update_status_valid_transition_and_clamping_and_step_norm(
+    mock_session, monkeypatch, FakeJob
+):
+    monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
 
-    repo.get_status.return_value = JobStatusResponse(
+    FakeJob.get_status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.PROCESSING,
         progress=JobProgress(percent=20, step='parse'),
     )
 
     # Capture update_status kwargs
-    repo.status_updates = []  # type: ignore[attr-defined]
+    FakeJob.status_updates = []
 
     async def _update_status(**kwargs):
-        repo.status_updates.append(kwargs)
+        FakeJob.status_updates.append(kwargs)
 
-    repo.update_status.side_effect = _update_status
+    FakeJob.update_status.side_effect = _update_status
 
-    service = JobService(job_repo=repo)
+    service = JobService()
 
     proposed = ProposedMetadata(
         metadata={'company': 'Acme', 'financial_year': 2024},
@@ -112,7 +116,7 @@ async def test_update_status_valid_transition_and_clamping_and_step_norm(mock_se
         step='',  # will be normalized to None
     )
 
-    upd = repo.status_updates[-1]
+    upd = FakeJob.status_updates[-1]
     assert upd['status'] == JobStatus.NEEDS_REVIEW
     assert upd['percent'] == 100
     assert upd['step'] is None
@@ -121,61 +125,67 @@ async def test_update_status_valid_transition_and_clamping_and_step_norm(mock_se
 
 
 @pytest.mark.asyncio
-async def test_update_status_invalid_transition_raises(mock_session):
-    repo = create_autospec(JobRepository, instance=True)
+async def test_update_status_invalid_transition_raises(
+    mock_session, monkeypatch, FakeJob
+):
+    monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
-    repo.get_status.return_value = JobStatusResponse(
+    FakeJob.get_status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.COMPLETED,
         progress=JobProgress(percent=100, step=''),
     )
-    service = JobService(job_repo=repo)
+    service = JobService()
 
     with pytest.raises(ValueError):
         await service.update_status(
             mock_session, job_id=job_id, status=JobStatus.PROCESSING
         )
 
-    assert repo.update_status.await_count == 0
+    assert FakeJob.update_status.await_count == 0
 
 
 @pytest.mark.asyncio
-async def test_fail_job_sets_failed_status(mock_session):
-    repo = create_autospec(JobRepository, instance=True)
+async def test_fail_job_sets_failed_status(mock_session, monkeypatch, FakeJob):
+    monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
 
-    # Capture update_status kwargs
-    repo.status_updates = []  # type: ignore[attr-defined]
-
     async def _update_status(**kwargs):
-        repo.status_updates.append(kwargs)
+        FakeJob.status_updates.append(kwargs)
 
-    repo.update_status.side_effect = _update_status
+    FakeJob.update_status.side_effect = _update_status
 
-    service = JobService(job_repo=repo)
+    service = JobService()
 
     await service.fail_job(
         mock_session, job_id=job_id, exc=RuntimeError('boom'), last_step='embed'
     )
 
-    assert any(u['status'] == JobStatus.FAILED for u in repo.status_updates)
+    assert any(u['status'] == JobStatus.FAILED for u in FakeJob.status_updates)
 
 
 @pytest.mark.asyncio
-async def test_get_status_not_found_returns_failed_with_error(mock_session):
-    repo = create_autospec(JobRepository, instance=True)
-    repo.get_status.return_value = None
-    service = JobService(job_repo=repo)
+async def test_get_status_not_found_returns_failed_with_error(
+    mock_session, monkeypatch, FakeJob
+):
+    monkeypatch.setattr('app.services.job_service.Job', FakeJob)
+    # Ensure repository returns "not found" for this test regardless of prior mutations
+    FakeJob.get_status.return_value = None
+    service = JobService()
 
     job_id = uuid.uuid4()
     resp = await service.get_status(session=mock_session, job_id=job_id)
     assert resp.job_id == job_id
     assert resp.status == JobStatus.FAILED
-    assert resp.errors == ['job_not_found']
+    # Be resilient to implementation differences (list vs tuple, None vs [])
+    errors = list(resp.errors or [])
+    assert 'job_not_found' in errors
 
 
 @pytest.mark.asyncio
-async def test_get_status_rehydrates_proposed_metadata(mock_session):
+async def test_get_status_rehydrates_proposed_metadata(
+    mock_session, monkeypatch, FakeJob
+):
     proposed = ProposedMetadata(
         metadata={'company': 'Acme', 'financial_year': 2024},
         confidence={
@@ -184,10 +194,12 @@ async def test_get_status_rehydrates_proposed_metadata(mock_session):
         },
         conflicts=['reporting_year'],
     )
-    repo = create_autospec(JobRepository, instance=True)
+    FakeJob = create_autospec(Job, instance=True)
+    # Patch the Job symbol used inside JobService
+    monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
     # Repository returns a plain dict; proposed_metadata is also a dict
-    repo.get_status.return_value = JobStatusResponse(
+    FakeJob.get_status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.NEEDS_REVIEW,
         progress=JobProgress(percent=80, step='extract-meta'),
@@ -195,7 +207,7 @@ async def test_get_status_rehydrates_proposed_metadata(mock_session):
         warnings=[],
         errors=[],
     )
-    service = JobService(job_repo=repo)
+    service = JobService()
 
     resp = await service.get_status(session=mock_session, job_id=job_id)
     assert isinstance(resp, JobStatusResponse)

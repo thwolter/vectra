@@ -12,12 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.metadata.schemas import ProposedMetadata
 from app.schemas.jobs import CreateJob, JobDocumentRefs
 from app.schemas.upload import JobStatus, JobStatusResponse, JobProgress
-from .mixins import EnsureTableMixin
 
 
-class JobRepository(EnsureTableMixin):
-    async def create_job(self, session: AsyncSession, *, job: CreateJob) -> UUID:
-        await self._ensure_schema_once()
+class Job:
+    @staticmethod
+    async def create(session: AsyncSession, *, job: CreateJob) -> UUID:
         logger.debug(
             f'Creating job with status {job.status}, percent {job.percent}, step {job.step}'
         )
@@ -60,15 +59,14 @@ class JobRepository(EnsureTableMixin):
             raise RuntimeError('Insert into upload_jobs did not return an id')
         return row[0]
 
+    @staticmethod
     async def update_progress(
-        self,
         session: AsyncSession,
         *,
         job_id: UUID,
         percent: int,
         step: str | None,
     ) -> None:
-        await self._ensure_schema_once()
         sql = (
             'UPDATE upload_jobs SET percent = :percent, step = :step, updated_at = :updated_at '
             'WHERE id = :id'
@@ -86,8 +84,8 @@ class JobRepository(EnsureTableMixin):
             await session.rollback()
             logger.error(f'Failed to update progress for job {job_id}: {e}')
 
+    @staticmethod
     async def update_status(
-        self,
         session: AsyncSession,
         *,
         job_id: UUID,
@@ -96,7 +94,6 @@ class JobRepository(EnsureTableMixin):
         percent: int | None = None,
         step: str | None = None,
     ) -> None:
-        await self._ensure_schema_once()
         set_clauses = ['status = :status', 'updated_at = :updated_at']
         params: dict[str, Any] = {
             'status': status.value if hasattr(status, 'value') else str(status),
@@ -122,21 +119,21 @@ class JobRepository(EnsureTableMixin):
             await session.rollback()
             raise Exception(f'Failed to update status for job {job_id}: {e}')
 
+    @staticmethod
     async def finalize(
-        self,
         session: AsyncSession,
         *,
         job_id: UUID,
         status=JobStatus.COMPLETED,
     ) -> None:
-        await self.update_status(
+        await Job.update_status(
             session, job_id=job_id, status=status, percent=100, step=''
         )
 
+    @staticmethod
     async def get_status(
-        self, session: AsyncSession, *, job_id: UUID
+        session: AsyncSession, *, job_id: UUID
     ) -> JobStatusResponse | None:
-        await self._ensure_schema_once()
         sql = (
             'SELECT id, status, percent, step, original_filename, proposed_metadata, warnings, errors '
             'FROM upload_jobs WHERE id = :id LIMIT 1'
@@ -156,14 +153,14 @@ class JobRepository(EnsureTableMixin):
         )
         return JobStatusResponse(**data)
 
+    @staticmethod
     async def get_job_document_refs(
-        self, session: AsyncSession, *, job_id: UUID
+        session: AsyncSession, *, job_id: UUID
     ) -> JobDocumentRefs | None:
         """
         Return a dictionary containing at least digest and collection for a job.
         Used by services to apply updates correlated to the job's document.
         """
-        await self._ensure_schema_once()
         sql = 'SELECT digest, collection, document_uuid FROM upload_jobs WHERE id = :id LIMIT 1'
         result = await session.execute(text(sql), {'id': job_id})
         row = result.mappings().first()
@@ -171,13 +168,13 @@ class JobRepository(EnsureTableMixin):
             return None
         return JobDocumentRefs(**dict(row))
 
-    async def delete(self, session: AsyncSession, *, job_id: UUID) -> bool:
+    @staticmethod
+    async def delete(session: AsyncSession, *, job_id: UUID) -> bool:
         """Delete a job by job_id.
 
         Uses DELETE ... RETURNING to determine if a row was removed.
         Returns True if a row was deleted; False otherwise.
         """
-        await self._ensure_schema_once()
         sql = 'DELETE FROM upload_jobs WHERE id = :id RETURNING id'
 
         try:
@@ -189,4 +186,3 @@ class JobRepository(EnsureTableMixin):
             await session.rollback()
             logger.error(f'Failed to delete job {job_id}: {e}')
             return False
-

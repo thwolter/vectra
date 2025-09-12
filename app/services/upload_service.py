@@ -19,10 +19,10 @@ from app.utils.job import build_job_ctx
 from loguru import logger
 
 from app.services.document_service import DocumentService
-from app.repositories.factory import get_ingestion_repository
 from app.schemas.jobs import InitJob
 from app.vector.protocols import IngestorProtocol
 from app.protocols.services import UploadServiceProtocol
+from app.repositories.ingestion_repository import Ingestion
 
 
 class UploadService(UploadServiceProtocol):
@@ -87,8 +87,7 @@ class UploadService(UploadServiceProtocol):
         job_id = await self.job_service.init_job(session, job=init_job)
 
         # Early dedup signal based on any existing ingestion version for (collection, digest)
-        ingestion_repo = get_ingestion_repository()
-        dedup = await ingestion_repo.exists_by_digest(
+        dedup = await Ingestion.exists_by_digest(
             session,
             digest=digest,
             collection=self.collection.value,

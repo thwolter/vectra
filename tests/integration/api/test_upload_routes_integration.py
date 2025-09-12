@@ -5,11 +5,11 @@ import pytest
 from fastapi.testclient import TestClient
 from pathlib import Path
 
+from app.repositories.embeddings import Embeddings
 from tests.helper import build_test_upload_service
 from app.main import app as fastapi_app
 from app.services.factory import get_upload_service
 from app.schemas.enums import CollectionEnum
-from app.repositories.factory import get_embedding_repository
 
 
 @pytest.fixture()
@@ -27,7 +27,7 @@ def base_prefix(tmp_path) -> Path:
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_upload_then_continue_processing_and_status_completed(
-    small_pdf, base_prefix
+    small_pdf, base_prefix, session
 ):
     service = build_test_upload_service(
         collection=CollectionEnum.DEFAULT,
@@ -53,10 +53,8 @@ async def test_upload_then_continue_processing_and_status_completed(
     assert status_payload['job_id'] == init['job_id']
 
     # Step 4: verify embeddings exist for the document by digest via metadata repo
-    meta_repo = get_embedding_repository()
-
-    exists = await meta_repo.exists_by_digest(
-        init['digest'], collection=CollectionEnum.DEFAULT.value
+    exists = await Embeddings.exists_by_digest(
+        session, digest=init['digest'], collection=CollectionEnum.DEFAULT.value
     )
 
     assert exists, 'Expected embeddings to exist in DB for the uploaded document'

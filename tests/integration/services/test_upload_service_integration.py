@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 
 from app.api.file import TemporaryUploadFile
-from app.repositories.factory import get_embedding_repository
 from app.services.factory import get_job_service
 from app.services.upload_service import UploadService
 from app.schemas.enums import CollectionEnum
@@ -12,6 +11,7 @@ from app.metadata.schemas import NoopHints
 from app.schemas.upload import StartUploadInput, ContinueProcessingInput
 from app.store.local_store import LocalFileStore
 from app.store.protocols import StoreProtocol
+from app.repositories.embeddings import Embeddings
 
 
 @pytest.fixture
@@ -56,9 +56,8 @@ async def test_init_upload_end_to_end_uses_database(
     assert job.progress.percent == 100
 
     # Assert database has embeddings for the source (exists by source)
-    repo = get_embedding_repository()
     digest = await file.sha256_b64()
-    exists = await repo.exists_by_digest(
-        digest=digest, collection=CollectionEnum.DEFAULT.value
+    exists = await Embeddings.exists_by_digest(
+        session, digest=digest, collection=CollectionEnum.DEFAULT.value
     )
     assert exists, 'Expected embeddings to exist in DB for the uploaded document'
