@@ -10,13 +10,18 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.metadata.schemas import ProposedMetadata
-from app.schemas.jobs import CreateJob, JobDocumentRefs
-from app.schemas.upload import JobStatus, JobStatusResponse, JobProgress
+from app.schemas.upload import JobStatus
+from app.repositories.schemas import (
+    CreateJobCmd,
+    JobDocumentRefs,
+    JobStatusSnapshot,
+    JobProgressSnapshot,
+)
 
 
 class Job:
     @staticmethod
-    async def create(session: AsyncSession, *, job: CreateJob) -> UUID:
+    async def create(session: AsyncSession, *, job: CreateJobCmd) -> UUID:
         logger.debug(
             f'Creating job with status {job.status}, percent {job.percent}, step {job.step}'
         )
@@ -33,7 +38,9 @@ class Job:
         params = {
             'id': uuid4(),
             'created_by': session.info.user_id,
-            'status': job.status,
+            'status': job.status.value
+            if hasattr(job.status, 'value')
+            else str(job.status),
             'percent': job.percent,
             'step': job.step,
             'document_uuid': job.document_uuid,
@@ -133,7 +140,7 @@ class Job:
     @staticmethod
     async def get_status(
         session: AsyncSession, *, job_id: UUID
-    ) -> JobStatusResponse | None:
+    ) -> JobStatusSnapshot | None:
         sql = (
             'SELECT id, status, percent, step, original_filename, proposed_metadata, warnings, errors '
             'FROM upload_jobs WHERE id = :id LIMIT 1'
@@ -142,16 +149,32 @@ class Job:
         row = result.mappings().first()
         if not row:
             return None
-        data = dict(row)
-        data.update(
-            {
-                'job_id': row.id,
-                'progress': JobProgress(percent=row.percent, step=row.step),
-                'warnings': row.warnings or [],
-                'errors': row.errors or [],
-            }
+        # Try to rehydrate ProposedMetadata if possible
+        pm = row.proposed_metadata
+        proposed = None
+        if pm is not None:
+            try:
+                import json as _json
+
+                if isinstance(pm, str):
+                    pm = _json.loads(pm)
+                if isinstance(pm, dict):
+                    from app.metadata.schemas import ProposedMetadata as _PM
+
+                    proposed = _PM(**pm)
+            except Exception:
+                proposed = None
+        return JobStatusSnapshot(
+            job_id=row.id,
+            status=JobStatus(row.status)
+            if not isinstance(row.status, JobStatus)
+            else row.status,
+            progress=JobProgressSnapshot(percent=row.percent or 0, step=row.step),
+            original_filename=row.original_filename,
+            proposed_metadata=proposed,
+            warnings=row.warnings or [],
+            errors=row.errors or [],
         )
-        return JobStatusResponse(**data)
 
     @staticmethod
     async def get_job_document_refs(

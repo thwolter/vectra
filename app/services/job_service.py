@@ -7,7 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.metadata.schemas import ProposedMetadata
 from app.repositories import Job
 from app.repositories import Embeddings
-from app.schemas.jobs import InitJob, CreateJob
+from app.schemas.jobs import InitJob
+from app.repositories.schemas import (
+    CreateJobCmd,
+)
 from app.schemas.upload import (
     JobStatus,
     JobProgress,
@@ -47,7 +50,18 @@ class JobService:
         Defaults: status=processing, percent=0, step='hash'.
         Optionally guards uniqueness by (collection, digest) if a future repo method exists.
         """
-        create = CreateJob(**job.model_dump())
+        create = CreateJobCmd(
+            status=JobStatus.PROCESSING,
+            percent=0,
+            step='hash',
+            digest=job.digest,
+            document_uuid=job.document_uuid,
+            collection=job.collection,
+            original_filename=job.original_filename,
+            content_type=job.content_type,
+            size_bytes=job.size_bytes,
+            proposed_metadata=job.proposed_metadata,
+        )
         return await Job.create(session, job=create)
 
     async def update_progress(
@@ -134,8 +148,8 @@ class JobService:
     async def get_status(
         self, session: AsyncSession, *, job_id: UUID
     ) -> JobStatusResponse:
-        data = await Job.get_status(session=session, job_id=job_id)
-        if data is None:
+        snap = await Job.get_status(session=session, job_id=job_id)
+        if snap is None:
             return JobStatusResponse(
                 job_id=job_id,
                 status=JobStatus.FAILED,
@@ -143,7 +157,20 @@ class JobService:
                 errors=['job_not_found'],
             )
 
-        return data
+        # Map domain snapshot to API DTO
+        return JobStatusResponse(
+            job_id=snap.job_id,
+            status=JobStatus(snap.status)
+            if not isinstance(snap.status, JobStatus)
+            else snap.status,
+            progress=JobProgress(
+                percent=snap.progress.percent, step=snap.progress.step
+            ),
+            original_filename=snap.original_filename,
+            proposed_metadata=snap.proposed_metadata,
+            warnings=snap.warnings,
+            errors=snap.errors,
+        )
 
     async def _apply_corrections_to_embeddings(
         self, session: AsyncSession, *, job_id, proposed_obj

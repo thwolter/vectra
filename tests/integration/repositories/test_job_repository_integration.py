@@ -3,9 +3,9 @@ import uuid
 import pytest
 
 from app.repositories import Job
-from app.schemas.jobs import CreateJob
 from app.schemas.upload import JobStatus
 from app.schemas.enums import CollectionEnum
+from app.repositories.schemas import CreateJobCmd
 
 
 @pytest.mark.integration
@@ -18,14 +18,14 @@ async def test_delete_job_removes_row_and_is_idempotent(
     document_uuid = uuid.uuid4()
 
     # Create a job
-    job = CreateJob(
+    job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
         digest=random_digest,
         original_filename='upload.pdf',
         content_type='application/pdf',
         size_bytes=123,
-        status=JobStatus.PROCESSING.value,
+        status=JobStatus.PROCESSING,
         percent=0,
         step='init',
     )
@@ -54,14 +54,14 @@ async def test_delete_job_removes_row_and_is_idempotent(
 async def test_update_status(session, random_digest):
     document_uuid = uuid.uuid4()
 
-    job = CreateJob(
+    job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
         digest=random_digest,
         original_filename='file.txt',
         content_type='text/plain',
         size_bytes=10,
-        status=JobStatus.PROCESSING.value,
+        status=JobStatus.PROCESSING,
         percent=5,
         step='hash',
     )
@@ -89,14 +89,14 @@ async def test_update_status(session, random_digest):
 async def test_update_progress(session, random_digest):
     document_uuid = uuid.uuid4()
 
-    job = CreateJob(
+    job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
         digest=random_digest,
         original_filename='file.txt',
         content_type='text/plain',
         size_bytes=10,
-        status=JobStatus.PROCESSING.value,
+        status=JobStatus.PROCESSING,
         percent=0,
         step='start',
     )
@@ -117,14 +117,14 @@ async def test_update_progress(session, random_digest):
 async def test_job_document_refs(session, random_digest):
     document_uuid = uuid.uuid4()
 
-    job = CreateJob(
+    job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
         digest=random_digest,
         original_filename='report.pdf',
         content_type='application/pdf',
         size_bytes=2048,
-        status=JobStatus.PROCESSING.value,
+        status=JobStatus.PROCESSING,
         percent=1,
         step='queued',
     )
