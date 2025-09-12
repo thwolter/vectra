@@ -16,6 +16,65 @@ def _set_env_if_provided(env: str | None) -> None:
         os.environ['ENV'] = env
 
 
+@db.command('unlock')
+def unlock(
+    key: t.Optional[int] = typer.Option(
+        None,
+        '--key',
+        '-k',
+        help='Advisory lock key to unlock. If omitted, unlocks all locks for the session.',
+    ),
+    env: t.Optional[str] = typer.Option(
+        None,
+        '--env',
+        help='Settings profile to use (development|production|testing)',
+    ),
+) -> None:
+    """Unlock a PostgreSQL advisory lock safely outside any failed transaction.
+
+    Examples:
+    - Unlock a specific key: `python manage.py db unlock -k 72727272`
+    - Unlock all locks for the session: `python manage.py db unlock`
+    """
+    _set_env_if_provided(env)
+
+    # Import here (after potential env change)
+    from app.core.database import DatabaseManager
+    from sqlalchemy import text
+
+    async def _run(*_args: object, **_kwargs: object) -> None:
+        dbm = DatabaseManager()
+        try:
+            await dbm.initialize()
+            assert dbm._engine is not None  # noqa: SLF001 - CLI scope
+            # Open a fresh connection, no failed transaction context
+            async with dbm._engine.connect() as conn:  # noqa: SLF001
+                if key is None:
+                    # Run outside an explicit transaction
+                    await conn.exec_driver_sql('SELECT pg_advisory_unlock_all()')
+                    typer.echo(
+                        'Unlocked all advisory locks for the session (pg_advisory_unlock_all)'
+                    )
+                else:
+                    res = await conn.execute(
+                        text('SELECT pg_advisory_unlock(:key)'), {'key': key}
+                    )
+                    row = res.fetchone()
+                    unlocked = bool(row[0]) if row else False
+                    typer.echo(f'pg_advisory_unlock({key}) -> {unlocked}')
+        finally:
+            await dbm.close()
+
+    try:
+        import anyio
+
+        anyio.run(_run, None)
+    except ModuleNotFoundError:
+        import asyncio
+
+        asyncio.run(_run())
+
+
 @db.command('drop-tables')
 def drop_tables(
     yes: bool = typer.Option(

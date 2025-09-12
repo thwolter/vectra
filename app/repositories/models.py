@@ -7,6 +7,8 @@ from sqlmodel import Field, SQLModel, UniqueConstraint
 from sqlalchemy import Column, DateTime, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 
+from utils.types import SHA256B64
+
 
 class DocumentRecord(SQLModel, table=True):
     """Canonical documents table keyed by (collection, binary_hash).
@@ -28,10 +30,15 @@ class DocumentRecord(SQLModel, table=True):
         default_factory=uuid4,
         sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
     )
-    tenant_id: UUID = Field(sa_column=Column(PGUUID(as_uuid=True), nullable=False))
-
+    tenant_id: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            server_default=text("current_setting('app.tenant_id', true)::uuid"),
+        )
+    )
     collection: str = Field(index=True)
-    digest: str = Field(index=True, max_length=44)
+    digest: SHA256B64 = Field(index=True)
     original_filename: str | None = Field(default=None)
     content_type: str | None = Field(default=None)
     size_bytes: int | None = Field(default=None)
@@ -51,7 +58,12 @@ class DocumentRecord(SQLModel, table=True):
         )
     )
     created_by: UUID = Field(
-        sa_column=Column(PGUUID(as_uuid=True), nullable=False, index=True)
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            index=True,
+            server_default=text("current_setting('app.user_id', true)::uuid"),
+        )
     )
 
 
@@ -79,9 +91,15 @@ class IngestionRecord(SQLModel, table=True):
         default_factory=uuid4,
         sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
     )
-    tenant_id: UUID = Field(sa_column=Column(PGUUID(as_uuid=True), nullable=False))
+    tenant_id: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            server_default=text("current_setting('app.tenant_id', true)::uuid"),
+        )
+    )
     collection: str = Field(index=True)
-    digest: str = Field(index=True, max_length=44)
+    digest: SHA256B64 = Field(index=True)
     chunker_version: str
     embed_model: str
     embed_model_ver: str
@@ -97,7 +115,12 @@ class IngestionRecord(SQLModel, table=True):
         )
     )
     created_by: UUID = Field(
-        sa_column=Column(PGUUID(as_uuid=True), nullable=False, index=True)
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            index=True,
+            server_default=text("current_setting('app.user_id', true)::uuid"),
+        )
     )
 
 
@@ -117,7 +140,11 @@ class JobRecord(SQLModel, table=True):
         sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
     )
     tenant_id: UUID = Field(
-        default_factory=uuid4, sa_column=Column(PGUUID(as_uuid=True), nullable=False)
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            server_default=text("current_setting('app.tenant_id', true)::uuid"),
+        )
     )
     status: str = Field(index=True)
     percent: int = Field(default=0)
@@ -149,5 +176,10 @@ class JobRecord(SQLModel, table=True):
         )
     )
     created_by: UUID = Field(
-        sa_column=Column(PGUUID(as_uuid=True), nullable=False, index=True)
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            nullable=False,
+            index=True,
+            server_default=text("current_setting('app.user_id', true)::uuid"),
+        )
     )

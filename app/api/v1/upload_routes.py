@@ -24,7 +24,7 @@ from app.schemas.upload import (
     ContinueProcessingInput,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import tenant_scoped_session, get_current_auth
+from app.core.dependencies import access_scoped_session, require_auth
 
 
 # Hard limits to protect memory/CPU. Adjust via settings if needed.
@@ -53,8 +53,8 @@ async def upload_document(
         str | None, Form(description='Optional hints for document parsing')
     ] = None,
     upload_service: UploadServiceProtocol = Depends(get_upload_service),
-    session: AsyncSession = Depends(tenant_scoped_session),
-    auth: AuthContext = Depends(get_current_auth),
+    session: AsyncSession = Depends(access_scoped_session),
+    auth: AuthContext = Depends(require_auth),
 ) -> UploadInitResponse:
     """Upload a document for ingestion.
 

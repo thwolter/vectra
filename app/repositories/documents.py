@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from uuid import UUID, uuid4
 
 from app.repositories.schemas import DocumentCreate
+from .exceptions import DocumentNotFoundError
 
 settings = get_settings()
 
@@ -22,7 +23,7 @@ class Document:
     async def get(session: AsyncSession, *, id: UUID) -> DocumentRecord:
         rec = await session.get(DocumentRecord, id)
         if not rec:
-            raise RuntimeError('Document row not found for given id')
+            raise DocumentNotFoundError('Document row not found for given id')
         return rec
 
     @staticmethod
@@ -30,8 +31,8 @@ class Document:
         new_id = uuid4()
         rec = DocumentRecord(
             id=new_id,
-            tenant_id=session.info.tenant_id,
-            created_by=session.info.user_id,
+            tenant_id=session.info['tenant_id'],
+            created_by=session.info['user_id'],
             collection=data.collection,
             digest=data.digest,
             original_filename=data.original_filename,
@@ -60,7 +61,6 @@ class Document:
     async def find(session: AsyncSession, data):
         result = await session.execute(
             select(DocumentRecord.id).where(
-                DocumentRecord.tenant_id == session.info.tenant_id,
                 DocumentRecord.collection == data.collection,
                 DocumentRecord.digest == data.digest,
             )

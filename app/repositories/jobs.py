@@ -23,10 +23,16 @@ class Job:
         logger.debug(
             f'Creating job with status {job.status}, percent {job.percent}, step {job.step}'
         )
+        user_id = session.info['user_id']
+        tenant_id = session.info['tenant_id']
+        if not (user_id and tenant_id):
+            raise Exception('Missing user_id in session')
         new_id = uuid4()
+
         rec = JobRecord(
             id=new_id,
-            created_by=session.info.user_id,
+            created_by=user_id,
+            tenant_id=tenant_id,
             status=job.status.value
             if hasattr(job.status, 'value')
             else str(job.status),

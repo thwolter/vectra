@@ -5,6 +5,7 @@ import pytest
 from app.repositories import Document
 from app.repositories.schemas import DocumentCreate
 from app.schemas.enums import CollectionEnum
+from app.repositories.exceptions import DocumentNotFoundError
 
 
 @pytest.mark.integration
@@ -159,7 +160,7 @@ async def test_delete_removes_row_and_is_idempotent(session, random_digest):
     # First delete returns True and subsequent get should fail
     first = await Document.delete(session, id=doc_id)
     assert first is True
-    with pytest.raises(RuntimeError):
+    with pytest.raises(DocumentNotFoundError):
         await Document.get(session, id=doc_id)
 
     # Second delete returns False (no-op)

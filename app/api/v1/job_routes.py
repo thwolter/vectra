@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.protocols.services import JobServiceProtocol
 from app.schemas.upload import JobStatusResponse, JobReviewResponse, JobReviewPayload
 from app.services.factory import get_job_service
-from app.core.dependencies import tenant_scoped_session
+from app.core.dependencies import access_scoped_session
 
 
 router = APIRouter(prefix='/v1', tags=['jobs'])
@@ -17,7 +17,7 @@ router = APIRouter(prefix='/v1', tags=['jobs'])
 @router.get('/jobs/{job_id}', response_model=JobStatusResponse)
 async def get_job(
     job_id: UUID,
-    session: AsyncSession = Depends(tenant_scoped_session),
+    session: AsyncSession = Depends(access_scoped_session),
     job_service: JobServiceProtocol = Depends(get_job_service),
 ) -> JobStatusResponse:
     """Get the status of an ingestion job by ID.
@@ -32,7 +32,7 @@ async def get_job(
 async def review_job(
     job_id: UUID,
     payload: JobReviewPayload,
-    session: AsyncSession = Depends(tenant_scoped_session),
+    session: AsyncSession = Depends(access_scoped_session),
     job_service: JobServiceProtocol = Depends(get_job_service),
 ) -> JobReviewResponse:
     """Submit a human review for an ingestion job to correct or approve extracted metadata."""

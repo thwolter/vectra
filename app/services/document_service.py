@@ -16,6 +16,7 @@ from app.store.providers import default_store_provider
 from app.store.local_store import make_uri
 from app.store.schemas import FileInfo
 from app.repositories import Document
+from utils.types import SHA256B64
 
 
 class DocumentService:
@@ -34,7 +35,7 @@ class DocumentService:
         self,
         session,
         *,
-        digest: str,
+        digest: SHA256B64,
         original_filename: str | None,
         content_type: str | None,
         size_bytes: int | None,

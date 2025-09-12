@@ -11,12 +11,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class TenantContext(BaseModel):
+class AccessContext(BaseModel):
     tenant_id: UUID
-    user_id: UUID | None = None
+    user_id: UUID
 
     @classmethod
-    def from_session(cls, session: AsyncSession) -> 'TenantContext':
+    def from_session(cls, session: AsyncSession) -> 'AccessContext':
         """Construct TenantContext from an AsyncSession.
 
         Expects the session to have `tenant_id` (and optionally `user_id`) set in

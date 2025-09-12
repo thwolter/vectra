@@ -14,7 +14,7 @@ from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
-from app.api.schemas import TenantContext, AuthContext
+from app.api.schemas import AccessContext, AuthContext
 from app.core.database import DatabaseManager
 
 # Global database manager instance (singleton within process)
@@ -32,7 +32,7 @@ def get_database_manager() -> DatabaseManager:
     return _db_manager
 
 
-async def get_current_auth(
+async def require_auth(
     authorization: str = Header(..., alias='Authorization'),
 ) -> AuthContext:
     """Require Authorization and return AuthContext, else 401."""
@@ -47,47 +47,82 @@ async def get_current_auth(
     return auth
 
 
-async def get_current_tenant(
-    auth: AuthContext = Depends(get_current_auth),
-) -> TenantContext:
+async def require_access_context(
+    auth: AuthContext = Depends(require_auth),
+) -> AccessContext:
     """Resolve tenant from a validated JWT."""
-    return TenantContext(tenant_id=auth.tid, user_id=auth.sub)
+    return AccessContext(tenant_id=auth.tid, user_id=auth.sub)
 
 
-async def with_tenant(session: AsyncSession, tenant_id: UUID) -> None:
-    """Set the Postgres LOCAL setting for the current tenant for this transaction.
+async def apply_access_context(
+    session: AsyncSession, *, tenant_id: UUID, user_id: UUID
+) -> None:
+    """Set Postgres GUCs and role for tenant/user on the current connection.
 
-    Uses set_config(..., is_local := true) so the value resets on COMMIT/ROLLBACK and
-    does not leak across pooled connections. Parameter binding is supported with
-    set_config, unlike `SET LOCAL ...` with asyncpg.
-    Also caches the tenant_id in `session.info` for repositories to bind directly.
+    - Sets app.tenant_id and app.user_id for RLS policies.
+    - SET ROLE vecapi_rls to ensure RLS is enforced even if the base user is a superuser.
+    - Values persist for the AsyncSession lifetime and are reset on exit by access_scoped_session.
     """
-    # Use set_config to safely bind the tenant id without string interpolation.
+    # Persist on the connection (not LOCAL-to-transaction) for the session lifetime
     await session.execute(
-        text("SELECT set_config('app.tenant_id', :tid, true)"), {'tid': str(tenant_id)}
+        text("SELECT set_config('app.tenant_id', :tid, false)"), {'tid': str(tenant_id)}
     )
+    await session.execute(
+        text("SELECT set_config('app.user_id', :uid, false)"),
+        {'uid': str(user_id)},
+    )
+
+    # Verify immediately
+    db_user = (
+        await session.execute(text("SELECT current_setting('app.user_id', true)"))
+    ).scalar()
+    db_tenant = (
+        await session.execute(text("SELECT current_setting('app.tenant_id', true)"))
+    ).scalar()
+    if not db_user or not db_tenant:
+        raise RuntimeError(
+            f'Failed to bind access context: user_id={db_user!r}, tenant_id={db_tenant!r}'
+        )
+    if UUID(db_tenant) != tenant_id:
+        raise RuntimeError(f'Tenant mismatch: {db_tenant} != {tenant_id}')
+    if UUID(db_user) != user_id:
+        raise RuntimeError(f'User mismatch: {db_user} != {user_id}')
+
     # Cache for repository usage across statement boundaries
     session.info['tenant_id'] = tenant_id
+    session.info['user_id'] = user_id
 
 
-async def tenant_scoped_session(
-    tenant: TenantContext = Depends(get_current_tenant),
+async def access_scoped_session(
+    tenant: AccessContext = Depends(require_access_context),
 ) -> AsyncIterator[AsyncSession]:
-    """Yield an AsyncSession with SET LOCAL app.tenant_id applied for the request.
+    """Yield an AsyncSession with tenant/user context applied for the request.
 
-    Routers/services should depend on this and pass the provided session to repositories.
+    Ensures Postgres GUCs are set for the session lifetime and reset afterwards
+    to prevent leaks across pooled connections.
     """
     db = get_database_manager()
     async with db.get_session() as session:
-        await with_tenant(session, tenant.tenant_id)
-        # Cache user_id for repositories to populate created_by
-        session.info['user_id'] = getattr(tenant, 'user_id', None)
-        yield session
+        await apply_access_context(
+            session, tenant_id=tenant.tenant_id, user_id=tenant.user_id
+        )
+        try:
+            yield session
+        finally:
+            # Reset session-level GUCs so pooled connections don't leak tenant/user
+            try:
+                await session.execute(text('RESET app.user_id'))
+                await session.execute(text('RESET app.tenant_id'))
+            except Exception:
+                # best-effort reset; closing the session will also drop settings when connection returns to pool
+                pass
+            session.info.pop('tenant_id', None)
+            session.info.pop('user_id', None)
 
 
 __all__ = [
     'get_database_manager',
-    'get_current_auth',
-    'tenant_scoped_session',
-    'with_tenant',
+    'require_auth',
+    'access_scoped_session',
+    'apply_access_context',
 ]

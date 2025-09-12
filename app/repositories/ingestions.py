@@ -31,13 +31,8 @@ class Ingestion:
         """
         Return True if an ingestion version row exists for the given parameters.
         Provide either key=IngestionVersionKey or digest=..., collection=...
+        Relies solely on database RLS for tenant scoping.
         """
-        tenant_id = getattr(session.info, 'tenant_id', None)
-        if not tenant_id:
-            raise RuntimeError(
-                'tenant_id missing in session.info; ensure auth/session wiring sets it'
-            )
-
         if 'key' in kwargs:
             key = kwargs['key']
             result = await Ingestion.find(session, key)
@@ -49,7 +44,6 @@ class Ingestion:
             stmt = (
                 select(IngestionRecord.id)
                 .where(
-                    IngestionRecord.tenant_id == tenant_id,
                     IngestionRecord.collection == collection,
                     IngestionRecord.digest == digest,
                 )
@@ -62,9 +56,9 @@ class Ingestion:
 
     @staticmethod
     async def create(session: AsyncSession, *, key: IngestionVersionKey) -> UUID:
-        tenant_id = getattr(session.info, 'tenant_id', None)
-        user_id = getattr(session.info, 'user_id', None)
-        if not tenant_id:
+        tenant_id = session.info['tenant_id']
+        user_id = session.info['user_id']
+        if not (tenant_id and user_id):
             raise RuntimeError(
                 'tenant_id missing in session.info; ensure auth/session wiring sets it'
             )
@@ -102,7 +96,6 @@ class Ingestion:
         stmt = (
             select(IngestionRecord.id)
             .where(
-                IngestionRecord.tenant_id == session.info.tenant_id,
                 IngestionRecord.collection == key.collection,
                 IngestionRecord.digest == key.digest,
                 IngestionRecord.chunker_version == key.chunker_version,
@@ -130,15 +123,9 @@ class Ingestion:
             # keep validation for compatibility; value is unused in the query
             raise ValueError('collection must be a non-empty string')
 
-        tenant_id = getattr(session.info, 'tenant_id', None)
-        if not tenant_id:
-            raise RuntimeError(
-                'tenant_id missing in session.info; ensure auth/session wiring sets it'
-            )
         try:
-            # Delete across all collections for this digest as before
+            # Delete across all collections for this digest; rely on RLS for tenant scoping
             stmt = delete(IngestionRecord).where(
-                IngestionRecord.tenant_id == tenant_id,
                 IngestionRecord.digest == digest,
             )
             await session.execute(stmt)
