@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from app.repositories.job_repository import Job
+from app.repositories import Job
 
 
 @pytest.mark.asyncio

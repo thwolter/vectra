@@ -8,7 +8,7 @@ from app.metadata.schemas import FinanceReportHints
 from app.schemas.enums import CollectionEnum
 
 from app.store.local_store import LocalFileStore
-from app.repositories.embeddings import Embeddings
+from app.repositories import Embeddings
 from tests.helper import make_files_param, make_client_financial
 
 

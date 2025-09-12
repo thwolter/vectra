@@ -6,8 +6,7 @@ from langchain_core.documents import Document
 from loguru import logger
 
 from app.utils.types import SHA256B64
-from app.repositories.ingestion_repository import Ingestion
-from app.repositories.embeddings import Embeddings
+from app.repositories import Ingestion, Embeddings
 from .errors import EmbeddingsAlreadyExistError
 from .protocols import IngestorProtocol
 from .schemas import IngestionVersionInsert, IngestionResult

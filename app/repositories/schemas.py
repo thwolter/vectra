@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pydantic import BaseModel, Field
 
 from app.utils.types import SHA256B64
 
-
-class DocumentCreate(BaseModel):
+@dataclass
+class DocumentCreate(frozen=True):
     """Schema for creating a canonical Document row.
 
     Encapsulates the inputs required to insert a document or return the

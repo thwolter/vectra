@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from app.repositories.embeddings import Embeddings
+from app.repositories import Embeddings
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from app.repositories.documents import Document
+from app.repositories import Document
 from app.repositories.schemas import DocumentCreate
 
 

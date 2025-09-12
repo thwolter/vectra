@@ -4,7 +4,7 @@ import pytest
 
 from langchain_core.documents import Document
 
-from app.repositories.embeddings import Embeddings
+from app.repositories import Embeddings
 from app.schemas.enums import CollectionEnum
 from app.vector.factory import get_vectorstore
 

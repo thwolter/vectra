@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from app.repositories.job_repository import Job
+from app.repositories import Job
 from app.schemas.jobs import CreateJob
 from app.schemas.upload import JobStatus
 from app.schemas.enums import CollectionEnum

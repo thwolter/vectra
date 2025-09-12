@@ -2,7 +2,7 @@ from uuid import UUID
 
 import pytest
 
-from app.repositories.documents import Document
+from app.repositories import Document
 from app.repositories.schemas import DocumentCreate
 from app.schemas.enums import CollectionEnum
 

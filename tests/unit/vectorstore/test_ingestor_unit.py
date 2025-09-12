@@ -4,7 +4,7 @@ import pytest
 from langchain_core.documents import Document
 from langchain_postgres import PGVector
 
-from app.repositories.ingestion_repository import Ingestion
+from app.repositories import Ingestion
 from app.schemas.enums import CollectionEnum
 from app.vector.ingestor import DocumentIngestor
 

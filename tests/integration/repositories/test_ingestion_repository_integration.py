@@ -1,7 +1,7 @@
 import pytest
 
 from app.vector.schemas import IngestionVersionInsert
-from app.repositories.ingestion_repository import Ingestion
+from app.repositories import Ingestion
 
 
 @pytest.mark.integration

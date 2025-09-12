@@ -5,8 +5,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.metadata.schemas import ProposedMetadata
-from app.repositories.job_repository import Job
-from app.repositories.embeddings import Embeddings
+from app.repositories import Job
+from app.repositories import Embeddings
 from app.schemas.jobs import InitJob, CreateJob
 from app.schemas.upload import (
     JobStatus,

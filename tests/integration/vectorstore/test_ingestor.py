@@ -3,7 +3,7 @@ import pytest
 from app.schemas.enums import CollectionEnum
 from app.vector.ingestor import DocumentIngestor
 from app.vector.models import IngestorSettings
-from app.repositories.embeddings import Embeddings
+from app.repositories import Embeddings
 
 
 @pytest.fixture

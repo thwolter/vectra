@@ -15,7 +15,7 @@ from app.store.protocols import StoreProtocol
 from app.store.providers import default_store_provider
 from app.store.local_store import make_uri
 from app.store.schemas import FileInfo
-from app.repositories.documents import Document
+from app.repositories import Document
 
 
 class DocumentService:

@@ -11,7 +11,7 @@ from app.metadata.schemas import NoopHints
 from app.schemas.upload import StartUploadInput, ContinueProcessingInput
 from app.store.local_store import LocalFileStore
 from app.store.protocols import StoreProtocol
-from app.repositories.embeddings import Embeddings
+from app.repositories import Embeddings
 
 
 @pytest.fixture

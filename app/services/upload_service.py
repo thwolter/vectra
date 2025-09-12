@@ -22,7 +22,7 @@ from app.services.document_service import DocumentService
 from app.schemas.jobs import InitJob
 from app.vector.protocols import IngestorProtocol
 from app.protocols.services import UploadServiceProtocol
-from app.repositories.ingestion_repository import Ingestion
+from app.repositories import Ingestion
 
 
 class UploadService(UploadServiceProtocol):

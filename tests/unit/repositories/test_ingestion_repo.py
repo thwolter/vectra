@@ -1,6 +1,6 @@
 import pytest
 
-from app.repositories.ingestion_repository import Ingestion
+from app.repositories import Ingestion
 import uuid
 
 

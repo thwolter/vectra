@@ -8,7 +8,7 @@ from langchain_core.documents import Document
 from app.api.file import TemporaryUploadFile
 from app.parsers.protocols import ParserProtocol
 from app.parsers.schemas import ParseResult
-from app.repositories.ingestion_repository import Ingestion
+from app.repositories import Ingestion
 from app.schemas.jobs import JobCtx
 from app.services.upload_steps import UploadPipeline
 from app.schemas.enums import CollectionEnum

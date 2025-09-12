@@ -18,13 +18,13 @@ from app.parsers.providers import parser_provider
 
 from app.services.document_service import DocumentService
 
-from app.repositories.documents import Document as DBDocument
+from app.repositories import Document as DBDocument
 from app.vector.schemas import IngestionVersionKey
-from app.repositories.ingestion_repository import Ingestion
+from app.repositories import Ingestion
 from app.store.protocols import StoreProtocol
 from app.store.schemas import ArtifactInfo
 from app.vector.models import IngestorSettings
-from app.repositories.embeddings import Embeddings
+from app.repositories import Embeddings
 
 
 class UploadPipeline:

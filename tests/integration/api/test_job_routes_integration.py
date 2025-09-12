@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.repositories.job_repository import Job
+from app.repositories import Job
 from tests.helper import make_api_client
 from app.schemas.upload import JobStatus
 

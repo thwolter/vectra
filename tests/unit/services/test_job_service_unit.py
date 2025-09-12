@@ -4,7 +4,7 @@ from unittest.mock import create_autospec
 import pytest
 
 from app.services.job_service import JobService
-from app.repositories.job_repository import Job
+from app.repositories import Job
 from app.schemas.upload import JobStatus, JobStatusResponse, JobProgress
 from app.metadata.schemas import ProposedMetadata, Evidence
 from app.schemas.jobs import InitJob

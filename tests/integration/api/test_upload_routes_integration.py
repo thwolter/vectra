@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pathlib import Path
 
-from app.repositories.embeddings import Embeddings
+from app.repositories import Embeddings
 from tests.helper import build_test_upload_service
 from app.main import app as fastapi_app
 from app.services.factory import get_upload_service
