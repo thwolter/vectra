@@ -125,8 +125,8 @@ class JobRecord(SQLModel, table=True):
 
     # Linkage to Document
     document_uuid: UUID | None = Field(default=None, index=True)
-    collection: str | None = Field(default=None, index=True)
-    digest: str | None = Field(default=None, index=True, max_length=44)
+    collection: str = Field(index=True)
+    digest: str = Field(index=True, max_length=44)
 
     # Descriptive fields
     original_filename: str | None = Field(default=None)

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from pathlib import Path
 
 from app.repositories import Embeddings
+from app.metadata.schemas import FinanceReportHints
 from tests.helper import build_test_upload_service
 from app.main import app as fastapi_app
 from app.services.factory import get_upload_service
@@ -94,7 +95,9 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
-def test_hints_influence_proposed_metadata_on_job(tiny_pdf_bytes, base_prefix):
+def test_hints_influence_proposed_metadata_on_job(
+    tiny_pdf_bytes, base_prefix, random_digest
+):
     service = build_test_upload_service(
         collection=CollectionEnum.DEFAULT,
         base_prefix=base_prefix,
@@ -104,17 +107,14 @@ def test_hints_influence_proposed_metadata_on_job(tiny_pdf_bytes, base_prefix):
 
     files = {'file': ('tiny.pdf', io.BytesIO(tiny_pdf_bytes), 'application/pdf')}
 
-    hints = {
-        'company_hint': 'Acme Corp',
-        'doc_type_hint': '10-K',
-        'reporting_year_hint': 2024,
-    }
+    hints = FinanceReportHints(
+        company='Acme Corp', document_type='10-K', financial_year=2024
+    ).model_dump_json()
 
     r = api_client.post(
         '/api/v1/uploads',
         files=files,
-        data={'hints_json': json.dumps(hints)},
-        headers={'Idempotency-Key': 'route-int-key-1'},
+        data={'hints': hints},
     )
     assert r.status_code == 201
     init = r.json()

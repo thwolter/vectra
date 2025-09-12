@@ -54,7 +54,7 @@ async def test_create_is_idempotent_by_collection_and_digest(session, random_dig
     id1 = await Document.create(session, data=first)
     id2 = await Document.create(session, data=second)
 
-    assert id1 == id2, 'Same (collection,digest) should return existing row id'
+    assert id1 == id2, 'Same (tenant, collection, digest) should return existing row id'
 
     # Ensure original_filename is from the first insert (first-seen wins)
     doc = await Document.get(session, id=id1)
@@ -66,13 +66,13 @@ async def test_create_is_idempotent_by_collection_and_digest(session, random_dig
 @pytest.mark.asyncio
 async def test_same_digest_in_different_collections_creates_distinct_rows(
     session,
-    digest_str,
+    random_digest,
 ):
     id_default = await Document.create(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
-            digest=digest_str,
+            digest=random_digest,
             original_filename='a.pdf',
         ),
     )
@@ -80,7 +80,7 @@ async def test_same_digest_in_different_collections_creates_distinct_rows(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.FINANCIAL.value,
-            digest=digest_str,
+            digest=random_digest,
             original_filename='a.pdf',
         ),
     )

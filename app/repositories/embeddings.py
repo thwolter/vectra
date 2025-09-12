@@ -4,6 +4,8 @@ Repositories for metadata-related data access.
 Contains MetadataRepository responsible for metadata queries and updates.
 """
 
+import json
+
 from typing import Any, Dict, List, overload
 
 from sqlalchemy import text
@@ -19,7 +21,7 @@ _metadata = SQLModel.metadata
 
 
 class Embeddings:
-    _ALLOWED_FILTER = {
+    _ALLOWED_FILTERS = {
         'digest': "e.cmetadata->>'digest'",
         'source': "e.cmetadata->>'source'",
     }
@@ -49,14 +51,18 @@ class Embeddings:
             'WHERE e.collection_id = c.uuid AND c.name = :collection '
             "AND e.cmetadata->>'digest' = :digest"
         )
+        # Serialize metadata to JSON string for consistent parameter handling across drivers
+        metadata_json = json.dumps(metadata)
         params = {
             'collection': collection,
             'digest': digest,
-            'metadata': __import__('json').dumps(metadata),
+            'metadata': metadata_json,
         }
+        # Rely on explicit CAST(:metadata AS JSONB) in SQL; no need for JSONB bind param
+        stmt = text(sql)
 
         try:
-            await session.execute(text(sql), params)
+            await session.execute(stmt, params)
             await session.commit()
         except Exception as e:
             logger.error(f"Failed to update metadata for digest '{digest}': {e}")
@@ -73,16 +79,24 @@ class Embeddings:
         session: AsyncSession, *, collection: str, source: str
     ) -> bool: ...
 
+    @overload
+    @staticmethod
+    async def exists(
+        session: AsyncSession, *, collection: str, digest: str, source: str
+    ) -> bool: ...
+
     @staticmethod
     async def exists(session: AsyncSession, *, collection: str, **filters: Any) -> bool:
         if not filters:
             raise ValueError('Provide at least one filter (digest=..., source=...).')
 
-        unknown = set(filters) - set(Embeddings._ALLOWED_FILTER)
+        unknown = set(filters) - set(Embeddings._ALLOWED_FILTERS)
         if unknown:
             raise ValueError(f'Unsupported filters: {", ".join(sorted(unknown))}')
 
-        where = ' AND '.join(f'{Embeddings._ALLOWED_FILTER[k]} = :{k}' for k in filters)
+        where = ' AND '.join(
+            f'{Embeddings._ALLOWED_FILTERS[k]} = :{k}' for k in filters
+        )
         sql = f"""
                 SELECT EXISTS (
                     SELECT 1
@@ -115,18 +129,16 @@ class Embeddings:
         result = await session.execute(
             text(sql), {'collection': collection, 'digest': digest}
         )
-        rows = result.fetchall()
+        rows = result.mappings().all()
         out: List[Dict[str, Any]] = []
         for row in rows:
-            cm = row[0] if row else None
+            cm = row.get('cmetadata')  # type: ignore[assignment]
             if isinstance(cm, dict):
                 out.append(cm)
             else:
                 # Some drivers may return JSON string; try to load
                 try:
-                    import json as _json
-
-                    parsed = _json.loads(cm) if isinstance(cm, str) else None
+                    parsed = json.loads(cm) if isinstance(cm, str) else None
                     if isinstance(parsed, dict):
                         out.append(parsed)
                 except Exception:

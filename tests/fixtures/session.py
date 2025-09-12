@@ -69,6 +69,25 @@ def anyio_backend():
     return 'asyncio'
 
 
+# Ensure database is initialized and schema exists for tests
+@pytest.fixture(scope='session', autouse=True)
+async def _init_db_schema():
+    """Initialize async DB engine and ensure schema before tests run.
+
+    Mirrors app.main lifespan behavior for the test environment so that
+    tables/extensions exist before any repositories or sessions are used.
+    """
+    from app.core.database import DatabaseManager
+
+    db = DatabaseManager()
+    await db.initialize()
+    await db.ensure_schema()
+    try:
+        yield
+    finally:
+        await db.close()
+
+
 @pytest.fixture(scope='session', autouse=True)
 def _override_dependencies():
     app.dependency_overrides[get_current_auth] = _fake_get_current_auth
@@ -159,16 +178,50 @@ def fake_result_class():
 @pytest.fixture
 async def fake_session_class(fake_result_class):
     class FakeSession:
-        def __init__(self, rows=None, scalar=None):
+        def __init__(self, rows=None, scalar=None, orm_exists: bool | None = None):
+            # SQL execution tracking (textual)
             self.executed = []  # list of (sql, params)
             self._rows = rows
             self._scalar = scalar
             self.commits = 0
+            self.rollbacks = 0
             self.info = SimpleNamespace(tenant_id=None, user_id=None)
+            # ORM-behavior toggles/metrics
+            self._orm_exists = orm_exists
+            self.gets = 0
+            self.deletes = 0
+            self.adds = 0
+            self._deleted_obj = None
 
+        def add(self, obj):  # noqa: ANN001 - parity with AsyncSession.add
+            # Record a synthetic INSERT statement for tests that assert on SQL text
+            self.adds += 1
+
+        # Text/SQL style execute (used by some repositories)
         async def execute(self, sql, params=None):
             self.executed.append((' '.join(str(sql).split()), params or {}))
             return fake_result_class(self._rows, self._scalar)
+
+        # Minimal AsyncSession ORM-like API used in some codepaths
+        async def get(self, model, obj_id):  # noqa: ANN001 - parity with AsyncSession.get
+            self.gets += 1
+            # When _orm_exists is explicitly set, use it to control existence
+            if self._orm_exists is not None:
+                return object() if self._orm_exists else None
+            # Fallback: if rows configured and obj_id present in rows, pretend exists
+            if self._rows:
+                try:
+                    ids = {
+                        r[0] for r in self._rows if isinstance(r, (list, tuple)) and r
+                    }
+                    return object() if obj_id in ids else None
+                except Exception:
+                    pass
+            return None
+
+        async def delete(self, obj):  # noqa: ANN001 - parity with AsyncSession.delete
+            self.deletes += 1
+            self._deleted_obj = obj
 
         async def close(self):
             return None
@@ -178,7 +231,7 @@ async def fake_session_class(fake_result_class):
 
         async def rollback(self):
             self.executed.clear()
-            self.commits = 0
+            self.rollbacks += 1
 
     return FakeSession
 

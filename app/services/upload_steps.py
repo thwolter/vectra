@@ -177,9 +177,11 @@ class UploadPipeline:
             d.metadata.update(pm.metadata)  # type: ignore[arg-type]
             docs.append(d)
 
-        metadata = (
-            self.ctx.metadata.update(pm.metadata) if self.ctx.metadata else pm.metadata
-        )
+        # Merge proposed metadata into the context metadata without mutating in-place
+        base_meta: dict = dict(self.ctx.metadata) if self.ctx.metadata else {}
+        if pm.metadata:
+            base_meta.update(pm.metadata)
+        metadata = base_meta
 
         # Do not persist here; persistence happens in persist_metadata step
         self.ctx = dc_replace(
@@ -200,21 +202,17 @@ class UploadPipeline:
         if not self.ctx.metadata:
             return self
 
-        try:
-            await Embeddings.update_metadata(
-                session,
-                digest=self.ctx.digest,
-                collection=self.ctx.collection.value,
-                metadata=self.ctx.metadata,
-            )
-            await DBDocument.update_metadata(
-                session=session,
-                id=self.ctx.document_id,
-                metadata=self.ctx.metadata,
-            )
-        except Exception as e:
-            raise Exception(f'Failed to persist metadata: {e}')
-
+        await Embeddings.update_metadata(
+            session,
+            digest=self.ctx.digest,
+            collection=self.ctx.collection.value,
+            metadata=self.ctx.metadata,
+        )
+        await DBDocument.update_metadata(
+            session=session,
+            id=self.ctx.document_id,
+            metadata=self.ctx.metadata,
+        )
         return self
 
     async def update_document_uris(self, session: AsyncSession) -> UploadPipeline:
