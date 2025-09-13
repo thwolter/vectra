@@ -7,7 +7,7 @@ from app.repositories import Document, Job, Ingestion
 from app.repositories.schemas import DocumentCreate, CreateJobCmd
 from app.schemas.upload import JobStatus
 from app.vector.schemas import IngestionVersionInsert
-from app.repositories.exceptions import DocumentNotFoundError
+from app.repositories.exceptions import DocumentNotFoundError, JobNotFoundError
 
 
 @pytest.mark.integration
@@ -22,7 +22,7 @@ async def test_cross_tenant_access_is_isolated(random_digest):
     created = {}
     async for s_a_u1 in access_scoped_session(tenant=ctx_a_u1):
         # Create a document
-        doc_id = await Document.create(
+        doc_id, _ = await Document.upsert(
             s_a_u1,
             data=DocumentCreate(
                 collection='default',
@@ -34,7 +34,7 @@ async def test_cross_tenant_access_is_isolated(random_digest):
         )
 
         # Create a job linked to the document
-        job_id = await Job.create(
+        job_id, _ = await Job.upsert(
             s_a_u1,
             job=CreateJobCmd(
                 status=JobStatus.PROCESSING,
@@ -73,11 +73,13 @@ async def test_cross_tenant_access_is_isolated(random_digest):
         with pytest.raises(DocumentNotFoundError):
             await Document.get(s_b_v1, id=created['doc_id'])
 
-        job_status = await Job.get_status(s_b_v1, job_id=created['job_id'])
-        assert job_status is None
+        with pytest.raises(JobNotFoundError):
+            await Job.status(s_b_v1, job_id=created['job_id'])
 
         # Ingestion.exists should be False under a different tenant
-        exists = await Ingestion.exists(s_b_v1, digest=random_digest, collection='default')
+        exists = await Ingestion.exists(
+            s_b_v1, digest=random_digest, collection='default'
+        )
         assert exists is False
 
 
@@ -90,8 +92,9 @@ async def test_same_tenant_different_users_can_access(random_digest):
     user_u1 = uuid.UUID('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01')
     ctx_a_u1 = AccessContext(tenant_id=tenant_a, user_id=user_u1)
 
+    created = {}
     async for s_a_u1 in access_scoped_session(tenant=ctx_a_u1):
-        doc_id = await Document.create(
+        doc_id, _ = await Document.upsert(
             s_a_u1,
             data=DocumentCreate(
                 collection='default',
@@ -99,7 +102,7 @@ async def test_same_tenant_different_users_can_access(random_digest):
                 original_filename='mt-doc.pdf',
             ),
         )
-        job_id = await Job.create(
+        job_id, _ = await Job.upsert(
             s_a_u1,
             job=CreateJobCmd(
                 status=JobStatus.PROCESSING,
@@ -134,9 +137,11 @@ async def test_same_tenant_different_users_can_access(random_digest):
         assert doc.digest == random_digest
         assert doc.collection == 'default'
 
-        status = await Job.get_status(s_a_u2, job_id=created['job_id'])
+        status = await Job.status(s_a_u2, job_id=created['job_id'])
         assert status is not None
         assert status.job_id == created['job_id']
 
-        exists = await Ingestion.exists(s_a_u2, digest=random_digest, collection='default')
+        exists = await Ingestion.exists(
+            s_a_u2, digest=random_digest, collection='default'
+        )
         assert exists is True

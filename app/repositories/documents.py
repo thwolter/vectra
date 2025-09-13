@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Tuple
 
 from loguru import logger
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -13,7 +14,8 @@ from app.core.config import get_settings
 from uuid import UUID, uuid4
 
 from app.repositories.schemas import DocumentCreate
-from .exceptions import DocumentNotFoundError
+from .exceptions import DocumentNotFoundError, DocumentUpdateError
+from sqlalchemy.dialects.postgresql import insert
 
 settings = get_settings()
 
@@ -21,46 +23,69 @@ settings = get_settings()
 class Document:
     @staticmethod
     async def get(session: AsyncSession, *, id: UUID) -> DocumentRecord:
-        rec = await session.get(DocumentRecord, id)
-        if not rec:
+        rec: DocumentRecord | None = await session.get(DocumentRecord, id)
+        if rec is None:
             raise DocumentNotFoundError('Document row not found for given id')
         return rec
 
     @staticmethod
-    async def create(session: AsyncSession, *, data: DocumentCreate) -> UUID:
-        new_id = uuid4()
-        rec = DocumentRecord(
-            id=new_id,
-            tenant_id=session.info['tenant_id'],
-            created_by=session.info['user_id'],
-            collection=data.collection,
-            digest=data.digest,
-            original_filename=data.original_filename,
-            content_type=data.content_type,
-            size_bytes=data.size_bytes,
-            meta=(data.meta if data.meta is not None else None),
+    async def upsert(
+        session: AsyncSession, *, data: DocumentCreate
+    ) -> Tuple[UUID, bool]:
+        """Insert or update a canonical document. Returns the document id and a boolean (True if created)"""
+        tenant_id = session.info['tenant_id']
+        user_id = session.info['user_id']
+
+        raw_meta = getattr(data, 'meta', None)
+        meta_ = None if raw_meta in (None, 'null') else raw_meta
+
+        stmt = (
+            insert(DocumentRecord)
+            .values(
+                id=uuid4(),
+                tenant_id=tenant_id,
+                created_by=user_id,
+                collection=data.collection,
+                digest=data.digest,
+                original_filename=data.original_filename,
+                content_type=data.content_type,
+                size_bytes=data.size_bytes,
+                original_uri=None,
+                markdown_uri=None,
+                store=None,
+                meta=meta_,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            .on_conflict_do_update(
+                index_elements=[
+                    DocumentRecord.tenant_id,
+                    DocumentRecord.collection,
+                    DocumentRecord.digest,
+                ],
+                # true no-op update; enables RETURNING on conflict
+                set_={'id': DocumentRecord.id},
+            )
+            .returning(
+                DocumentRecord.id,
+                # inserted=True iff it was an INSERT (xmax==0)
+                literal_column('(xmax = 0)').label('inserted'),
+            )
         )
-        try:
-            session.add(rec)
-            await session.commit()
-        except IntegrityError as e:
-            await session.rollback()
-            if existing_id := await Document.find(session, data):
-                return existing_id
-            raise Exception(
-                f'IntegrityError but no existing row found for {data.collection}/{data.digest}: {e}'
-            )
-        except Exception as e:
-            await session.rollback()
-            raise Exception(
-                f'Failed to create document {data.collection}/{data.digest}: {e}'
-            )
-        return new_id
+
+        res = await session.execute(stmt)
+        row = res.one()  # (id, inserted)
+        await session.commit()
+
+        doc_id = row[0]
+        created = bool(row[1])
+        return doc_id, created
 
     @staticmethod
     async def find(session: AsyncSession, data):
         result = await session.execute(
             select(DocumentRecord.id).where(
+                DocumentRecord.tenant_id == session.info['tenant_id'],
                 DocumentRecord.collection == data.collection,
                 DocumentRecord.digest == data.digest,
             )
@@ -81,22 +106,18 @@ class Document:
         Expects fully-qualified URIs to be provided by the caller (service layer).
         Does not modify original_filename. Also persists the backing store name.
         """
+        rec = await Document.get(session, id=id)
+        rec.store = settings.document_store
+        if original_uri is not None:
+            rec.original_uri = original_uri
+        if markdown_uri is not None:
+            rec.markdown_uri = markdown_uri
+        rec.updated_at = datetime.now(timezone.utc)
         try:
-            rec = await session.get(DocumentRecord, id)
-            if not rec:
-                logger.error(f'Document id {id} not found for URI update')
-                return
-            # Always store the store identifier
-            rec.store = settings.document_store
-            if original_uri is not None:
-                rec.original_uri = original_uri
-            if markdown_uri is not None:
-                rec.markdown_uri = markdown_uri
-            rec.updated_at = datetime.now(timezone.utc)
             await session.commit()
         except Exception as e:
             await session.rollback()
-            logger.error(f'Failed to update URIs for id {id}: {e}')
+            raise DocumentUpdateError(f'Failed to update URIs for id {id}: {e}')
 
     @staticmethod
     async def update_metadata(
@@ -106,9 +127,7 @@ class Document:
         metadata: dict,
         replace: bool = False,
     ) -> None:
-        rec = await session.get(DocumentRecord, id)
-        if not rec:
-            raise Exception(f'Document id {id} not found')
+        rec = await Document.get(session, id=id)
         if replace:
             rec.meta = metadata
         else:

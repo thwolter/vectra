@@ -4,15 +4,16 @@ from datetime import datetime, timezone
 
 from loguru import logger
 from sqlmodel import select
-from sqlalchemy import delete
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import delete, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, overload
+from sqlalchemy.dialects.postgresql import insert
+from typing import Any, overload, Tuple
 
 from app.utils.types import SHA256B64
 from app.vector.schemas import IngestionVersionKey
 from uuid import uuid4, UUID
 from app.repositories.models import IngestionRecord
+from app.repositories.exceptions import IngestionAlreadyExistsError
 
 
 class Ingestion:
@@ -56,6 +57,21 @@ class Ingestion:
 
     @staticmethod
     async def create(session: AsyncSession, *, key: IngestionVersionKey) -> UUID:
+        uuid, created = await Ingestion.upsert(session, key=key)
+        if not created:
+            raise IngestionAlreadyExistsError(f'Ingestion already exists for {key}')
+        return uuid
+
+    @staticmethod
+    async def upsert(
+        session: AsyncSession, *, key: IngestionVersionKey
+    ) -> Tuple[UUID, bool]:
+        """Insert or no-op update an ingestion version row.
+
+        Performs a PostgreSQL upsert keyed by the unique tuple
+        (tenant_id, collection, digest, chunker_version, embed_model, embed_model_ver).
+        Returns (id, created) where created=True iff a new row was inserted.
+        """
         tenant_id = session.info['tenant_id']
         user_id = session.info['user_id']
         if not (tenant_id and user_id):
@@ -64,32 +80,40 @@ class Ingestion:
             )
 
         now_utc = datetime.now(timezone.utc)
-        new_id = uuid4()
-        rec = IngestionRecord(
-            id=new_id,
-            tenant_id=tenant_id,
-            created_by=user_id or tenant_id,
-            collection=key.collection,
-            digest=key.digest,
-            chunker_version=key.chunker_version,
-            embed_model=key.embed_model,
-            embed_model_ver=key.embed_model_ver,
-            created_at=now_utc,
+        stmt = (
+            insert(IngestionRecord)
+            .values(
+                id=uuid4(),
+                tenant_id=tenant_id,
+                created_by=user_id,
+                collection=key.collection,
+                digest=key.digest,
+                chunker_version=key.chunker_version,
+                embed_model=key.embed_model,
+                embed_model_ver=key.embed_model_ver,
+                created_at=now_utc,
+                updated_at=now_utc,
+            )
+            .on_conflict_do_update(
+                index_elements=[
+                    IngestionRecord.tenant_id,
+                    IngestionRecord.collection,
+                    IngestionRecord.digest,
+                    IngestionRecord.chunker_version,
+                    IngestionRecord.embed_model,
+                    IngestionRecord.embed_model_ver,
+                ],
+                set_={'id': IngestionRecord.id},
+            )
+            .returning(
+                IngestionRecord.id,
+                literal_column('(xmax = 0)').label('inserted'),
+            )
         )
-        try:
-            session.add(rec)
-            await session.commit()
-            return new_id
-        except IntegrityError:
-            await session.rollback()
-            # Fetch existing id by unique tuple
-            existing_id = await Ingestion.find(session, key)
-            if existing_id is not None:
-                return existing_id
-            raise
-        except Exception as e:
-            await session.rollback()
-            raise Exception(f'Failed to insert ingestion_versions: {e}')
+        res = await session.execute(stmt)
+        row = res.one()
+        await session.commit()
+        return row[0], bool(row[1])
 
     @staticmethod
     async def find(session: AsyncSession, key: IngestionVersionKey):

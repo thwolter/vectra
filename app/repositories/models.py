@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel, UniqueConstraint
 from sqlalchemy import Column, DateTime, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 
-from utils.types import SHA256B64
+from app.utils.types import SHA256B64
 
 
 class DocumentRecord(SQLModel, table=True):
@@ -83,7 +83,7 @@ class IngestionRecord(SQLModel, table=True):
             'chunker_version',
             'embed_model',
             'embed_model_ver',
-            name='uq_ingestion_versions_tenant_composite',
+            name='uq_ingestion_tenant_composite',
         ),
     )
 
@@ -134,6 +134,15 @@ class JobRecord(SQLModel, table=True):
     """
 
     __tablename__ = 'upload_jobs'
+    __table_args__ = (
+        UniqueConstraint(
+            'tenant_id',
+            'document_uuid',
+            'collection',
+            'digest',
+            name='uq_job_tenant_document_collection_digest',
+        ),
+    )
 
     id: UUID = Field(
         default_factory=uuid4,

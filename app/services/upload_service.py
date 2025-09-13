@@ -23,6 +23,7 @@ from app.schemas.jobs import InitJob
 from app.vector.protocols import IngestorProtocol
 from app.protocols.services import UploadServiceProtocol
 from app.repositories import Ingestion
+from app.repositories import Job
 
 
 class UploadService(UploadServiceProtocol):
@@ -63,7 +64,7 @@ class UploadService(UploadServiceProtocol):
         digest = await payload.file.sha256_b64()
 
         document_service = DocumentService(collection=self.collection)
-        document_uuid = await document_service.ensure_canonical_document(
+        document_uuid, _ = await document_service.ensure_canonical_document(
             session,
             digest=digest,
             original_filename=payload.file.filename,
@@ -71,20 +72,29 @@ class UploadService(UploadServiceProtocol):
             size_bytes=payload.file.size,
         )
 
-        strategy: Strategy = Strategy.from_hints(payload.hints)
-        propose_metadata = strategy.proposed_metadata()
-
-        init_job = InitJob(
-            document_uuid=document_uuid,
-            collection=self.collection.value,
+        job_record = None
+        if job_id := await Job.find(
+            session,
             digest=digest,
-            original_filename=payload.file.filename,
-            content_type=payload.file.content_type,
-            size_bytes=payload.file.size,
-            proposed_metadata=propose_metadata,
-        )
+            collection=self.collection.value,
+            document_id=document_uuid,
+        ):
+            logger.info(f'Found existing job {job_id} for {digest}')
+            job_record = await Job.get(session, job_id=job_id)
+        else:
+            strategy: Strategy = Strategy.from_hints(payload.hints)
+            propose_metadata = strategy.proposed_metadata()
 
-        job_id = await self.job_service.init_job(session, job=init_job)
+            init_job = InitJob(
+                document_uuid=document_uuid,
+                collection=self.collection.value,
+                digest=digest,
+                original_filename=payload.file.filename,
+                content_type=payload.file.content_type,
+                size_bytes=payload.file.size,
+                proposed_metadata=propose_metadata,
+            )
+            job_id = await self.job_service.init_job(session, job=init_job)
 
         # Early dedup signal based on any existing ingestion version for (collection, digest)
         dedup = await Ingestion.exists(
@@ -93,13 +103,18 @@ class UploadService(UploadServiceProtocol):
             collection=self.collection.value,
         )
 
+        status = JobStatus(job_record.status) if job_record else JobStatus.PROCESSING
+        original_filename = (
+            job_record.original_filename if job_record else payload.file.filename
+        )
+
         return UploadInitResponse(
             job_id=job_id,
             document_id=document_uuid,
-            status=JobStatus.PROCESSING,  # init call returns processing per API; job status endpoint shows completed
+            status=status,
             deduplicated=dedup,
             digest=digest,
-            original_filename=payload.file.filename,
+            original_filename=original_filename,
         )
 
     async def continue_processing(

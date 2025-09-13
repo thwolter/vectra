@@ -6,6 +6,7 @@ from app.repositories import Job
 from app.schemas.upload import JobStatus
 from app.schemas.enums import CollectionEnum
 from app.repositories.schemas import CreateJobCmd
+from app.repositories.exceptions import JobNotFoundError
 
 
 @pytest.mark.integration
@@ -29,19 +30,19 @@ async def test_delete_job_removes_row_and_is_idempotent(
         percent=0,
         step='init',
     )
-    job_id = await Job.create(session, job=job)
+    job_id, _ = await Job.upsert(session, job=job)
 
     # Ensure it exists
-    status = await Job.get_status(session, job_id=job_id)
+    status = await Job.status(session, job_id=job_id)
     assert status is not None
     assert status.job_id == job_id
 
     # Delete the job
     first = await Job.delete(session, job_id=job_id)
     assert first is True
-    # Verify it's gone
-    status_after = await Job.get_status(session, job_id=job_id)
-    assert status_after is None
+
+    with pytest.raises(JobNotFoundError):
+        await Job.status(session, job_id=job_id)
 
     # Second delete is a no-op
     second = await Job.delete(session, job_id=job_id)
@@ -65,7 +66,7 @@ async def test_update_status(session, random_digest):
         percent=5,
         step='hash',
     )
-    job_id = await Job.create(session, job=job)
+    job_id, _ = await Job.upsert(session, job=job)
 
     # Update status to COMPLETED with percent/step overrides
     await Job.update_status(
@@ -76,7 +77,7 @@ async def test_update_status(session, random_digest):
         step='done',
     )
 
-    status = await Job.get_status(session, job_id=job_id)
+    status = await Job.status(session, job_id=job_id)
     assert status is not None
     assert status.status == JobStatus.COMPLETED
     assert status.progress.percent == 100
@@ -100,11 +101,11 @@ async def test_update_progress(session, random_digest):
         percent=0,
         step='start',
     )
-    job_id = await Job.create(session, job=job)
+    job_id, _ = await Job.upsert(session, job=job)
 
     await Job.update_progress(session, job_id=job_id, percent=42, step='parsing')
 
-    status = await Job.get_status(session, job_id=job_id)
+    status = await Job.status(session, job_id=job_id)
     assert status is not None
     assert status.status == JobStatus.PROCESSING
     assert status.progress.percent == 42
@@ -128,9 +129,9 @@ async def test_job_document_refs(session, random_digest):
         percent=1,
         step='queued',
     )
-    job_id = await Job.create(session, job=job)
+    job_id, _ = await Job.upsert(session, job=job)
 
-    refs = await Job.get_job_document_refs(session, job_id=job_id)
+    refs = await Job.document_refs(session, job_id=job_id)
     assert refs is not None
     assert refs.digest == random_digest
     assert refs.collection == CollectionEnum.DEFAULT.value

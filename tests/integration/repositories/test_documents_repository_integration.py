@@ -21,7 +21,7 @@ async def test_create_and_get_document_roundtrip(session, random_digest):
         meta={'hint': 'v1'},
     )
 
-    doc_id = await Document.create(session, data=data)
+    doc_id, _ = await Document.upsert(session, data=data)
     assert isinstance(doc_id, UUID)
 
     doc = await Document.get(session, id=doc_id)
@@ -52,8 +52,8 @@ async def test_create_is_idempotent_by_collection_and_digest(session, random_dig
         size_bytes=20,
     )
 
-    id1 = await Document.create(session, data=first)
-    id2 = await Document.create(session, data=second)
+    id1, _ = await Document.upsert(session, data=first)
+    id2, _ = await Document.upsert(session, data=second)
 
     assert id1 == id2, 'Same (tenant, collection, digest) should return existing row id'
 
@@ -69,7 +69,7 @@ async def test_same_digest_in_different_collections_creates_distinct_rows(
     session,
     random_digest,
 ):
-    id_default = await Document.create(
+    id_default, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
@@ -77,7 +77,7 @@ async def test_same_digest_in_different_collections_creates_distinct_rows(
             original_filename='a.pdf',
         ),
     )
-    id_fin = await Document.create(
+    id_fin, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.FINANCIAL.value,
@@ -93,7 +93,7 @@ async def test_same_digest_in_different_collections_creates_distinct_rows(
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_update_uris_updates_fields(session, random_digest):
-    doc_id = await Document.create(
+    doc_id, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
@@ -118,7 +118,7 @@ async def test_update_uris_updates_fields(session, random_digest):
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_update_metadata_replaces_meta(session, random_digest):
-    doc_id = await Document.create(
+    doc_id, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
@@ -148,7 +148,7 @@ async def test_update_metadata_replaces_meta(session, random_digest):
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_delete_removes_row_and_is_idempotent(session, random_digest):
-    doc_id = await Document.create(
+    doc_id, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,

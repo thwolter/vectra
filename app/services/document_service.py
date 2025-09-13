@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Literal, AsyncIterator
+from typing import Optional, Literal, AsyncIterator, Tuple
 from uuid import UUID
 
 from app.schemas.documents import (
@@ -16,7 +16,7 @@ from app.store.providers import default_store_provider
 from app.store.local_store import make_uri
 from app.store.schemas import FileInfo
 from app.repositories import Document
-from utils.types import SHA256B64
+from app.utils.types import SHA256B64
 
 
 class DocumentService:
@@ -39,13 +39,13 @@ class DocumentService:
         original_filename: str | None,
         content_type: str | None,
         size_bytes: int | None,
-    ) -> UUID:
+    ) -> Tuple[UUID, bool]:
         """Create (or fetch) the canonical Document row and return its UUID string.
 
         Implements first-seen-wins for original_filename via repository upsert.
         """
 
-        document_id = await Document.create(
+        return await Document.upsert(
             session,
             data=DocumentCreate(
                 collection=self.collection.value,
@@ -56,7 +56,6 @@ class DocumentService:
                 meta=None,
             ),
         )
-        return document_id
 
     async def update_document_uris(
         self,

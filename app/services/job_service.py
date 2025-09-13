@@ -41,7 +41,7 @@ class JobService:
         },
         JobStatus.NEEDS_REVIEW: {JobStatus.COMPLETED, JobStatus.FAILED},
         JobStatus.COMPLETED: {JobStatus.COMPLETED},
-        JobStatus.FAILED: {JobStatus.FAILED},
+        JobStatus.FAILED: {JobStatus.FAILED, JobStatus.COMPLETED},
     }
 
     async def init_job(self, session: AsyncSession, *, job: InitJob) -> UUID:
@@ -62,7 +62,8 @@ class JobService:
             size_bytes=job.size_bytes,
             proposed_metadata=job.proposed_metadata,
         )
-        return await Job.create(session, job=create)
+        job_id, _ = await Job.upsert(session, job=create)
+        return job_id
 
     async def update_progress(
         self,
@@ -75,7 +76,7 @@ class JobService:
         """Clamp percent to 0-100; ensure monotonicity; normalize empty step to None."""
         norm_step = (step or None) if step else None
         # Fetch existing to enforce monotonic
-        current = await Job.get_status(session=session, job_id=job_id)
+        current = await Job.status(session=session, job_id=job_id)
         old = int(current.progress.percent) if current else 0
         new_percent = max(old, max(0, min(100, int(percent))))
         await Job.update_progress(
@@ -93,7 +94,7 @@ class JobService:
         step: str | None = None,
     ) -> None:
         """Enforce valid transitions; normalize fields and persist."""
-        cur = await Job.get_status(session=session, job_id=job_id)
+        cur = await Job.status(session=session, job_id=job_id)
         cur_status = (
             JobStatus(cur.status) if cur and cur.status else JobStatus.PROCESSING
         )
@@ -148,7 +149,7 @@ class JobService:
     async def get_status(
         self, session: AsyncSession, *, job_id: UUID
     ) -> JobStatusResponse:
-        snap = await Job.get_status(session=session, job_id=job_id)
+        snap = await Job.status(session=session, job_id=job_id)
         if snap is None:
             return JobStatusResponse(
                 job_id=job_id,
@@ -175,7 +176,7 @@ class JobService:
     async def _apply_corrections_to_embeddings(
         self, session: AsyncSession, *, job_id, proposed_obj
     ) -> bool:
-        refs = await Job.get_job_document_refs(session=session, job_id=job_id)
+        refs = await Job.document_refs(session=session, job_id=job_id)
         if refs:
             meta_payload = proposed_obj.metadata or {}
             if hasattr(meta_payload, 'model_dump'):

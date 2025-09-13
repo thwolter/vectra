@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import text
 
 from app.repositories import Job
 from tests.helper import make_api_client
@@ -43,7 +44,15 @@ async def test_review_job_confirm_only(session, created_job_id):
     assert resp['status'] == JobStatus.COMPLETED.value
 
     # Verify DB entry updated
-    status = await Job.get_status(session, job_id=created_job_id)
+    # force a connection and stamp GUCs (don’t rely on timing)
+    await session.connection()
+    await session.execute(
+        text("SELECT set_config('app.tenant_id', :tid, false)").bindparams(
+            tid=str(session.info['tenant_id'])
+        )
+    )
+
+    status = await Job.status(session, job_id=created_job_id)
     assert status is not None
     assert status.status == JobStatus.COMPLETED
 
@@ -76,7 +85,15 @@ async def test_review_job_with_corrections(session, created_job_id):
     assert resp['status'] == JobStatus.COMPLETED.value
 
     # Verify DB reflects corrected metadata
-    status = await Job.get_status(session, job_id=created_job_id)
+    # force a connection and stamp GUCs (don’t rely on timing)
+    await session.connection()
+    await session.execute(
+        text("SELECT set_config('app.tenant_id', :tid, false)").bindparams(
+            tid=str(session.info['tenant_id'])
+        )
+    )
+
+    status = await Job.status(session, job_id=created_job_id)
     assert status is not None
     assert status.status == JobStatus.COMPLETED
 

@@ -13,8 +13,8 @@ from app.schemas.jobs import InitJob
 @pytest.fixture(scope='function')
 def FakeJob():
     fake_job = create_autospec(Job)
-    fake_job.create.return_value = None
-    fake_job.get_status.return_value = None
+    fake_job.upsert.return_value = (uuid.uuid4(), True)
+    fake_job.status.return_value = None
     fake_job.status_updates = []
     return fake_job
 
@@ -36,7 +36,7 @@ async def test_init_job_sets_canonical_defaults_and_passes_fields(
         size_bytes=123,
     )
     await service.init_job(mock_session, job=job)
-    assert FakeJob.create.call_count == 1
+    assert FakeJob.upsert.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -47,7 +47,7 @@ async def test_update_progress_clamps_and_monotonic_and_normalizes_step(
     job_id = uuid.uuid4()
 
     # Seed current status so the service has a baseline (40%)
-    FakeJob.get_status.return_value = JobStatusResponse(
+    FakeJob.status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.PROCESSING,
         progress=JobProgress(percent=40, step='parse'),
@@ -82,7 +82,7 @@ async def test_update_status_valid_transition_and_clamping_and_step_norm(
     monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
 
-    FakeJob.get_status.return_value = JobStatusResponse(
+    FakeJob.status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.PROCESSING,
         progress=JobProgress(percent=20, step='parse'),
@@ -130,7 +130,7 @@ async def test_update_status_invalid_transition_raises(
 ):
     monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
-    FakeJob.get_status.return_value = JobStatusResponse(
+    FakeJob.status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.COMPLETED,
         progress=JobProgress(percent=100, step=''),
@@ -170,7 +170,7 @@ async def test_get_status_not_found_returns_failed_with_error(
 ):
     monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     # Ensure repository returns "not found" for this test regardless of prior mutations
-    FakeJob.get_status.return_value = None
+    FakeJob.status.return_value = None
     service = JobService()
 
     job_id = uuid.uuid4()
@@ -199,7 +199,7 @@ async def test_get_status_rehydrates_proposed_metadata(
     monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     job_id = uuid.uuid4()
     # Repository returns a plain dict; proposed_metadata is also a dict
-    FakeJob.get_status.return_value = JobStatusResponse(
+    FakeJob.status.return_value = JobStatusResponse(
         job_id=job_id,
         status=JobStatus.NEEDS_REVIEW,
         progress=JobProgress(percent=80, step='extract-meta'),

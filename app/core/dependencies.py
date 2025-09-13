@@ -125,4 +125,5 @@ __all__ = [
     'require_auth',
     'access_scoped_session',
     'apply_access_context',
+    'require_access_context',
 ]

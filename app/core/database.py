@@ -58,25 +58,29 @@ async def _ensure_models_load():
 
 
 async def assert_rls_enforced(conn) -> None:
-    row = (await conn.execute(text(
-        """
+    row = (
+        await conn.execute(
+            text(
+                """
         SELECT rolsuper, rolbypassrls
         FROM pg_roles
         WHERE rolname = current_user
         """
-    ))).fetchone()
-    rs = (await conn.execute(text("SHOW row_security"))).scalar_one()
+            )
+        )
+    ).fetchone()
+    rs = (await conn.execute(text('SHOW row_security'))).scalar_one()
 
     if not row:
-        raise RuntimeError("Could not read pg_roles for current_user")
+        raise RuntimeError('Could not read pg_roles for current_user')
 
     rolsuper, rolbypassrls = row
-    if rolsuper or rolbypassrls or rs.lower() != "on":
+    if rolsuper or rolbypassrls or rs.lower() != 'on':
         raise RlsNotEnforcedError(
-            f"RLS NOT ENFORCED: rolsuper={rolsuper}, rolbypassrls={rolbypassrls}, row_security={rs}"
+            f'RLS NOT ENFORCED: rolsuper={rolsuper}, rolbypassrls={rolbypassrls}, row_security={rs}'
         )
 
-    logger.debug("RLS enforced for current_user; row_security is ON")
+    logger.debug('RLS enforced for current_user; row_security is ON')
 
 
 class DatabaseManager:
@@ -119,6 +123,8 @@ class DatabaseManager:
 
     async def _create_extensions(self):
         # Ensure pgcrypto and vector extensions are available (dev/test convenience).
+        if not self._engine:
+            raise RuntimeError('Engine not initialized')
         try:
             async with self._engine.begin() as conn:
                 await conn.execute(text('CREATE EXTENSION IF NOT EXISTS pgcrypto;'))
@@ -143,18 +149,20 @@ class DatabaseManager:
             logger.debug('Database async engine initialized')
 
             # Harden per-connection defaults: enforce RLS, unset tenant GUC, and set UTC
-            @event.listens_for(self._engine.sync_engine, "connect")
+            @event.listens_for(self._engine.sync_engine, 'connect')
             def _on_connect(dbapi_connection, connection_record):  # pragma: no cover
                 # For asyncpg's adapted cursor, context manager is not supported.
                 # Use the raw cursor and call execute synchronously; SQLAlchemy adapts this for us.
                 cur = dbapi_connection.cursor()
-                cur.execute("SET row_security = on")
-                cur.execute("RESET app.tenant_id")
+                cur.execute('SET row_security = on')
+                cur.execute('RESET app.tenant_id')
                 cur.execute("SET TIME ZONE 'UTC'")
 
     async def initialize(self) -> None:
         """Explicit initialization hook (optional for callers)."""
         await self._ensure_engine()
+        if not self._engine:
+            raise RuntimeError('Engine not initialized')
         async with self._engine.connect() as conn:
             await assert_rls_enforced(conn)
             await self._create_extensions()

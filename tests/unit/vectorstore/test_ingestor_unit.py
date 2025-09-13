@@ -12,7 +12,7 @@ from app.vector.ingestor import DocumentIngestor
 @pytest.fixture
 def ingestor():
     repo = create_autospec(Ingestion, instance=True)
-    repo.create = AsyncMock(return_value=None)
+    repo.upsert = AsyncMock(return_value=None)
     repo.exists = AsyncMock(return_value=False)
 
     ingestor = DocumentIngestor(CollectionEnum.DEFAULT)
@@ -39,7 +39,7 @@ async def test_ingest_calls_add_documents(
     # The ingestor checks embeddings via classmethod exists_by_digest
     FakeIngestion.exists = AsyncMock(return_value=False)
     # Marking ingestion uses insert_key
-    FakeIngestion.create = AsyncMock(return_value=None)
+    FakeIngestion.upsert = AsyncMock(return_value=None)
     monkeypatch.setattr('app.vector.ingestor.Ingestion', FakeIngestion)
 
     vstore = create_autospec(PGVector, instance=True)
