@@ -24,6 +24,10 @@ from app.vector.protocols import IngestorProtocol
 from app.protocols.services import UploadServiceProtocol
 from app.repositories import Ingestion
 from app.repositories import Job
+from app.core.dependencies import (
+    get_database_manager,
+    access_scoped_session_ctx,
+)
 
 
 class UploadService(UploadServiceProtocol):
@@ -51,6 +55,7 @@ class UploadService(UploadServiceProtocol):
         self.parser_provider = parser
         self.pipeline = UploadPipeline(store=store, ingestor=ingestor, parser=parser)
         self.job_service = JobService()
+        self.db = get_database_manager()
 
     async def start_document_upload(
         self, session: AsyncSession, *, payload: StartUploadInput
@@ -119,8 +124,6 @@ class UploadService(UploadServiceProtocol):
 
     async def continue_processing(
         self,
-        session: AsyncSession,
-        *,
         payload: ContinueProcessingInput,
     ) -> None:
         """Perform the heavy processing steps for an initialized job.
@@ -133,57 +136,58 @@ class UploadService(UploadServiceProtocol):
         pipeline = self.pipeline.init(init_ctx)
         job_id = init_ctx.job_id
 
-        try:
-            await self.job_service.update_progress(
-                session, job_id=job_id, percent=10, step='store_original'
-            )
-            await pipeline.store_original()
+        async with access_scoped_session_ctx(payload.access_context) as session:
+            try:
+                await self.job_service.update_progress(
+                    session, job_id=job_id, percent=10, step='store_original'
+                )
+                await pipeline.store_original()
 
-            await self.job_service.update_progress(
-                session, job_id=job_id, percent=20, step='parse'
-            )
-            await pipeline.parse_document()
+                await self.job_service.update_progress(
+                    session, job_id=job_id, percent=20, step='parse'
+                )
+                await pipeline.parse_document()
 
-            await self.job_service.update_progress(
-                session, job_id=job_id, percent=50, step='store_markdown'
-            )
-            await pipeline.store_markdown()
+                await self.job_service.update_progress(
+                    session, job_id=job_id, percent=50, step='store_markdown'
+                )
+                await pipeline.store_markdown()
 
-            await self.job_service.update_progress(
-                session, job_id=job_id, percent=60, step='prepare_metadata'
-            )
-            await pipeline.enrich_docs_metadata()
+                await self.job_service.update_progress(
+                    session, job_id=job_id, percent=60, step='prepare_metadata'
+                )
+                await pipeline.enrich_docs_metadata()
 
-            await self.job_service.update_progress(
-                session, job_id=job_id, percent=70, step='ingest'
-            )
-            await pipeline.ingest_documents(session=session)
+                await self.job_service.update_progress(
+                    session, job_id=job_id, percent=70, step='ingest'
+                )
+                await pipeline.ingest_documents(session=session)
 
-            await self.job_service.update_progress(
-                session, job_id=job_id, percent=90, step='ensure_metadata'
-            )
-            await pipeline.persist_metadata(session=session)
+                await self.job_service.update_progress(
+                    session, job_id=job_id, percent=90, step='ensure_metadata'
+                )
+                await pipeline.persist_metadata(session=session)
 
-            await self.job_service.update_progress(
-                session, job_id=job_id, percent=95, step='update_s3_uris'
-            )
-            await pipeline.update_document_uris(session=session)
+                await self.job_service.update_progress(
+                    session, job_id=job_id, percent=95, step='update_s3_uris'
+                )
+                await pipeline.update_document_uris(session=session)
 
-            job_status = (
-                JobStatus.NEEDS_REVIEW
-                if pipeline.ctx.needs_review
-                else JobStatus.COMPLETED
-            )
-            await self.job_service.update_status(
-                session,
-                job_id=job_id,
-                status=job_status,
-                proposed_metadata=pipeline.ctx.proposed_metadata,
-            )
-            logger.success(f'Finalized job {job_id}')
+                job_status = (
+                    JobStatus.NEEDS_REVIEW
+                    if pipeline.ctx.needs_review
+                    else JobStatus.COMPLETED
+                )
+                await self.job_service.update_status(
+                    session,
+                    job_id=job_id,
+                    status=job_status,
+                    proposed_metadata=pipeline.ctx.proposed_metadata,
+                )
+                logger.success(f'Finalized job {job_id}')
 
-        except Exception as e:
-            logger.exception(
-                f'Background processing failed for job {payload.job_id}: {e}'
-            )
-            await self.job_service.fail_job(session, job_id=payload.job_id, exc=e)
+            except Exception as e:
+                logger.exception(
+                    f'Background processing failed for job {payload.job_id}: {e}'
+                )
+                await self.job_service.fail_job(session, job_id=payload.job_id, exc=e)

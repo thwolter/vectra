@@ -4,6 +4,7 @@ from app.schemas.enums import CollectionEnum
 from app.vector.ingestor import DocumentIngestor
 from app.vector.models import IngestorSettings
 from app.repositories import Embeddings
+from app.vector.factory import get_vectorstore
 
 
 @pytest.fixture
@@ -11,7 +12,7 @@ def ingestor() -> DocumentIngestor:
     """Create DocumentIngestor instance for testing."""
     ingest_settings = IngestorSettings(max_docs_per_batch=2)
     return DocumentIngestor(
-        collection=CollectionEnum.DEFAULT, ingest_settings=ingest_settings
+        collection=CollectionEnum.DEFAULT.value, ingest_settings=ingest_settings
     )
 
 
@@ -28,7 +29,10 @@ async def test_ingest_creates_embeddings(
 
     # Search for content from the first document
     first_doc_content = test_docs[0].page_content[:100]  # First 100 chars
-    results = ingestor.vectorstore.similarity_search(first_doc_content, k=1)
+    vs = get_vectorstore(
+        collection=CollectionEnum.DEFAULT.value, tenant_id=session.info['tenant_id']
+    )
+    results = vs.similarity_search(first_doc_content, k=1)
 
     assert len(results) > 0, 'No documents found in vector after ingestion'
     assert any(first_doc_content[:50] in result.page_content for result in results), (

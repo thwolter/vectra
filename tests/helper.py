@@ -8,7 +8,6 @@ from langchain_core.documents import Document
 from loguru import logger
 from starlette.testclient import TestClient
 
-from app.core.config import get_settings
 from app.main import app
 from app.parsers.protocols import ParserProtocol
 from app.parsers.schemas import ParseResult
@@ -18,16 +17,7 @@ from app.services.upload_service import UploadService
 from app.store.local_store import LocalFileStore
 from app.store.protocols import StoreProtocol
 
-import hashlib
-import numpy as np
-from typing import List, Any, cast
-
-from langchain_core.embeddings import Embeddings
-from langchain_postgres import PGVector
-
-from app.vector.ingestor import DocumentIngestor
-
-# Imports for job test arrangement helpers
+from typing import Any, cast
 
 
 def make_files_param(apple_report_first_page):
@@ -67,29 +57,6 @@ def make_client_financial(base_path: Path) -> TestClientWithCleanup:
     client = TestClientWithCleanup(app)
     client._cleanup = _finalizer  # attach for manual cleanup
     return client
-
-
-# Deterministic, fast, no network calls
-class DeterministicFakeEmbeddings(Embeddings):
-    def __init__(self, dim: int = 1536) -> None:
-        self.dim = dim
-
-    def _vec_for(self, text: str) -> list[float]:
-        # Stable seed per text
-        seed = int(hashlib.sha256(text.encode('utf-8')).hexdigest()[:16], 16) % (2**32)
-        rng = np.random.default_rng(seed)
-        # Draw from N(0,1) then L2-normalize for dot/cosine stability
-        v = rng.standard_normal(self.dim)
-        v /= np.linalg.norm(v) + 1e-12
-        return v.astype(np.float32).tolist()
-
-    def embed_documents(
-        self, texts: List[str]
-    ) -> List[List[float]]:  # sync OK for tests
-        return [self._vec_for(t) for t in texts]
-
-    def embed_query(self, text: str) -> List[float]:
-        return self._vec_for(text)
 
 
 class FakeSampleParser(ParserProtocol):
@@ -141,31 +108,3 @@ class FakeSampleParser(ParserProtocol):
         logger.debug('Fake markdown conversion...')
         self._load_once()
         return self._markdown or 'test markdown'
-
-
-def build_test_upload_service(*, collection, base_prefix, sample_docs_path=None):
-    if sample_docs_path is None:
-        sample_docs_path = Path(__file__).parents[0] / 'data' / 'sample_docs.pkl'
-
-    settings = get_settings()
-    embedding = DeterministicFakeEmbeddings(dim=1536)
-    fake_vs = PGVector(
-        connection=settings.pg_vector_url.get_secret_value(),
-        collection_name=collection.value,
-        embeddings=embedding,
-    )
-    fake_ingestor = DocumentIngestor(collection=collection, vectorstore=fake_vs)
-    return UploadService(
-        collection=collection,
-        store=cast(StoreProtocol, LocalFileStore(collection, base_path=base_prefix)),
-        ingestor=fake_ingestor,
-        parser=FakeSampleParser(sample_docs_path),
-    )
-
-
-def make_api_client() -> TestClient:
-    """Return a FastAPI TestClient bound to the app.
-
-    Separated to keep test arrangement concise and uniform.
-    """
-    return TestClient(app)

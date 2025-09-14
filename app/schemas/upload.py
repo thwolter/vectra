@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.api.schemas import AccessContext
 from app.api.file import TemporaryUploadFile
 from app.metadata.schemas import NoopHints, FinanceReportHints, ProposedMetadata
 from app.utils.types import SHA256B64
@@ -76,6 +77,7 @@ class ContinueProcessingInput(StartUploadInput):
     job_id: UUID = Field(..., description='Server-generated job identifier (UUID)')
     document_id: UUID = Field(..., description='Stable hex digest for the document')
     digest: SHA256B64 = Field(..., description='SHA-256 hex digest of the document')
+    access_context: AccessContext
 
 
 class JobStatus(enum.Enum):

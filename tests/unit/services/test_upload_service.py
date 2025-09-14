@@ -4,6 +4,7 @@ from unittest.mock import create_autospec
 import pytest
 from fastapi import UploadFile
 
+from api.schemas import AccessContext
 from app.api.file import TemporaryUploadFile
 from app.schemas.upload import ContinueProcessingInput
 from app.services.job_service import JobService
@@ -31,9 +32,10 @@ async def test_continue_processing_calls_all_upload_handlers(
         digest=digest_str,
         file=TemporaryUploadFile.from_upload(tiny_pdf_upload),
         hints=None,
+        access_context=AccessContext.from_session(session).model_dump(),
     )
 
-    await service.continue_processing(session, payload=process_input)
+    await service.continue_processing(payload=process_input)
 
     # Verify each pipeline step was awaited exactly once
     assert pipeline.store_original.await_count == 1

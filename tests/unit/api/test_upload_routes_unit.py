@@ -22,8 +22,8 @@ DOCUMENT_ID = uuid.uuid4()
 
 
 @pytest.fixture()
-def api_client(monkeypatch, digest_str, fake_auth_client) -> TestClient:
-    client = fake_auth_client
+def api_client(monkeypatch, digest_str, auth_client) -> TestClient:
+    client = auth_client
     app = client.app
 
     upload_mock: UploadServiceProtocol = create_autospec(

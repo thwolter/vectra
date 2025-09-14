@@ -10,8 +10,8 @@ from app.vector.schemas import IngestionResult
 class IngestorProtocol:
     async def ingest(
         self,
-        *,
         session: AsyncSession,
+        *,
         docs: List[Document],
         digest: SHA256B64,
     ) -> IngestionResult: ...

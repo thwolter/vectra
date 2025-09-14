@@ -4,17 +4,14 @@ import pytest
 from sqlalchemy import text
 
 from app.repositories import Job
-from tests.helper import make_api_client
 from app.schemas.upload import JobStatus
 
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_get_job_returns_status(session, created_job_id):
-    api_client = make_api_client()
-
-    r = api_client.get(f'/api/v1/jobs/{created_job_id}')
+async def test_get_job_returns_status(session, created_job_id, auth_client):
+    r = auth_client.get(f'/api/v1/jobs/{created_job_id}')
 
     assert r.status_code == 200, r.text
     payload = r.json()
@@ -29,13 +26,12 @@ async def test_get_job_returns_status(session, created_job_id):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_review_job_confirm_only(session, created_job_id):
-    api_client = make_api_client()
+async def test_review_job_confirm_only(session, created_job_id, auth_client):
     body = {
         'confirm': True,
         'corrections': None,
     }
-    r = api_client.patch(f'/api/v1/jobs/{created_job_id}/review', json=body)
+    r = auth_client.patch(f'/api/v1/jobs/{created_job_id}/review', json=body)
 
     # Assert: response and DB should reflect COMPLETED and preserved metadata
     assert r.status_code == 200, r.text
@@ -67,8 +63,7 @@ async def test_review_job_confirm_only(session, created_job_id):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_review_job_with_corrections(session, created_job_id):
-    api_client = make_api_client()
+async def test_review_job_with_corrections(session, created_job_id, auth_client):
     body = {
         'confirm': True,
         'corrections': {
@@ -76,7 +71,7 @@ async def test_review_job_with_corrections(session, created_job_id):
             'financial_year': 2021,
         },
     }
-    r = api_client.patch(f'/api/v1/jobs/{created_job_id}/review', json=body)
+    r = auth_client.patch(f'/api/v1/jobs/{created_job_id}/review', json=body)
 
     # Assert response
     assert r.status_code == 200, r.text

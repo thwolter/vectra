@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.metadata.schemas import ProposedMetadata
 from app.schemas.upload import UploadHints
@@ -26,12 +27,14 @@ def get_model():
 
 
 async def extract_metadata(
+    session: AsyncSession,
+    *,
     digest: SHA256B64,
     collection: CollectionEnum,
-    *,
     hints: UploadHints,
 ) -> ProposedMetadata:
-    vs = get_vectorstore(collection=collection.value)
+    tenant_id = session.info['tenant_id']
+    vs = get_vectorstore(collection=collection.value, tenant_id=tenant_id)
     llm = get_model()
     strategy = Strategy.from_hints(hints)
     query = strategy.retrieval_query()

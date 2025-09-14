@@ -2,7 +2,6 @@ from unittest.mock import create_autospec, Mock, AsyncMock
 
 import pytest
 from langchain_core.documents import Document
-from langchain_postgres import PGVector
 
 from app.repositories import Ingestion
 from app.schemas.enums import CollectionEnum
@@ -11,11 +10,12 @@ from app.vector.ingestor import DocumentIngestor
 
 @pytest.fixture
 def ingestor():
+    # Note: DocumentIngestor uses Ingestion classmethods directly; this repo mock is unused
     repo = create_autospec(Ingestion, instance=True)
     repo.upsert = AsyncMock(return_value=None)
     repo.exists = AsyncMock(return_value=False)
 
-    ingestor = DocumentIngestor(CollectionEnum.DEFAULT)
+    ingestor = DocumentIngestor(CollectionEnum.DEFAULT.value)
     ingestor._ingestion_repo = repo
     return ingestor
 
@@ -34,19 +34,21 @@ async def test_ingest_empty_docs_returns_none(ingestor, random_digest, mock_sess
 async def test_ingest_calls_add_documents(
     ingestor, random_digest, mock_session, monkeypatch
 ):
-    # Patch the repository used inside DocumentIngestor to avoid real DB calls
-    FakeIngestion = create_autospec(Ingestion, instance=False, spec_set=True)
-    # The ingestor checks embeddings via classmethod exists_by_digest
+    # Patch Ingestion class used inside DocumentIngestor
+    FakeIngestion = create_autospec(Ingestion, spec_set=True)
     FakeIngestion.exists = AsyncMock(return_value=False)
-    # Marking ingestion uses insert_key
-    FakeIngestion.upsert = AsyncMock(return_value=None)
+    FakeIngestion.create = AsyncMock(return_value=None)
     monkeypatch.setattr('app.vector.ingestor.Ingestion', FakeIngestion)
 
-    vstore = create_autospec(PGVector, instance=True)
+    # Provide a fake vectorstore instance and make factory return it
+    vstore = Mock()
     vstore.add_documents = Mock(return_value=None)
     vstore.collection_name = 'default'
 
-    ingestor.vectorstore = vstore
+    def fake_get_vectorstore(*args, **kwargs):
+        return vstore
+
+    monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_get_vectorstore)
 
     docs = [Document(page_content='Hello World')]
 

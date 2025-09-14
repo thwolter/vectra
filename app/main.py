@@ -5,7 +5,6 @@ from app.api.v1 import ROUTERS
 from app.core.config import get_settings
 from app.core.dependencies import get_database_manager
 
-
 settings = get_settings()
 
 

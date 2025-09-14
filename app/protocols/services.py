@@ -18,9 +18,7 @@ class UploadServiceProtocol(Protocol):
         self, session: AsyncSession, *, payload: StartUploadInput
     ) -> UploadInitResponse: ...
 
-    async def continue_processing(
-        self, session: AsyncSession, *, payload: ContinueProcessingInput
-    ) -> None: ...
+    async def continue_processing(self, payload: ContinueProcessingInput) -> None: ...
 
 
 class JobServiceProtocol(Protocol):

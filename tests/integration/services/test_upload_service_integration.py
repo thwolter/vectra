@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from api.schemas import AccessContext
 from app.api.file import TemporaryUploadFile
 from app.services.factory import get_job_service
 from app.services.upload_service import UploadService
@@ -38,13 +39,13 @@ async def test_init_upload_end_to_end_uses_database(
     )
 
     await service.continue_processing(
-        session=session,
         payload=ContinueProcessingInput(
             hints=hints,
             job_id=init.job_id,
             document_id=init.document_id,
             digest=init.digest,
             file=file,
+            access_context=AccessContext.from_session(session).model_dump(),
         ),
     )
 

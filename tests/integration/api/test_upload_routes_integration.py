@@ -7,7 +7,8 @@ from pathlib import Path
 
 from app.repositories import Embeddings
 from app.metadata.schemas import FinanceReportHints
-from tests.helper import build_test_upload_service
+from app.services.upload_service import UploadService
+from app.store.local_store import LocalFileStore
 from app.main import app as fastapi_app
 from app.services.factory import get_upload_service
 from app.schemas.enums import CollectionEnum
@@ -28,14 +29,17 @@ def base_prefix(tmp_path) -> Path:
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_upload_then_continue_processing_and_status_completed(
-    small_pdf, base_prefix, session
+    small_pdf, session, auth_client, monkeypatch, fake_embeddings_vectorstore
 ):
-    service = build_test_upload_service(
-        collection=CollectionEnum.DEFAULT,
-        base_prefix=base_prefix,
-    )
+    file_store = LocalFileStore(CollectionEnum.DEFAULT)
+    service = UploadService(store=file_store)
+
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
-    api_client = TestClient(fastapi_app)
+    monkeypatch.setattr(
+        'app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore
+    )
+
+    api_client = auth_client
 
     with open(small_pdf, 'rb') as f:
         file_bytes = f.read()
@@ -65,13 +69,16 @@ async def test_upload_then_continue_processing_and_status_completed(
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_second_upload_is_deduplicated_after_first_ingestion(
-    apple_report_first_page, base_prefix
+    apple_report_first_page, base_prefix, monkeypatch, fake_embeddings_vectorstore
 ):
-    service = build_test_upload_service(
-        collection=CollectionEnum.DEFAULT,
-        base_prefix=base_prefix,
-    )
+    file_store = LocalFileStore(CollectionEnum.DEFAULT)
+    service = UploadService(store=file_store)
+
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
+    monkeypatch.setattr(
+        'app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore
+    )
+
     api_client = TestClient(fastapi_app)
 
     with open(apple_report_first_page, 'rb') as f:
@@ -96,14 +103,20 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 def test_hints_influence_proposed_metadata_on_job(
-    tiny_pdf_bytes, base_prefix, random_digest
+    tiny_pdf_bytes,
+    base_prefix,
+    random_digest,
+    auth_client,
+    monkeypatch,
+    fake_embeddings_vectorstore,
 ):
-    service = build_test_upload_service(
-        collection=CollectionEnum.DEFAULT,
-        base_prefix=base_prefix,
-    )
+    file_store = LocalFileStore(CollectionEnum.DEFAULT)
+    service = UploadService(store=file_store)
+
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
-    api_client = TestClient(fastapi_app)
+    monkeypatch.setattr(
+        'app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore
+    )
 
     files = {'file': ('tiny.pdf', io.BytesIO(tiny_pdf_bytes), 'application/pdf')}
 
@@ -111,7 +124,7 @@ def test_hints_influence_proposed_metadata_on_job(
         company='Acme Corp', document_type='10-K', financial_year=2024
     ).model_dump_json()
 
-    r = api_client.post(
+    r = auth_client.post(
         '/api/v1/uploads',
         files=files,
         data={'hints': hints},
@@ -120,7 +133,7 @@ def test_hints_influence_proposed_metadata_on_job(
     init = r.json()
 
     # Immediately fetch job status; proposed metadata should be persisted from hints
-    r2 = api_client.get(f'/api/v1/jobs/{init["job_id"]}')
+    r2 = auth_client.get(f'/api/v1/jobs/{init["job_id"]}')
     assert r2.status_code == 200
     payload = r2.json()
     # Just ensure the job exists and is retrievable after upload with hints

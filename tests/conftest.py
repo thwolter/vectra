@@ -16,6 +16,7 @@ pytest_plugins = [
     'tests.fixtures.jobs',
     'tests.fixtures.digest',
     'tests.fixtures.client',
+    'tests.fixtures.vector',
 ]
 
 if TYPE_CHECKING:

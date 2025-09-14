@@ -13,7 +13,8 @@ from app.vector.factory import get_vectorstore
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_update_document_metadata_by_digest_merges_across_all_chunks(session):
-    vs = get_vectorstore(CollectionEnum.FINANCIAL.value)
+    tenant_id = session.info['tenant_id']
+    vs = get_vectorstore(CollectionEnum.FINANCIAL.value, tenant_id=tenant_id)
     digest = uuid.uuid4().hex[:10]
 
     docs = [
@@ -49,7 +50,8 @@ async def test_update_document_metadata_by_digest_merges_across_all_chunks(sessi
 async def test_update_metadata_keeps_existing_metadata_when_replace_false(
     session,
 ):
-    vs = get_vectorstore(CollectionEnum.FINANCIAL.value)
+    tenant_id = session.info['tenant_id']
+    vs = get_vectorstore(collection=CollectionEnum.FINANCIAL.value, tenant_id=tenant_id)
     digest = uuid.uuid4().hex[:10]
     docs = [
         Document(
@@ -84,7 +86,8 @@ async def test_update_metadata_keeps_existing_metadata_when_replace_false(
 async def test_update_metadata_replaces_metadata_when_replace_true(
     session,
 ):
-    vs = get_vectorstore(CollectionEnum.FINANCIAL.value)
+    tenant_id = session.info['tenant_id']
+    vs = get_vectorstore(collection=CollectionEnum.FINANCIAL.value, tenant_id=tenant_id)
     digest = uuid.uuid4().hex[:10]
     docs = [
         Document(
@@ -123,7 +126,10 @@ async def test_check_documents_exists_scoped_by_collection(
 ):
     digest = uuid.uuid4().hex[:10]
 
-    vs_default = get_vectorstore(CollectionEnum.DEFAULT.value)
+    tenant_id = session.info['tenant_id']
+    vs_default = get_vectorstore(
+        collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id
+    )
     vs_default.add_documents(
         documents=[
             Document(
@@ -174,7 +180,8 @@ async def test_check_documents_exists_scoped_by_collection(
 async def test_update_document_metadata_noop_on_empty_updates(
     session,
 ):
-    vs = get_vectorstore(CollectionEnum.DEFAULT.value)
+    tenant_id = session.info['tenant_id']
+    vs = get_vectorstore(collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id)
     digest = uuid.uuid4().hex[:10]
 
     # Insert one chunk via vector

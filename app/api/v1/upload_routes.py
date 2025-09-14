@@ -15,7 +15,7 @@ from fastapi import (
 
 from app.api.file import TemporaryUploadFile
 from app.api.utils import parse_hints_from_any
-from app.api.schemas import AuthContext
+from app.api.schemas import AccessContext
 from app.protocols.services import UploadServiceProtocol
 from app.services.factory import get_upload_service
 from app.schemas.upload import (
@@ -24,7 +24,7 @@ from app.schemas.upload import (
     ContinueProcessingInput,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import access_scoped_session, require_auth
+from app.core.dependencies import access_scoped_session
 
 
 # Hard limits to protect memory/CPU. Adjust via settings if needed.
@@ -54,7 +54,6 @@ async def upload_document(
     ] = None,
     upload_service: UploadServiceProtocol = Depends(get_upload_service),
     session: AsyncSession = Depends(access_scoped_session),
-    auth: AuthContext = Depends(require_auth),
 ) -> UploadInitResponse:
     """Upload a document for ingestion.
 
@@ -109,25 +108,15 @@ async def upload_document(
     )
     response = await upload_service.start_document_upload(session, payload=upload_input)
 
-    tenant_id = auth.tid
-    created_by = auth.sub
-
     job_kwargs = {
         **upload_input.model_dump(),
         'job_id': response.job_id,
         'document_id': response.document_id,
         'digest': response.digest,
+        'access_context': AccessContext.from_session(session).model_dump(),
     }
-    # Best-effort: include identity if the Pydantic model has these fields
-    if 'tenant_id' in ContinueProcessingInput.model_fields:
-        job_kwargs['tenant_id'] = tenant_id
-    if 'created_by' in ContinueProcessingInput.model_fields:
-        job_kwargs['created_by'] = created_by
+
     job_input = ContinueProcessingInput(**job_kwargs)
 
-    # NOTE: continue_processing MUST set its own tenant context (SET LOCAL app.tenant_id)
-    # using the tenant_id carried in job_input, or through its internal session wiring.
-    background_tasks.add_task(
-        upload_service.continue_processing, session=session, payload=job_input
-    )
+    background_tasks.add_task(upload_service.continue_processing, payload=job_input)
     return response

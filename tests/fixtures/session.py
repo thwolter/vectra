@@ -162,9 +162,7 @@ async def fake_session_class(fake_result_class):
             get_exists: bool = False,
             orm_exists: bool | None = None,
         ) -> None:
-            from types import SimpleNamespace as _SN
-
-            self.info = _SN(tenant_id=tenant_id, user_id=user_id)
+            self.info = {'tenant_id': tenant_id, 'user_id': user_id}
             self._rows = result_rows
             self._scalar = result_scalar
             # Maintain backward-compat param name expected by some unit tests

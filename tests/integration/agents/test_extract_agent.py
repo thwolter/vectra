@@ -11,7 +11,8 @@ from app.metadata.schemas import FinanceReportHints, ProposedMetadata
 @pytest.fixture
 def ingestor():
     return DocumentIngestor(
-        CollectionEnum.FINANCIAL, ingest_settings=IngestorSettings(max_docs_per_batch=3)
+        collection=CollectionEnum.FINANCIAL.value,
+        ingest_settings=IngestorSettings(max_docs_per_batch=3),
     )
 
 
@@ -61,6 +62,7 @@ async def test_get_document_info_with_sample_docs(
         pass
 
     result = await extract_metadata(
+        session,
         digest=random_digest,
         collection=CollectionEnum.FINANCIAL,
         hints=FinanceReportHints(),
