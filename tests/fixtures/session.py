@@ -42,11 +42,7 @@ def anyio_backend():
 # Ensure database is initialized and schema exists for tests
 @pytest.fixture(scope='session', autouse=True)
 async def _init_db_schema():
-    """Initialize async DB engine and ensure schema before tests run.
-
-    Mirrors app.main lifespan behavior for the test environment so that
-    tables/extensions exist before any repositories or sessions are used.
-    """
+    """Initialize DB schema for tests."""
     from app.core.database import DatabaseManager
 
     db = DatabaseManager()
@@ -59,11 +55,10 @@ async def _init_db_schema():
 
 
 @pytest.fixture(scope='session', autouse=True)
-def _override_dependencies():
-    # Only override identity; let the real access_scoped_session run
+def override_auth_dependencies():
+    # Override identity; do not change access_scoped_session
     app.dependency_overrides[require_auth] = _fake_get_current_auth
     app.dependency_overrides[require_access_context] = _fake_get_access_context
-    # Do NOT override access_scoped_session here
     yield
     app.dependency_overrides.clear()
 

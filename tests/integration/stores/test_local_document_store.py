@@ -67,7 +67,7 @@ async def test_save_original_and_delete_success(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_save_markdown_then_load_and_delete_success(base_prefix, digest_str):
+async def test_save_markdown_then_load_and_delete_success(base_prefix):
     store = LocalFileStore(CollectionEnum.DEFAULT, base_path=str(base_prefix))
 
     document_id = uuid.uuid4()

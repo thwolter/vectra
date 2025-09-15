@@ -14,7 +14,7 @@ def test_estimate_tokens_sums_over_docs():
 
 
 @pytest.mark.asyncio
-def test_validate_docs_filters_missing_fields(digest_str):
+def test_validate_docs_filters_missing_fields():
     valid_doc = Document(page_content='hello', metadata={})
     also_valid = Document(page_content='hello', metadata={})
     empty_content = Document(page_content='   ', metadata={})

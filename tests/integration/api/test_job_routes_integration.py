@@ -10,12 +10,12 @@ from app.schemas.upload import JobStatus
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_get_job_returns_status(session, created_job_id, auth_client):
-    r = auth_client.get(f'/api/v1/jobs/{created_job_id}')
+async def test_get_job_returns_status(session, job_created, auth_client):
+    r = auth_client.get(f'/api/v1/jobs/{job_created}')
 
     assert r.status_code == 200, r.text
     payload = r.json()
-    assert payload['job_id'] == str(created_job_id)
+    assert payload['job_id'] == str(job_created)
     assert payload['status'] in {
         JobStatus.PROCESSING.value,
         JobStatus.NEEDS_REVIEW.value,
@@ -26,17 +26,17 @@ async def test_get_job_returns_status(session, created_job_id, auth_client):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_review_job_confirm_only(session, created_job_id, auth_client):
+async def test_review_job_confirm_only(session, job_created, auth_client):
     body = {
         'confirm': True,
         'corrections': None,
     }
-    r = auth_client.patch(f'/api/v1/jobs/{created_job_id}/review', json=body)
+    r = auth_client.patch(f'/api/v1/jobs/{job_created}/review', json=body)
 
     # Assert: response and DB should reflect COMPLETED and preserved metadata
     assert r.status_code == 200, r.text
     resp = r.json()
-    assert resp['job_id'] == str(created_job_id)
+    assert resp['job_id'] == str(job_created)
     assert resp['status'] == JobStatus.COMPLETED.value
 
     # Verify DB entry updated
@@ -48,7 +48,7 @@ async def test_review_job_confirm_only(session, created_job_id, auth_client):
         )
     )
 
-    status = await Job.status(session, job_id=created_job_id)
+    status = await Job.status(session, job_id=job_created)
     assert status is not None
     assert status.status == JobStatus.COMPLETED
 
@@ -63,7 +63,7 @@ async def test_review_job_confirm_only(session, created_job_id, auth_client):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_review_job_with_corrections(session, created_job_id, auth_client):
+async def test_review_job_with_corrections(session, job_created, auth_client):
     body = {
         'confirm': True,
         'corrections': {
@@ -71,12 +71,12 @@ async def test_review_job_with_corrections(session, created_job_id, auth_client)
             'financial_year': 2021,
         },
     }
-    r = auth_client.patch(f'/api/v1/jobs/{created_job_id}/review', json=body)
+    r = auth_client.patch(f'/api/v1/jobs/{job_created}/review', json=body)
 
     # Assert response
     assert r.status_code == 200, r.text
     resp = r.json()
-    assert resp['job_id'] == str(created_job_id)
+    assert resp['job_id'] == str(job_created)
     assert resp['status'] == JobStatus.COMPLETED.value
 
     # Verify DB reflects corrected metadata
@@ -88,7 +88,7 @@ async def test_review_job_with_corrections(session, created_job_id, auth_client)
         )
     )
 
-    status = await Job.status(session, job_id=created_job_id)
+    status = await Job.status(session, job_id=job_created)
     assert status is not None
     assert status.status == JobStatus.COMPLETED
 

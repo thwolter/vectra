@@ -22,7 +22,7 @@ DOCUMENT_ID = uuid.uuid4()
 
 
 @pytest.fixture()
-def api_client(monkeypatch, digest_str, auth_client) -> TestClient:
+def api_client(monkeypatch, digest_random, auth_client) -> TestClient:
     client = auth_client
     app = client.app
 
@@ -39,7 +39,7 @@ def api_client(monkeypatch, digest_str, auth_client) -> TestClient:
             document_id=DOCUMENT_ID,
             status=JobStatus.PROCESSING,
             deduplicated=False,
-            digest=digest_str,
+            digest=digest_random,
             original_filename='tiny.pdf',
         )
     )

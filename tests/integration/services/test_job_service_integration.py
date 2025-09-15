@@ -8,12 +8,13 @@ from app.schemas.jobs import InitJob
 
 
 @pytest.mark.integration
+@pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_job_service_lifecycle_persists_in_db(random_digest, session):
+async def test_job_service_lifecycle_persists_in_db(digest_random, session):
     service = JobService()
 
     init_job = InitJob(
-        digest=random_digest,
+        digest=digest_random,
         document_uuid=uuid.uuid4(),
         collection='default',
         original_filename='file.pdf',
@@ -57,16 +58,17 @@ async def test_job_service_lifecycle_persists_in_db(random_digest, session):
 
 
 @pytest.mark.integration
+@pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_invalid_transition_after_completed_raises_and_state_stays_completed(
-    random_digest, session
+    digest_random, session
 ):
     service = JobService()
 
     from app.schemas.jobs import InitJob
 
     init = InitJob(
-        digest=random_digest,
+        digest=digest_random,
         document_uuid=uuid.uuid4(),
         collection='default',
         original_filename='file2.pdf',

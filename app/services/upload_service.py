@@ -125,6 +125,22 @@ class UploadService(UploadServiceProtocol):
             original_filename=original_filename,
         )
 
+    async def _run_step(self, session: AsyncSession, job_id: UUID, step: _Step) -> bool:
+        await self.job_service.update_progress(
+            session, job_id=job_id, percent=step.percent, step=step.step
+        )
+        try:
+            await step.call()
+            return True
+        except Exception as e:
+            logger.exception(
+                f'Background processing failed for job {job_id} ({step.step}): {e}'
+            )
+            await self.job_service.fail_job(
+                session, job_id=job_id, exc=e, last_step=step.step
+            )
+            return False
+
     async def continue_processing(
         self,
         payload: ContinueProcessingInput,
@@ -141,13 +157,23 @@ class UploadService(UploadServiceProtocol):
 
         async with access_scoped_session_ctx(payload.access_context) as session:
             steps: list[_Step] = [
-                _Step(10, "store_original", pipeline.store_original),
-                _Step(20, "parse", pipeline.parse_document),
-                _Step(50, "store_markdown", pipeline.store_markdown),
-                _Step(60, "prepare_metadata", pipeline.enrich_docs_metadata),
-                _Step(70, "ingest", partial(pipeline.ingest_documents, session=session)),
-                _Step(90, "ensure_metadata", partial(pipeline.persist_metadata, session=session)),
-                _Step(95, "update_s3_uris", partial(pipeline.update_document_uris, session=session)),
+                _Step(10, 'store_original', pipeline.store_original),
+                _Step(20, 'parse', pipeline.parse_document),
+                _Step(50, 'store_markdown', pipeline.store_markdown),
+                _Step(60, 'prepare_metadata', pipeline.enrich_docs_metadata),
+                _Step(
+                    70, 'ingest', partial(pipeline.ingest_documents, session=session)
+                ),
+                _Step(
+                    90,
+                    'ensure_metadata',
+                    partial(pipeline.persist_metadata, session=session),
+                ),
+                _Step(
+                    95,
+                    'update_s3_uris',
+                    partial(pipeline.update_document_uris, session=session),
+                ),
             ]
 
             for s in steps:
@@ -156,7 +182,9 @@ class UploadService(UploadServiceProtocol):
                     return
 
             job_status = (
-                JobStatus.NEEDS_REVIEW if pipeline.ctx.needs_review else JobStatus.COMPLETED
+                JobStatus.NEEDS_REVIEW
+                if pipeline.ctx.needs_review
+                else JobStatus.COMPLETED
             )
             await self.job_service.update_status(
                 session,
@@ -164,19 +192,4 @@ class UploadService(UploadServiceProtocol):
                 status=job_status,
                 proposed_metadata=pipeline.ctx.proposed_metadata,
             )
-            logger.success(f"Finalized job {job_id}")
-
-
-    async def _run_step(self, session: AsyncSession, job_id: UUID, step: _Step) -> bool:
-        await self.job_service.update_progress(
-            session, job_id=job_id, percent=step.percent, step=step.step
-        )
-        try:
-            await step.call()
-            return True
-        except Exception as e:
-            logger.exception(
-                f"Background processing failed for job {job_id} ({step.step}): {e}"
-            )
-            await self.job_service.fail_job(session, job_id=job_id, exc=e, last_step=step.step)
-            return False
+            logger.success(f'Finalized job {job_id}')

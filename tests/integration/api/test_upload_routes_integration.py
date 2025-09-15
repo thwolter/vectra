@@ -12,7 +12,7 @@ from app.store.local_store import LocalFileStore
 from app.main import app as fastapi_app
 from app.services.dependencies import get_upload_service
 from app.schemas.enums import CollectionEnum
-from store.protocols import StoreProtocol
+from app.store.protocols import StoreProtocol
 
 
 @pytest.fixture()
@@ -108,7 +108,6 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
 def test_hints_influence_proposed_metadata_on_job(
     tiny_pdf_bytes,
     base_prefix,
-    random_digest,
     auth_client,
     monkeypatch,
     fake_embeddings_vectorstore,

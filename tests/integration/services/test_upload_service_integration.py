@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from api.schemas import AccessContext
+from app.api.schemas import AccessContext
 from app.api.file import TemporaryUploadFile
 from app.services.dependencies import get_job_service
 from app.services.upload_service import UploadService
@@ -21,6 +21,7 @@ def base_prefix(tmp_path) -> Path:
 
 
 @pytest.mark.integration
+@pytest.mark.needs_postgres
 @pytest.mark.asyncio
 async def test_init_upload_end_to_end_uses_database(
     apple_report_first_page_upload, base_prefix, session

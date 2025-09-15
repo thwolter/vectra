@@ -21,9 +21,9 @@ def ingestor():
 
 
 @pytest.mark.asyncio
-async def test_ingest_empty_docs_returns_none(ingestor, random_digest, mock_session):
+async def test_ingest_empty_docs_returns_none(ingestor, digest_random, mock_session):
     docs = []
-    result = await ingestor.ingest(mock_session, docs=docs, digest=random_digest)
+    result = await ingestor.ingest(mock_session, docs=docs, digest=digest_random)
     assert result is not None
     assert result.skipped is True
     assert result.total_docs == 0
@@ -32,7 +32,7 @@ async def test_ingest_empty_docs_returns_none(ingestor, random_digest, mock_sess
 
 @pytest.mark.asyncio
 async def test_ingest_calls_add_documents(
-    ingestor, random_digest, mock_session, monkeypatch
+    ingestor, digest_random, mock_session, monkeypatch
 ):
     # Patch Ingestion class used inside DocumentIngestor
     FakeIngestion = create_autospec(Ingestion, spec_set=True)
@@ -52,6 +52,6 @@ async def test_ingest_calls_add_documents(
 
     docs = [Document(page_content='Hello World')]
 
-    result = await ingestor.ingest(mock_session, docs=docs, digest=random_digest)
+    result = await ingestor.ingest(mock_session, docs=docs, digest=digest_random)
     assert result is not None
     assert vstore.add_documents.call_count == 1

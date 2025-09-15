@@ -13,7 +13,7 @@ from app.repositories.exceptions import DocumentNotFoundError, JobNotFoundError
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_cross_tenant_access_is_isolated(random_digest):
+async def test_cross_tenant_access_is_isolated(digest_random):
     # Tenant A, User U1 creates document, job, and ingestion rows
     tenant_a = uuid.UUID('00000000-0000-0000-0000-0000000000aa')
     user_u1 = uuid.UUID('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01')
@@ -26,7 +26,7 @@ async def test_cross_tenant_access_is_isolated(random_digest):
             s_a_u1,
             data=DocumentCreate(
                 collection='default',
-                digest=random_digest,
+                digest=digest_random,
                 original_filename='mt-doc.pdf',
                 content_type='application/pdf',
                 size_bytes=42,
@@ -40,7 +40,7 @@ async def test_cross_tenant_access_is_isolated(random_digest):
                 status=JobStatus.PROCESSING,
                 percent=0,
                 step='start',
-                digest=random_digest,
+                digest=digest_random,
                 document_uuid=doc_id,
                 collection='default',
                 original_filename='mt-doc.pdf',
@@ -54,7 +54,7 @@ async def test_cross_tenant_access_is_isolated(random_digest):
             s_a_u1,
             key=IngestionVersionInsert(
                 collection='default',
-                digest=random_digest,
+                digest=digest_random,
                 chunker_version='cv1',
                 embed_model='em',
                 embed_model_ver='v1',
@@ -78,7 +78,7 @@ async def test_cross_tenant_access_is_isolated(random_digest):
 
         # Ingestion.exists should be False under a different tenant
         exists = await Ingestion.exists(
-            s_b_v1, digest=random_digest, collection='default'
+            s_b_v1, digest=digest_random, collection='default'
         )
         assert exists is False
 
@@ -86,7 +86,7 @@ async def test_cross_tenant_access_is_isolated(random_digest):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_same_tenant_different_users_can_access(random_digest):
+async def test_same_tenant_different_users_can_access(digest_random):
     # Tenant A, User U1 creates resources
     tenant_a = uuid.UUID('00000000-0000-0000-0000-0000000000aa')
     user_u1 = uuid.UUID('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01')
@@ -98,7 +98,7 @@ async def test_same_tenant_different_users_can_access(random_digest):
             s_a_u1,
             data=DocumentCreate(
                 collection='default',
-                digest=random_digest,
+                digest=digest_random,
                 original_filename='mt-doc.pdf',
             ),
         )
@@ -108,7 +108,7 @@ async def test_same_tenant_different_users_can_access(random_digest):
                 status=JobStatus.PROCESSING,
                 percent=0,
                 step='start',
-                digest=random_digest,
+                digest=digest_random,
                 document_uuid=doc_id,
                 collection='default',
                 original_filename='mt-doc.pdf',
@@ -120,7 +120,7 @@ async def test_same_tenant_different_users_can_access(random_digest):
             s_a_u1,
             key=IngestionVersionInsert(
                 collection='default',
-                digest=random_digest,
+                digest=digest_random,
                 chunker_version='cv1',
                 embed_model='em',
                 embed_model_ver='v1',
@@ -134,7 +134,7 @@ async def test_same_tenant_different_users_can_access(random_digest):
 
     async for s_a_u2 in access_scoped_session(tenant=ctx_a_u2):
         doc = await Document.get(s_a_u2, id=created['doc_id'])
-        assert doc.digest == random_digest
+        assert doc.digest == digest_random
         assert doc.collection == 'default'
 
         status = await Job.status(s_a_u2, job_id=created['job_id'])
@@ -142,6 +142,6 @@ async def test_same_tenant_different_users_can_access(random_digest):
         assert status.job_id == created['job_id']
 
         exists = await Ingestion.exists(
-            s_a_u2, digest=random_digest, collection='default'
+            s_a_u2, digest=digest_random, collection='default'
         )
         assert exists is True

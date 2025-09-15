@@ -41,9 +41,11 @@ async def sanitize(sample_documents):
 
 
 @pytest.mark.integration
+@pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_get_document_info_with_sample_docs(
-    sample_documents, ingestor, random_digest, session
+    sample_documents, ingestor, digest_random, session
 ):
     """
     Integration test: ingest sample documents into the vector, then retrieve
@@ -56,14 +58,14 @@ async def test_get_document_info_with_sample_docs(
         await ingestor.ingest(
             session,
             docs=test_documents,
-            digest=random_digest,
+            digest=digest_random,
         )
     except EmbeddingsAlreadyExistError:
         pass
 
     result = await extract_metadata(
         session,
-        digest=random_digest,
+        digest=digest_random,
         collection=CollectionEnum.FINANCIAL,
         hints=FinanceReportHints(),
     )
