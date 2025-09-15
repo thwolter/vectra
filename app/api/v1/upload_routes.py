@@ -17,7 +17,7 @@ from app.api.file import TemporaryUploadFile
 from app.api.utils import parse_hints_from_any
 from app.api.schemas import AccessContext
 from app.protocols.services import UploadServiceProtocol
-from app.services.factory import get_upload_service
+from app.services.dependencies import get_upload_service
 from app.schemas.upload import (
     UploadInitResponse,
     StartUploadInput,

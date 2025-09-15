@@ -10,8 +10,9 @@ from app.metadata.schemas import FinanceReportHints
 from app.services.upload_service import UploadService
 from app.store.local_store import LocalFileStore
 from app.main import app as fastapi_app
-from app.services.factory import get_upload_service
+from app.services.dependencies import get_upload_service
 from app.schemas.enums import CollectionEnum
+from store.protocols import StoreProtocol
 
 
 @pytest.fixture()
@@ -32,6 +33,7 @@ async def test_upload_then_continue_processing_and_status_completed(
     small_pdf, session, auth_client, monkeypatch, fake_embeddings_vectorstore
 ):
     file_store = LocalFileStore(CollectionEnum.DEFAULT)
+    assert isinstance(file_store, StoreProtocol)
     service = UploadService(store=file_store)
 
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
@@ -72,6 +74,7 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
     apple_report_first_page, base_prefix, monkeypatch, fake_embeddings_vectorstore
 ):
     file_store = LocalFileStore(CollectionEnum.DEFAULT)
+    assert isinstance(file_store, StoreProtocol)
     service = UploadService(store=file_store)
 
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
@@ -111,6 +114,7 @@ def test_hints_influence_proposed_metadata_on_job(
     fake_embeddings_vectorstore,
 ):
     file_store = LocalFileStore(CollectionEnum.DEFAULT)
+    assert isinstance(file_store, StoreProtocol)
     service = UploadService(store=file_store)
 
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service

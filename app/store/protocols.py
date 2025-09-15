@@ -11,9 +11,6 @@ from app.store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
 @runtime_checkable
 class StoreProtocol(Protocol):
-    def __init__(
-        self, collection: CollectionEnum, *, base_path: str | Path | None = None
-    ) -> None: ...
 
     async def save_original(
         self,

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.protocols.services import JobServiceProtocol
 from app.schemas.upload import JobStatusResponse, JobReviewResponse, JobReviewPayload
-from app.services.factory import get_job_service
+from app.services.dependencies import get_job_service
 from app.core.dependencies import access_scoped_session
 
 

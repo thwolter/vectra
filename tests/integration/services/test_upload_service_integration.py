@@ -4,7 +4,7 @@ import pytest
 
 from api.schemas import AccessContext
 from app.api.file import TemporaryUploadFile
-from app.services.factory import get_job_service
+from app.services.dependencies import get_job_service
 from app.services.upload_service import UploadService
 from app.schemas.enums import CollectionEnum
 from app.schemas.upload import JobStatus

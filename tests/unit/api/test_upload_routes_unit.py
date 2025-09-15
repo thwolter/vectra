@@ -15,7 +15,7 @@ from app.schemas.upload import (
     JobReviewPayload,
 )
 from app.metadata.schemas import NoopHints, FinanceReportHints
-from app.services.factory import get_upload_service, get_job_service
+from app.services.dependencies import get_upload_service, get_job_service
 
 JOB_ID = uuid.uuid4()
 DOCUMENT_ID = uuid.uuid4()
