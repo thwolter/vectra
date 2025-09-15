@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Protocol, runtime_checkable, AsyncIterator
 from uuid import UUID
 
 from app.api.file import TemporaryUploadFile
-from app.schemas.enums import CollectionEnum
 from app.store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
 
 @runtime_checkable
 class StoreProtocol(Protocol):
-
     async def save_original(
         self,
         file: TemporaryUploadFile,

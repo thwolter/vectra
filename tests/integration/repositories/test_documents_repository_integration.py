@@ -11,10 +11,10 @@ from app.repositories.exceptions import DocumentNotFoundError
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_create_and_get_document_roundtrip(session, random_digest):
+async def test_create_and_get_document_roundtrip(session, digest_random):
     data = DocumentCreate(
         collection=CollectionEnum.DEFAULT.value,
-        digest=random_digest,
+        digest=digest_random,
         original_filename='report.pdf',
         content_type='application/pdf',
         size_bytes=12345,
@@ -26,7 +26,7 @@ async def test_create_and_get_document_roundtrip(session, random_digest):
 
     doc = await Document.get(session, id=doc_id)
     assert doc.collection == CollectionEnum.DEFAULT.value
-    assert doc.digest == random_digest
+    assert doc.digest == digest_random
     assert doc.original_filename == 'report.pdf'
     assert doc.content_type == 'application/pdf'
     assert doc.size_bytes == 12345
@@ -36,17 +36,17 @@ async def test_create_and_get_document_roundtrip(session, random_digest):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_create_is_idempotent_by_collection_and_digest(session, random_digest):
+async def test_create_is_idempotent_by_collection_and_digest(session, digest_random):
     first = DocumentCreate(
         collection=CollectionEnum.FINANCIAL.value,
-        digest=random_digest,
+        digest=digest_random,
         original_filename='first.pdf',
         content_type='application/pdf',
         size_bytes=10,
     )
     second = DocumentCreate(
         collection=CollectionEnum.FINANCIAL.value,
-        digest=random_digest,
+        digest=digest_random,
         original_filename='second.pdf',  # should be ignored due to first-seen wins
         content_type='application/pdf',
         size_bytes=20,
@@ -67,13 +67,13 @@ async def test_create_is_idempotent_by_collection_and_digest(session, random_dig
 @pytest.mark.asyncio
 async def test_same_digest_in_different_collections_creates_distinct_rows(
     session,
-    random_digest,
+    digest_random,
 ):
     id_default, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
-            digest=random_digest,
+            digest=digest_random,
             original_filename='a.pdf',
         ),
     )
@@ -81,7 +81,7 @@ async def test_same_digest_in_different_collections_creates_distinct_rows(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.FINANCIAL.value,
-            digest=random_digest,
+            digest=digest_random,
             original_filename='a.pdf',
         ),
     )
@@ -92,12 +92,12 @@ async def test_same_digest_in_different_collections_creates_distinct_rows(
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_update_uris_updates_fields(session, random_digest):
+async def test_update_uris_updates_fields(session, digest_random):
     doc_id, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
-            digest=random_digest,
+            digest=digest_random,
             original_filename='x.pdf',
         ),
     )
@@ -117,12 +117,12 @@ async def test_update_uris_updates_fields(session, random_digest):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_update_metadata_replaces_meta(session, random_digest):
+async def test_update_metadata_replaces_meta(session, digest_random):
     doc_id, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
-            digest=random_digest,
+            digest=digest_random,
             original_filename='y.pdf',
             meta={'keep': 'no'},
         ),
@@ -147,12 +147,12 @@ async def test_update_metadata_replaces_meta(session, random_digest):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_delete_removes_row_and_is_idempotent(session, random_digest):
+async def test_delete_removes_row_and_is_idempotent(session, digest_random):
     doc_id, _ = await Document.upsert(
         session,
         data=DocumentCreate(
             collection=CollectionEnum.DEFAULT.value,
-            digest=random_digest,
+            digest=digest_random,
             original_filename='z.pdf',
         ),
     )

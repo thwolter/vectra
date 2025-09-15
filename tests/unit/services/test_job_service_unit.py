@@ -21,14 +21,14 @@ def FakeJob():
 
 @pytest.mark.asyncio
 async def test_init_job_sets_canonical_defaults_and_passes_fields(
-    digest_str, mock_session, monkeypatch, FakeJob
+    digest_random, mock_session, monkeypatch, FakeJob
 ):
     monkeypatch.setattr('app.services.job_service.Job', FakeJob)
     service = JobService()
 
     job_id = uuid.uuid4()
     job = InitJob(
-        digest=digest_str,
+        digest=digest_random,
         document_uuid=job_id,
         collection='default',
         original_filename='a.pdf',

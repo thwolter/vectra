@@ -1,56 +1,45 @@
-import os
+import pytest
 import pickle
 import sys
-import tempfile
 from pathlib import Path
-from typing import List, Any, Generator, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 
-import pytest
-from fastapi import UploadFile
 from langchain_core.documents import Document
-from starlette.datastructures import Headers
 
 # Load session-level fixtures (auth, tenant, httpx client) for all tests
 pytest_plugins = [
     'tests.fixtures.session',
-    'tests.fixtures.jobs',
-    'tests.fixtures.digest',
     'tests.fixtures.client',
     'tests.fixtures.vector',
+    'tests.fixtures.jobs',
+    'tests.fixtures.digest',
+    'tests.fixtures.data',
+    'tests.fixtures.store',
 ]
 
 if TYPE_CHECKING:
     pass
 
-# Ensure project app/ is on sys.path for `from app...` imports in tests
+# Minimal path setup: ensure project root is on sys.path for absolute imports like `from app...`
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_SRC_PATH = _PROJECT_ROOT / 'app'
-for p in (str(_PROJECT_ROOT), str(_SRC_PATH)):
-    if p not in sys.path:
-        sys.path.insert(0, p)
+_PROJECT_ROOT_STR = str(_PROJECT_ROOT)
+if _PROJECT_ROOT_STR not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT_STR)
 
 
-def pytest_runtest_setup(item):
-    # Expand shorthand markers into requires_env
-    if any(item.iter_markers(name='needs_postgres')):
-        item.add_marker(pytest.mark.requires_env('POSTGRES_URL'))
+def pytest_ignore_collect(path, config):
+    """Avoid importing tests under integration/ and e2e/ unless explicitly requested.
 
-    if any(item.iter_markers(name='needs_aws')):
-        item.add_marker(
-            pytest.mark.requires_env(
-                'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET'
-            )
-        )
-
-    if any(item.iter_markers(name='needs_openai')):
-        item.add_marker(pytest.mark.requires_env('OPENAI_API_KEY'))
-
-    # Generic requires_env marker
-    for mark in item.iter_markers(name='requires_env'):
-        required = list(mark.args)
-        missing = [v for v in required if not os.getenv(v)]
-        if missing:
-            pytest.skip(f'Missing required env vars: {", ".join(missing)}')
+    This prevents import-time errors from modules that rely on optional deps or
+    environment when running only unit tests.
+    """
+    path_str = str(path)
+    selected = config.getoption('-m') or ''
+    if '/integration/' in path_str or path_str.endswith('/integration'):
+        return 'integration' not in selected
+    if '/e2e/' in path_str or path_str.endswith('/e2e'):
+        return 'e2e' not in selected
+    return False
 
 
 def pytest_collection_modifyitems(config, items):
@@ -79,65 +68,30 @@ def sample_documents() -> List[Document]:
         return pickle.load(f)
 
 
-@pytest.fixture
-def apple_report_first_page():
-    return Path(__file__).parents[0] / 'data' / '10-Q4-2024-As-Filed Seite 1.pdf'
+def pytest_runtest_setup(item: pytest.Item):
+    """Skip tests with needs_* markers when required environment vars are missing.
 
-
-@pytest.fixture
-def tiny_pdf():
-    """Path to a small test PDF located under tests/data."""
-    return str(Path(__file__).parents[0] / 'data' / 'tiny.pdf')
-
-
-@pytest.fixture
-def small_pdf():
-    """Path to a small test PDF located under tests/data."""
-    return str(Path(__file__).parents[0] / 'data' / 'small.pdf')
-
-
-@pytest.fixture(scope='module')
-def tiny_pdf_upload() -> Generator[UploadFile, Any, None]:
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-
-    def create_file(content: bytes, tmp):
-        tmp.write(content)
-        tmp.flush()
-        tmp.close()
-        f = open(tmp.name, 'rb')
-        headers = Headers({'content-type': 'application/pdf'})
-        return UploadFile(filename='tiny.pdf', file=f, headers=headers)
-
-    content = b'%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<<>>\nendobj\n%%EOF\n'
-
-    try:
-        upload = create_file(content, tmp)
-        yield upload
-    finally:
-        try:
-            tmp.close()
-            os.unlink(tmp.name)
-        except FileNotFoundError:
-            pass
-
-
-@pytest.fixture
-def apple_report_first_page_upload(
-    apple_report_first_page,
-) -> Generator[UploadFile, Any, None]:
-    """Create an UploadFile from the apple_report_first_page test PDF.
-
-    Ensures correct content-type header and proper file handle cleanup.
+    This provides explicit gating without any custom requires_env plumbing.
+    Use at test level, e.g., pytestmark = [pytest.mark.integration, pytest.mark.needs_postgres].
     """
-    f = open(apple_report_first_page, 'rb')
-    try:
-        headers = Headers({'content-type': 'application/pdf'})
-        upload = UploadFile(
-            filename=Path(apple_report_first_page).name, file=f, headers=headers
+    import os
+
+    def _missing(vars_: list[str]) -> list[str]:
+        return [v for v in vars_ if not os.environ.get(v)]
+
+    if item.get_closest_marker('needs_postgres'):
+        missing = _missing(['POSTGRES_URL'])
+        if missing:
+            pytest.skip(f'skipped: missing env vars for Postgres: {", ".join(missing)}')
+
+    if item.get_closest_marker('needs_aws'):
+        missing = _missing(
+            ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET']
         )
-        yield upload
-    finally:
-        try:
-            f.close()
-        except Exception:
-            pass
+        if missing:
+            pytest.skip(f'skipped: missing env vars for AWS/S3: {", ".join(missing)}')
+
+    if item.get_closest_marker('needs_openai'):
+        missing = _missing(['OPENAI_API_KEY'])
+        if missing:
+            pytest.skip(f'skipped: missing env vars for OpenAI: {", ".join(missing)}')

@@ -14,7 +14,7 @@ from app.repositories.exceptions import JobNotFoundError
 @pytest.mark.asyncio
 async def test_delete_job_removes_row_and_is_idempotent(
     session,
-    random_digest,
+    digest_random,
 ):
     document_uuid = uuid.uuid4()
 
@@ -22,7 +22,7 @@ async def test_delete_job_removes_row_and_is_idempotent(
     job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
-        digest=random_digest,
+        digest=digest_random,
         original_filename='upload.pdf',
         content_type='application/pdf',
         size_bytes=123,
@@ -52,13 +52,13 @@ async def test_delete_job_removes_row_and_is_idempotent(
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_update_status(session, random_digest):
+async def test_update_status(session, digest_random):
     document_uuid = uuid.uuid4()
 
     job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
-        digest=random_digest,
+        digest=digest_random,
         original_filename='file.txt',
         content_type='text/plain',
         size_bytes=10,
@@ -87,13 +87,13 @@ async def test_update_status(session, random_digest):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_update_progress(session, random_digest):
+async def test_update_progress(session, digest_random):
     document_uuid = uuid.uuid4()
 
     job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
-        digest=random_digest,
+        digest=digest_random,
         original_filename='file.txt',
         content_type='text/plain',
         size_bytes=10,
@@ -115,13 +115,13 @@ async def test_update_progress(session, random_digest):
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.asyncio
-async def test_job_document_refs(session, random_digest):
+async def test_job_document_refs(session, digest_random):
     document_uuid = uuid.uuid4()
 
     job = CreateJobCmd(
         document_uuid=document_uuid,
         collection=CollectionEnum.DEFAULT.value,
-        digest=random_digest,
+        digest=digest_random,
         original_filename='report.pdf',
         content_type='application/pdf',
         size_bytes=2048,
@@ -133,6 +133,6 @@ async def test_job_document_refs(session, random_digest):
 
     refs = await Job.document_refs(session, job_id=job_id)
     assert refs is not None
-    assert refs.digest == random_digest
+    assert refs.digest == digest_random
     assert refs.collection == CollectionEnum.DEFAULT.value
     assert refs.document_uuid == document_uuid

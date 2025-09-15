@@ -17,15 +17,17 @@ def ingestor() -> DocumentIngestor:
 
 
 @pytest.mark.integration
+@pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_ingest_creates_embeddings(
-    ingestor, sample_documents, random_digest, session
+    ingestor, sample_documents, digest_random, session
 ):
     """Test that ingest method creates embeddings in the vector."""
     # Use only first 2 documents for faster testing
 
     test_docs = sample_documents[:2]
-    await ingestor.ingest(session, docs=test_docs, digest=random_digest)
+    await ingestor.ingest(session, docs=test_docs, digest=digest_random)
 
     # Search for content from the first document
     first_doc_content = test_docs[0].page_content[:100]  # First 100 chars
@@ -39,24 +41,26 @@ async def test_ingest_creates_embeddings(
         'Ingested document content not found in search results'
     )
 
-    await ingestor.delete_embeddings(session=session, digest=random_digest)
+    await ingestor.delete_embeddings(session=session, digest=digest_random)
 
 
 @pytest.mark.integration
+@pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_ingest_creates_embeddings_with_metadata(
-    ingestor, sample_documents, random_digest, session
+    ingestor, sample_documents, digest_random, session
 ):
     """Test that ingest method creates embeddings in the vector."""
     test_docs = sample_documents[:2]
 
-    await ingestor.ingest(session, docs=test_docs, digest=random_digest)
+    await ingestor.ingest(session, docs=test_docs, digest=digest_random)
     metadata = await Embeddings.get_metadata(
-        session, digest=random_digest, collection=CollectionEnum.DEFAULT.value
+        session, digest=digest_random, collection=CollectionEnum.DEFAULT.value
     )
-    assert metadata[0]['digest'] == random_digest
+    assert metadata[0]['digest'] == digest_random
 
-    await ingestor.delete_embeddings(session, digest=random_digest)
+    await ingestor.delete_embeddings(session, digest=digest_random)
 
 
 @pytest.mark.integration

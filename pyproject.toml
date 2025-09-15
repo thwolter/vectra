@@ -74,12 +74,14 @@ norecursedirs = [".venv", "build", "dist", ".mypy_cache", ".ruff_cache", ".pytes
 addopts = "-q -ra -m 'not e2e and not slow and not integration'"
 asyncio_mode = "auto"
 markers = [
+  "unit: fast unit tests; pure logic, no external services",
   "integration: mark tests as integration tests that may access external services or resources",
   "e2e: end-to-end tests",
   "slow: slow-running tests",
   "requires_env(*vars): skip test if these env vars are missing",
   "needs_postgres: shorthand for requires_env('POSTGRES_URL')",
   "needs_aws: shorthand for requires_env('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET')",
+  "needs_openai: shorthand for requires_env('OPENAI_API_KEY')",
 ]
 
 # Replace any old `ignore = ...` with proper filters:

@@ -11,6 +11,7 @@ from app.vector.factory import get_vectorstore
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_update_document_metadata_by_digest_merges_across_all_chunks(session):
     tenant_id = session.info['tenant_id']
@@ -46,6 +47,7 @@ async def test_update_document_metadata_by_digest_merges_across_all_chunks(sessi
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_update_metadata_keeps_existing_metadata_when_replace_false(
     session,
@@ -82,6 +84,7 @@ async def test_update_metadata_keeps_existing_metadata_when_replace_false(
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_update_metadata_replaces_metadata_when_replace_true(
     session,
@@ -120,6 +123,7 @@ async def test_update_metadata_replaces_metadata_when_replace_true(
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_check_documents_exists_scoped_by_collection(
     session,
@@ -176,6 +180,7 @@ async def test_check_documents_exists_scoped_by_collection(
 
 @pytest.mark.integration
 @pytest.mark.needs_postgres
+@pytest.mark.needs_openai
 @pytest.mark.asyncio
 async def test_update_document_metadata_noop_on_empty_updates(
     session,
