@@ -6,6 +6,7 @@ import os
 from typing import Callable
 
 import pytest
+
 from app.utils.types import SHA256B64
 
 
@@ -32,8 +33,6 @@ def digest_from() -> Callable[[str], SHA256B64]:
     """
 
     def _make(text: str) -> SHA256B64:
-        return base64.b64encode(hashlib.sha256(text.encode('utf-8')).digest()).decode(
-            'ascii'
-        )
+        return base64.b64encode(hashlib.sha256(text.encode('utf-8')).digest()).decode('ascii')
 
     return _make

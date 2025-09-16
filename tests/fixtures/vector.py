@@ -30,9 +30,7 @@ class FakeEmbeddings(Embeddings):
         v /= np.linalg.norm(v) + 1e-12
         return v.astype(np.float32).tolist()
 
-    def embed_documents(
-        self, texts: List[str]
-    ) -> List[List[float]]:  # sync OK for tests
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:  # sync OK for tests
         return [self._vec_for(t) for t in texts]
 
     def embed_query(self, text: str) -> List[float]:
@@ -78,6 +76,4 @@ def vectorstore_factory(session) -> Callable[[str, Embeddings | None], PGVector]
 @pytest.fixture
 def fake_embeddings_vectorstore(session) -> PGVector:
     tenant_id = session.info['tenant_id']
-    return get_vectorstore(
-        collection='default', tenant_id=tenant_id, embeddings=FakeEmbeddings()
-    )
+    return get_vectorstore(collection='default', tenant_id=tenant_id, embeddings=FakeEmbeddings())

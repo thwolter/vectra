@@ -1,30 +1,24 @@
 from __future__ import annotations
-from sqlalchemy.ext.asyncio.session import AsyncSession
-
 
 from dataclasses import replace as dc_replace
 
 from langchain_core.documents import Document
 from loguru import logger
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.metadata.base import Strategy
 from app.parsers.protocols import ParserProtocol
+from app.parsers.providers import parser_provider
+from app.repositories import DocumentRepository as DBDocument
+from app.repositories import EmbeddingsRepository, IngestionRepository, JobRepository
+from app.repositories.schemas import DocumentUpdate, IngestionVersion, JobUpdate
 from app.schemas.jobs import JobCtx
+from app.services.document_service import DocumentService
+from app.store.protocols import StoreProtocol
+from app.store.providers import default_store_provider
+from app.store.schemas import ArtifactInfo
 from app.vector.protocols import IngestorProtocol
 from app.vector.providers import default_ingestor_provider
-from app.store.providers import default_store_provider
-from app.parsers.providers import parser_provider
-
-
-from app.services.document_service import DocumentService
-
-from app.repositories import Document as DBDocument
-from app.vector.schemas import IngestionVersionKey
-from app.repositories import Ingestion
-from app.store.protocols import StoreProtocol
-from app.store.schemas import ArtifactInfo
-from app.vector.models import IngestorSettings
-from app.repositories import Embeddings
 
 
 class UploadPipeline:
@@ -100,28 +94,13 @@ class UploadPipeline:
         ingestion version repository. If present, skips embedding; otherwise ingests.
         """
 
-        settings = IngestorSettings()
-        key = IngestionVersionKey(
-            collection=self.ctx.collection.value,
-            digest=self.ctx.digest,
-            chunker_version=settings.chunker_version,
-            embed_model=settings.model_name,
-            embed_model_ver=settings.embed_model_ver,
+        fp = IngestionVersion.from_settings(collection=self.ctx.collection.value).fingerprint()
+
+        ingestion_exists = await IngestionRepository.exists(
+            session, fingerprint=fp, collection=self.ctx.collection.value, digest=self.ctx.digest
         )
-
-        try:
-            exists = await Ingestion.exists(session=session, key=key)
-        except Exception as e:
-            logger.error(
-                f'Failed to check ingestion version for {self.ctx.job_id}: {e}'
-            )
-            # If check fails, assume it does not exist to avoid skipping ingestion
-            exists = False
-
-        if exists:
-            logger.info(
-                f'{self.ctx.job_id} IngestionVersion exists; skipping chunk/embed'
-            )
+        if ingestion_exists:
+            logger.info(f'{self.ctx.job_id} IngestionVersion exists; skipping chunk/embed')
             self.ctx = dc_replace(self.ctx, skip_embed=True)
             return self
 
@@ -129,11 +108,9 @@ class UploadPipeline:
             ingestor = self.ingestor or default_ingestor_provider(
                 collection=self.ctx.collection,
             )
-            await ingestor.ingest(
-                session=session,
-                docs=self.ctx.docs,
-                digest=self.ctx.digest,
-            )
+            result = await ingestor.ingest(session=session, docs=self.ctx.docs, job_id=self.ctx.job_id)
+            await JobRepository.update(session, job=JobUpdate(id=self.ctx.job_id, ingestion_id=result.ingestion_id))
+
         self.ctx = dc_replace(self.ctx, skip_embed=False)
         return self
 
@@ -174,7 +151,7 @@ class UploadPipeline:
         # Apply the proposed metadata dict onto each document
         docs: list[Document] = []
         for d in self.ctx.docs:
-            d.metadata.update(pm.metadata)  # type: ignore[arg-type]
+            d.metadata.update(pm.metadata)
             docs.append(d)
 
         # Merge proposed metadata into the context metadata without mutating in-place
@@ -193,7 +170,7 @@ class UploadPipeline:
         )
         return self
 
-    async def persist_metadata(self, session: AsyncSession) -> UploadPipeline:
+    async def persist_metadata(self, session: AsyncSession, update_embeddings: bool = True) -> UploadPipeline:
         """Ensure required metadata keys are set on the DocumentMetadata.
 
         Uses MetadataService.required_fields to determine which keys are required for the
@@ -202,16 +179,19 @@ class UploadPipeline:
         if not self.ctx.metadata:
             return self
 
-        await Embeddings.update_metadata(
+        if update_embeddings:
+            await EmbeddingsRepository.update_metadata(
+                session,
+                digest=self.ctx.digest,
+                collection=self.ctx.collection.value,
+                metadata=self.ctx.metadata,
+            )
+        await DBDocument.update(
             session,
-            digest=self.ctx.digest,
-            collection=self.ctx.collection.value,
-            metadata=self.ctx.metadata,
-        )
-        await DBDocument.update_metadata(
-            session=session,
-            id=self.ctx.document_id,
-            metadata=self.ctx.metadata,
+            document=DocumentUpdate(
+                id=self.ctx.document_id,
+                meta=self.ctx.metadata,
+            ),
         )
         return self
 

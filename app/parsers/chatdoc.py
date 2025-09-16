@@ -100,9 +100,7 @@ class ChatDocParser:
                 break
             elif status < 0:
                 # Error occurred during analysis
-                raise Exception(
-                    f'Error occurred during document analysis. Status code: {status}'
-                )
+                raise Exception(f'Error occurred during document analysis. Status code: {status}')
 
             # Status is still UN_PARSED or in progress, wait and try again
             await asyncio.sleep(10)  # Wait for 10 seconds before polling again
@@ -112,24 +110,18 @@ class ChatDocParser:
             raise Exception('Timeout waiting for document to be processed')
 
         # Document is ready for extraction
-        extract_response = requests.get(
-            self.get_extract_url(upload_id), headers=self.headers
-        )
+        extract_response = requests.get(self.get_extract_url(upload_id), headers=self.headers)
         extract_response.raise_for_status()
 
         data = json.loads(extract_response.text)['data']
-        return DocumentContent(
-            content=data.get('elements', []), metadata=data.get('document', {})
-        )
+        return DocumentContent(content=data.get('elements', []), metadata=data.get('document', {}))
 
     async def upload_file(self, file_path: str) -> str:
         with open(file_path, 'rb') as file:
             files = {'file': (os.path.basename(file_path), file, 'application/pdf')}
             data = {'package_type': 'basic'}
             headers = {'Authorization': f'Bearer {self.api_key}'}
-            response = requests.post(
-                self.upload_url, headers=headers, files=files, data=data
-            )
+            response = requests.post(self.upload_url, headers=headers, files=files, data=data)
             response.raise_for_status()
             return response.json()['data']['id']
 

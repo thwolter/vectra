@@ -1,13 +1,13 @@
 import importlib
 import sys
 from abc import ABC, abstractmethod
-from typing import List, Dict, Type, Any, ClassVar
+from typing import Any, ClassVar, Dict, List, Type
 
 from langchain_core.documents import Document
+from pydantic import BaseModel, Field, create_model
 
-from app.metadata.schemas import ProposedMetadata, AssessmentResult, Evidence, NoopHints
+from app.metadata.schemas import AssessmentResult, Evidence, NoopHints, ProposedMetadata
 from app.schemas.upload import UploadHints
-from pydantic import create_model, Field, BaseModel
 
 
 class Strategy(ABC):
@@ -32,9 +32,7 @@ class Strategy(ABC):
         mod = importlib.import_module(f'app.metadata.{hints.strategy}')
         klass = getattr(mod, cls_name, None)
         if klass is None:
-            raise AttributeError(
-                f"Strategy class {cls_name} not found for name '{hints.strategy}'"
-            )
+            raise AttributeError(f"Strategy class {cls_name} not found for name '{hints.strategy}'")
         return klass(hints=hints)
 
     @classmethod
@@ -75,9 +73,7 @@ class Strategy(ABC):
         return '\n\n---\n\n'.join(out)
 
     @abstractmethod
-    def assess_quality(
-        self, *, metadata: ProposedMetadata, docs: List[Document]
-    ) -> AssessmentResult:
+    def assess_quality(self, *, metadata: ProposedMetadata, docs: List[Document]) -> AssessmentResult:
         raise NotImplementedError
 
     def build_llm_response_model(self) -> Type[BaseModel]:
@@ -134,9 +130,7 @@ class Strategy(ABC):
         if mm is None:
             raise ValueError(f'{type(self).__name__}.metadata_model must be set')
         if not issubclass(mm, BaseModel):
-            raise ValueError(
-                f'{type(self).__name__}.metadata_model must be a Pydantic BaseModel subclass'
-            )
+            raise ValueError(f'{type(self).__name__}.metadata_model must be a Pydantic BaseModel subclass')
         types_ns = vars(sys.modules.get(mm.__module__, sys.modules[__name__]))
         try:
             mm.model_rebuild(_types_namespace=types_ns, force=True)

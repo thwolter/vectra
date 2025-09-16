@@ -9,9 +9,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.vectorstores import VectorStore
 from langgraph.graph import END, StateGraph
 
+from app.extract.retrieval import retrieve
 from app.metadata.base import Strategy
 from app.metadata.schemas import ProposedMetadata
-from app.extract.retrieval import retrieve
 
 
 class RouteEnum(enum.Enum):
@@ -49,9 +49,7 @@ def make_retrieve_node(vs: VectorStore):
     async def _retrieve(state: ExtractState) -> ExtractState:
         # If we are coming back from a RETRY route, bump the attempt counter
         if state.get('route') == RouteEnum.RETRY:
-            state['attempt'] = min(
-                state.get('attempt', 1) + 1, state.get('max_attempts', 3)
-            )
+            state['attempt'] = min(state.get('attempt', 1) + 1, state.get('max_attempts', 3))
         params = _search_params(state.get('attempt', 1))
         state['docs'] = await retrieve(
             vs,
@@ -69,9 +67,7 @@ def make_extract_node(llm: BaseChatModel, strategy: Strategy):
         if not state.get('docs'):
             # Ensure callers always see a structured payload with the expected keys
             # even when no documents could be retrieved.
-            state['metadata'] = ProposedMetadata(
-                metadata={'metadata': {}, 'evidence': {}}
-            )
+            state['metadata'] = ProposedMetadata(metadata={'metadata': {}, 'evidence': {}})
             return state
 
         context = strategy.make_context(state['docs'])
@@ -104,9 +100,7 @@ def make_assess_node(strategy: Strategy):
             state['route'] = RouteEnum.OK
         else:
             state['route'] = (
-                RouteEnum.RETRY
-                if state.get('attempt', 1) < state.get('max_attempts', 3)
-                else RouteEnum.FAIL
+                RouteEnum.RETRY if state.get('attempt', 1) < state.get('max_attempts', 3) else RouteEnum.FAIL
             )
         return state
 

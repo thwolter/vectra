@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import Depends, APIRouter
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.protocols.services import JobServiceProtocol
-from app.schemas.upload import JobStatusResponse, JobReviewResponse, JobReviewPayload
-from app.services.dependencies import get_job_service
 from app.core.dependencies import access_scoped_session
-
+from app.protocols.services import JobServiceProtocol
+from app.schemas.upload import JobReviewPayload, JobReviewResponse, JobStatusResponse
+from app.services.dependencies import get_job_service
 
 router = APIRouter(prefix='/v1', tags=['jobs'])
 
@@ -36,4 +35,7 @@ async def review_job(
     job_service: JobServiceProtocol = Depends(get_job_service),
 ) -> JobReviewResponse:
     """Submit a human review for an ingestion job to correct or approve extracted metadata."""
-    return await job_service.review_job(session, job_id=job_id, payload=payload)
+    try:
+        return await job_service.review_job(session, job_id=job_id, payload=payload)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))

@@ -4,28 +4,27 @@ from typing import Annotated
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
-    UploadFile,
-    BackgroundTasks,
     Form,
     HTTPException,
+    UploadFile,
     status,
 )
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.file import TemporaryUploadFile
-from app.api.utils import parse_hints_from_any
 from app.api.schemas import AccessContext
-from app.protocols.services import UploadServiceProtocol
-from app.services.dependencies import get_upload_service
-from app.schemas.upload import (
-    UploadInitResponse,
-    StartUploadInput,
-    ContinueProcessingInput,
-)
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.utils import parse_hints_from_any
 from app.core.dependencies import access_scoped_session
-
+from app.protocols.services import UploadServiceProtocol
+from app.schemas.upload import (
+    ContinueProcessingInput,
+    StartUploadInput,
+    UploadInitResponse,
+)
+from app.services.dependencies import get_upload_service
 
 # Hard limits to protect memory/CPU. Adjust via settings if needed.
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
@@ -46,12 +45,8 @@ router = APIRouter(prefix='/v1')
 )
 async def upload_document(
     background_tasks: BackgroundTasks,
-    file: Annotated[
-        UploadFile, File(description='Document to upload (PDF, DOCX, etc.)')
-    ],
-    hints: Annotated[
-        str | None, Form(description='Optional hints for document parsing')
-    ] = None,
+    file: Annotated[UploadFile, File(description='Document to upload (PDF, DOCX, etc.)')],
+    hints: Annotated[str | None, Form(description='Optional hints for document parsing')] = None,
     upload_service: UploadServiceProtocol = Depends(get_upload_service),
     session: AsyncSession = Depends(access_scoped_session),
 ) -> UploadInitResponse:

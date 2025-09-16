@@ -1,168 +1,77 @@
-from uuid import UUID
-
 import pytest
 
-from app.repositories import Document
-from app.repositories.schemas import DocumentCreate
-from app.schemas.enums import CollectionEnum
-from app.repositories.exceptions import DocumentNotFoundError
+from app.repositories import DocumentRepository
+from app.repositories.exceptions import RecordAlreadyExistsError, RecordNotFoundError
+from app.repositories.schemas import DocumentCreate, DocumentUpdate
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
-@pytest.mark.asyncio
-async def test_create_and_get_document_roundtrip(session, digest_random):
-    data = DocumentCreate(
-        collection=CollectionEnum.DEFAULT.value,
-        digest=digest_random,
-        original_filename='report.pdf',
-        content_type='application/pdf',
-        size_bytes=12345,
-        meta={'hint': 'v1'},
-    )
-
-    doc_id, _ = await Document.upsert(session, data=data)
-    assert isinstance(doc_id, UUID)
-
-    doc = await Document.get(session, id=doc_id)
-    assert doc.collection == CollectionEnum.DEFAULT.value
-    assert doc.digest == digest_random
-    assert doc.original_filename == 'report.pdf'
-    assert doc.content_type == 'application/pdf'
-    assert doc.size_bytes == 12345
-    assert doc.meta == {'hint': 'v1'}
+async def test_can_create_document(session, document_created):
+    result = await DocumentRepository.get(session, document_id=document_created.id)
+    assert result is not None
+    assert result.id == document_created.id
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
-@pytest.mark.asyncio
-async def test_create_is_idempotent_by_collection_and_digest(session, digest_random):
-    first = DocumentCreate(
-        collection=CollectionEnum.FINANCIAL.value,
-        digest=digest_random,
-        original_filename='first.pdf',
-        content_type='application/pdf',
-        size_bytes=10,
-    )
-    second = DocumentCreate(
-        collection=CollectionEnum.FINANCIAL.value,
-        digest=digest_random,
-        original_filename='second.pdf',  # should be ignored due to first-seen wins
-        content_type='application/pdf',
-        size_bytes=20,
-    )
-
-    id1, _ = await Document.upsert(session, data=first)
-    id2, _ = await Document.upsert(session, data=second)
-
-    assert id1 == id2, 'Same (tenant, collection, digest) should return existing row id'
-
-    # Ensure original_filename is from the first insert (first-seen wins)
-    doc = await Document.get(session, id=id1)
-    assert doc.original_filename == 'first.pdf'
+async def test_cannot_create_twice(session, document_created):
+    data = DocumentCreate.model_validate(document_created.model_dump(mode='json'))
+    with pytest.raises(RecordAlreadyExistsError):
+        await DocumentRepository.create(session, data=data)
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
-@pytest.mark.asyncio
-async def test_same_digest_in_different_collections_creates_distinct_rows(
-    session,
-    digest_random,
-):
-    id_default, _ = await Document.upsert(
-        session,
-        data=DocumentCreate(
-            collection=CollectionEnum.DEFAULT.value,
-            digest=digest_random,
-            original_filename='a.pdf',
-        ),
-    )
-    id_fin, _ = await Document.upsert(
-        session,
-        data=DocumentCreate(
-            collection=CollectionEnum.FINANCIAL.value,
-            digest=digest_random,
-            original_filename='a.pdf',
-        ),
-    )
+async def test_recreate_with_other_collection(session, document_created):
+    data = DocumentCreate.model_validate(document_created.model_dump())
+    data.collection = 'another'
+    another_document = await DocumentRepository.create(session, data=data)
 
-    assert id_default != id_fin
+    assert another_document.id is not None
+    assert document_created.id != another_document.id
+    session.delete(another_document)
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
-@pytest.mark.asyncio
-async def test_update_uris_updates_fields(session, digest_random):
-    doc_id, _ = await Document.upsert(
-        session,
-        data=DocumentCreate(
-            collection=CollectionEnum.DEFAULT.value,
-            digest=digest_random,
-            original_filename='x.pdf',
-        ),
-    )
+async def test_can_delete(session, document_created):
+    deleted = await DocumentRepository.delete(session, document_id=document_created.id)
+    assert deleted is True
 
-    await Document.update_uris(
-        session,
-        id=doc_id,
-        original_uri='s3://bucket/path/original.pdf',
-        markdown_uri='s3://bucket/path/document.md',
-    )
-
-    doc = await Document.get(session, id=doc_id)
-    assert doc.original_uri == 's3://bucket/path/original.pdf'
-    assert doc.markdown_uri == 's3://bucket/path/document.md'
-
-
-@pytest.mark.integration
-@pytest.mark.needs_postgres
-@pytest.mark.asyncio
-async def test_update_metadata_replaces_meta(session, digest_random):
-    doc_id, _ = await Document.upsert(
-        session,
-        data=DocumentCreate(
-            collection=CollectionEnum.DEFAULT.value,
-            digest=digest_random,
-            original_filename='y.pdf',
-            meta={'keep': 'no'},
-        ),
-    )
-
-    await Document.update_metadata(
-        session,
-        id=doc_id,
-        metadata={'company': 'Acme', 'year': 2024},
-        replace=True,
-    )
-    doc = await Document.get(session, id=doc_id)
-    assert doc.meta == {'company': 'Acme', 'year': 2024}
-
-    await Document.update_metadata(
-        session, id=doc_id, metadata={'another': 'new'}, replace=False
-    )
-    doc = await Document.get(session, id=doc_id)
-    assert doc.meta == {'company': 'Acme', 'year': 2024, 'another': 'new'}
-
-
-@pytest.mark.integration
-@pytest.mark.needs_postgres
-@pytest.mark.asyncio
-async def test_delete_removes_row_and_is_idempotent(session, digest_random):
-    doc_id, _ = await Document.upsert(
-        session,
-        data=DocumentCreate(
-            collection=CollectionEnum.DEFAULT.value,
-            digest=digest_random,
-            original_filename='z.pdf',
-        ),
-    )
-
-    # First delete returns True and subsequent get should fail
-    first = await Document.delete(session, id=doc_id)
-    assert first is True
-    with pytest.raises(DocumentNotFoundError):
-        await Document.get(session, id=doc_id)
+    with pytest.raises(RecordNotFoundError):
+        await DocumentRepository.get(session, document_id=document_created.id)
 
     # Second delete returns False (no-op)
-    second = await Document.delete(session, id=doc_id)
+    second = await DocumentRepository.delete(session, document_id=document_created.id)
     assert second is False
+
+
+@pytest.mark.needs_postgres
+async def test_can_update(session, document_created):
+    document = DocumentUpdate.model_validate(document_created)
+    document.meta = {'foo': 'bar'}
+    document.markdown_uri = 'https://example.com'
+    updated_document = await DocumentRepository.update(session, document=document)
+    assert updated_document.meta == {**document_created.meta, 'foo': 'bar'}
+    assert updated_document.markdown_uri == 'https://example.com'
+
+    updated_document = await DocumentRepository.update(session, document=document, replace_meta=True)
+    assert updated_document.meta == {'foo': 'bar'}
+
+
+@pytest.mark.needs_postgres
+async def test_can_get_for_digest(session, document_created):
+    record = await DocumentRepository.get_for_digest(
+        session,
+        digest=document_created.digest,
+        collection=document_created.collection,
+    )
+    assert record is not None
+    assert record.id == document_created.id
+
+
+@pytest.mark.needs_postgres
+async def test_can_get_or_create(session, document_created):
+    data = DocumentCreate.model_validate(document_created.model_dump())
+    record, created = await DocumentRepository.get_or_create(session, data=data)
+    # Should return the existing record when it already exists
+    assert record is not None
+    assert created is False
+    assert record.id == document_created.id

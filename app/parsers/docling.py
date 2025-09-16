@@ -89,6 +89,4 @@ class DoclingParser(ParserProtocol):
             raise ValueError('No documents parsed yet. Call parse() first.')
 
         # Join document contents with newlines
-        return '\n\n'.join(
-            doc.page_content for doc in self._parsed_docs if doc.page_content
-        )
+        return '\n\n'.join(doc.page_content for doc in self._parsed_docs if doc.page_content)

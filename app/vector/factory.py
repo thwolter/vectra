@@ -1,11 +1,10 @@
 from uuid import UUID
 
 from langchain_core.embeddings import Embeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
 from app.core.config import get_settings
-from langchain_openai import OpenAIEmbeddings
-
 from app.core.tenancy import dsn_with_tenant
 
 settings = get_settings()

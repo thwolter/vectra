@@ -22,8 +22,6 @@ class DocumentChunk(BaseModel):
 class ProcessedDocument(BaseModel):
     """A processed document with its chunks."""
 
-    original_content: DocumentContent = Field(
-        ..., description='Original content of the document'
-    )
+    original_content: DocumentContent = Field(..., description='Original content of the document')
     chunks: List[DocumentChunk] = Field(..., description='Chunks of the document')
     total_chunks: int = Field(..., description='Total number of chunks')

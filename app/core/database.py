@@ -8,23 +8,18 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from typing import Final
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlalchemy import text
+from sqlalchemy import String, bindparam, event, text
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy import String, bindparam
-from sqlalchemy import event
-from typing import Final
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.vector.factory import get_vectorstore
+
 from .config import get_settings
 from .exceptions import RlsNotEnforcedError
 
@@ -100,7 +95,7 @@ async def assert_rls_enforced(conn) -> None:
             f'RLS NOT ENFORCED: rolsuper={rolsuper}, rolbypassrls={rolbypassrls}, row_security={rs}'
         )
 
-    logger.info('RLS enforced for current_user; row_security is ON')
+    logger.success('RLS enforced for current_user; row_security is ON')
 
 
 async def _ensure_vs_tables():
@@ -171,12 +166,8 @@ class DatabaseManager:
             await self._dispose_engine_safely()
 
         if self._engine is None:
-            self._engine = create_async_engine(
-                self._async_dsn(), pool_size=5, max_overflow=5, pool_pre_ping=True
-            )
-            self._session_factory = async_sessionmaker(
-                self._engine, expire_on_commit=False, class_=AsyncSession
-            )
+            self._engine = create_async_engine(self._async_dsn(), pool_size=5, max_overflow=5, pool_pre_ping=True)
+            self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False, class_=AsyncSession)
             self._loop = current_loop
             logger.debug('Database async engine initialized')
 
@@ -234,11 +225,7 @@ class DatabaseManager:
         for tbl in LC_TENANT_TABLES:
             if tbl not in LC_TENANT_TABLES:  # defensive
                 raise ValueError(f'Unexpected LC table name: {tbl}')
-            await conn.execute(
-                text(
-                    f'ALTER TABLE IF EXISTS {tbl} ADD COLUMN IF NOT EXISTS tenant_id uuid'
-                )
-            )
+            await conn.execute(text(f'ALTER TABLE IF EXISTS {tbl} ADD COLUMN IF NOT EXISTS tenant_id uuid'))
             await conn.execute(
                 text(
                     f"ALTER TABLE IF EXISTS {tbl} ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid"
@@ -277,9 +264,7 @@ class DatabaseManager:
 
         existing = {}
         for tbl in LC_TENANT_TABLES:
-            existing[tbl] = bool(
-                (await conn.execute(text(f"SELECT to_regclass('{tbl}')"))).scalar()
-            )
+            existing[tbl] = bool((await conn.execute(text(f"SELECT to_regclass('{tbl}')"))).scalar())
 
         for tbl in LC_TENANT_TABLES:
             if not existing[tbl]:

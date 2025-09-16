@@ -3,17 +3,17 @@ from __future__ import annotations
 from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.config import get_settings
+from app.metadata.base import Strategy
 from app.metadata.schemas import ProposedMetadata
+from app.schemas.enums import CollectionEnum
 from app.schemas.upload import UploadHints
 from app.utils.types import SHA256B64
 from app.vector.factory import get_vectorstore
-from app.core.config import get_settings
-from app.schemas.enums import CollectionEnum
 
 from .graph import build_extract_graph
-from app.metadata.base import Strategy
 
 
 @lru_cache

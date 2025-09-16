@@ -2,9 +2,9 @@ import base64
 import hashlib
 import os
 import shutil
-from tempfile import NamedTemporaryFile
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Final
 
 from fastapi import UploadFile
@@ -32,15 +32,11 @@ class TemporaryUploadFile:
         if not file.content_type:
             raise ValueError('Missing content_type')
 
-        with NamedTemporaryFile(
-            delete=False, suffix=Path(file.filename or '').suffix
-        ) as tmp:
+        with NamedTemporaryFile(delete=False, suffix=Path(file.filename or '').suffix) as tmp:
             file.file.seek(0)
             shutil.copyfileobj(file.file, tmp)  # type: ignore[assignment]
             path = Path(tmp.name)
-        return TemporaryUploadFile(
-            path=path, filename=file.filename, content_type=file.content_type
-        )
+        return TemporaryUploadFile(path=path, filename=file.filename, content_type=file.content_type)
 
     def close(self) -> None:
         try:

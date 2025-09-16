@@ -1,21 +1,21 @@
 import io
 import uuid
-from unittest.mock import create_autospec, AsyncMock
+from unittest.mock import AsyncMock, create_autospec
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.protocols.services import UploadServiceProtocol, JobServiceProtocol
+from app.metadata.schemas import FinanceReportHints, NoopHints
+from app.protocols.services import JobServiceProtocol, UploadServiceProtocol
 from app.schemas.upload import (
-    UploadInitResponse,
-    JobStatusResponse,
-    JobReviewResponse,
-    JobStatus,
     JobProgress,
     JobReviewPayload,
+    JobReviewResponse,
+    JobStatus,
+    JobStatusResponse,
+    UploadInitResponse,
 )
-from app.metadata.schemas import NoopHints, FinanceReportHints
-from app.services.dependencies import get_upload_service, get_job_service
+from app.services.dependencies import get_job_service, get_upload_service
 
 JOB_ID = uuid.uuid4()
 DOCUMENT_ID = uuid.uuid4()
@@ -26,21 +26,17 @@ def api_client(monkeypatch, digest_random, auth_client) -> TestClient:
     client = auth_client
     app = client.app
 
-    upload_mock: UploadServiceProtocol = create_autospec(
-        UploadServiceProtocol, instance=True, spec_set=True
-    )
-    job_mock: JobServiceProtocol = create_autospec(
-        JobServiceProtocol, instance=True, spec_set=True
-    )
+    upload_mock: UploadServiceProtocol = create_autospec(UploadServiceProtocol, instance=True, spec_set=True)
+    job_mock: JobServiceProtocol = create_autospec(JobServiceProtocol, instance=True, spec_set=True)
 
     upload_mock.start_document_upload = AsyncMock(
         return_value=UploadInitResponse(
             job_id=JOB_ID,
             document_id=DOCUMENT_ID,
             status=JobStatus.PROCESSING,
-            deduplicated=False,
             digest=digest_random,
             original_filename='tiny.pdf',
+            already_running=False,
         )
     )
     upload_mock.continue_processing = AsyncMock(return_value=None)

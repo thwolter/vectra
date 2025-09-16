@@ -50,9 +50,7 @@ def upload_file_factory(
     tmp_files: list[Path] = []
 
     def _make(content: bytes, filename: str, content_type: str) -> UploadFile:
-        tmp = tempfile.NamedTemporaryFile(
-            delete=False, dir=tmp_path, suffix=Path(filename).suffix or ''
-        )
+        tmp = tempfile.NamedTemporaryFile(delete=False, dir=tmp_path, suffix=Path(filename).suffix or '')
         tmp.write(content)
         tmp.flush()
         tmp.close()
@@ -78,9 +76,7 @@ def upload_file_factory(
 
 
 @pytest.fixture
-def tiny_pdf_upload(
-    upload_file_factory, pdf_bytes_tiny
-) -> Generator[UploadFile, Any, None]:
+def tiny_pdf_upload(upload_file_factory, pdf_bytes_tiny) -> Generator[UploadFile, Any, None]:
     """Backwards-compatible UploadFile fixture using the generic factory."""
     upload = upload_file_factory(pdf_bytes_tiny, 'tiny.pdf', 'application/pdf')
     try:
@@ -101,9 +97,7 @@ def apple_report_first_page_upload(
     f = open(apple_report_first_page, 'rb')
     try:
         headers = Headers({'content-type': 'application/pdf'})
-        upload = UploadFile(
-            filename=Path(apple_report_first_page).name, file=f, headers=headers
-        )
+        upload = UploadFile(filename=Path(apple_report_first_page).name, file=f, headers=headers)
         yield upload
     finally:
         try:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gzip
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator, BinaryIO, cast
 from uuid import UUID
@@ -10,9 +11,8 @@ from loguru import logger
 from app.api.file import TemporaryUploadFile
 from app.core.config import get_settings
 from app.schemas.enums import CollectionEnum
-from app.store.schemas import ArtifactInfo, StoredFiles, FileInfo
 from app.store.mixins import StoreKeyHelpers
-from datetime import datetime, timezone
+from app.store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
 settings = get_settings()
 
@@ -52,9 +52,7 @@ class LocalFileStore(StoreKeyHelpers):
     Only storage/retrieval responsibilities are implemented.
     """
 
-    def __init__(
-        self, collection: CollectionEnum, *, base_path: str | Path | None = None
-    ) -> None:
+    def __init__(self, collection: CollectionEnum, *, base_path: str | Path | None = None) -> None:
         self.collection = collection
         self.base_path = str(base_path or settings.local_file_path)
 
@@ -110,9 +108,7 @@ class LocalFileStore(StoreKeyHelpers):
         dest = _resolve_fs_path(key)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(md_text, encoding='utf-8')
-        logger.success(
-            'Markdown saved locally', extra={'key': key, 'document_id': document_id}
-        )
+        logger.success('Markdown saved locally', extra={'key': key, 'document_id': document_id})
         return ArtifactInfo(
             document_id=document_id,
             collection=self.collection,
@@ -139,17 +135,13 @@ class LocalFileStore(StoreKeyHelpers):
                     try:
                         p.unlink(missing_ok=True)
                     except Exception:
-                        logger.exception(
-                            'Failed to delete file', extra={'path': str(p)}
-                        )
+                        logger.exception('Failed to delete file', extra={'path': str(p)})
                         return False
                 if delete_markdown and name == 'document.md':
                     try:
                         p.unlink(missing_ok=True)
                     except Exception:
-                        logger.exception(
-                            'Failed to delete file', extra={'path': str(p)}
-                        )
+                        logger.exception('Failed to delete file', extra={'path': str(p)})
                         return False
             # Remove directory if empty
             try:
@@ -189,9 +181,7 @@ class LocalFileStore(StoreKeyHelpers):
             raise FileNotFoundError(f'Local object not found: {key}')
         stat = path.stat()
         ctype, cenc = _detect_content_attrs(path.name)
-        last_modified = datetime.fromtimestamp(
-            stat.st_mtime, tz=timezone.utc
-        ).isoformat()
+        last_modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
         return FileInfo(
             key=key,
             size=stat.st_size,

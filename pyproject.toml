@@ -71,7 +71,7 @@ dev = [
 # Limit discovery & keep noise low
 testpaths = ["tests"]
 norecursedirs = [".venv", "build", "dist", ".mypy_cache", ".ruff_cache", ".pytest_cache", "docs"]
-addopts = "-q -ra -m 'not e2e and not slow and not integration'"
+addopts = "-q -ra -m 'not e2e and not slow and not integration' --tb=short --show-capture=no -p no:warnings"
 asyncio_mode = "auto"
 markers = [
   "unit: fast unit tests; pure logic, no external services",
@@ -89,6 +89,9 @@ filterwarnings = [
   "ignore::DeprecationWarning",
   "ignore::UserWarning"
 ]
+
+[tool.ruff]
+line-length = 120
 
 [tool.ruff.format]
 quote-style = "single"

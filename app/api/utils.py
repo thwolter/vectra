@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 import json
 
 from fastapi import HTTPException
 from pydantic import TypeAdapter, ValidationError
 
-from app.schemas.upload import UploadHints
 from app.metadata.schemas import NoopHints
+from app.schemas.upload import UploadHints
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 READ_CHUNK_SIZE = 1024 * 1024  # 1 MB

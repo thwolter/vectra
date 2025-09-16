@@ -1,9 +1,8 @@
-from unittest.mock import create_autospec, Mock, AsyncMock
+from unittest.mock import AsyncMock, create_autospec
 
 import pytest
-from langchain_core.documents import Document
 
-from app.repositories import Ingestion
+from app.repositories import IngestionRepository, JobRepository
 from app.schemas.enums import CollectionEnum
 from app.vector.ingestor import DocumentIngestor
 
@@ -11,47 +10,14 @@ from app.vector.ingestor import DocumentIngestor
 @pytest.fixture
 def ingestor():
     # Note: DocumentIngestor uses Ingestion classmethods directly; this repo mock is unused
-    repo = create_autospec(Ingestion, instance=True)
-    repo.upsert = AsyncMock(return_value=None)
-    repo.exists = AsyncMock(return_value=False)
+    ing_repo = create_autospec(IngestionRepository, instance=True)
+    ing_repo.create = AsyncMock(return_value=None)
+    ing_repo.exists = AsyncMock(return_value=False)
 
-    ingestor = DocumentIngestor(CollectionEnum.DEFAULT.value)
-    ingestor._ingestion_repo = repo
-    return ingestor
+    job_repo = create_autospec(JobRepository, instance=True)
 
-
-@pytest.mark.asyncio
-async def test_ingest_empty_docs_returns_none(ingestor, digest_random, mock_session):
-    docs = []
-    result = await ingestor.ingest(mock_session, docs=docs, digest=digest_random)
-    assert result is not None
-    assert result.skipped is True
-    assert result.total_docs == 0
-    assert result.reason == 'no_documents'
-
-
-@pytest.mark.asyncio
-async def test_ingest_calls_add_documents(
-    ingestor, digest_random, mock_session, monkeypatch
-):
-    # Patch Ingestion class used inside DocumentIngestor
-    FakeIngestion = create_autospec(Ingestion, spec_set=True)
-    FakeIngestion.exists = AsyncMock(return_value=False)
-    FakeIngestion.create = AsyncMock(return_value=None)
-    monkeypatch.setattr('app.vector.ingestor.Ingestion', FakeIngestion)
-
-    # Provide a fake vectorstore instance and make factory return it
-    vstore = Mock()
-    vstore.add_documents = Mock(return_value=None)
-    vstore.collection_name = 'default'
-
-    def fake_get_vectorstore(*args, **kwargs):
-        return vstore
-
-    monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_get_vectorstore)
-
-    docs = [Document(page_content='Hello World')]
-
-    result = await ingestor.ingest(mock_session, docs=docs, digest=digest_random)
-    assert result is not None
-    assert vstore.add_documents.call_count == 1
+    return DocumentIngestor(
+        CollectionEnum.DEFAULT.value,
+        job_repo=job_repo,
+        ingestion_repo=ing_repo,
+    )

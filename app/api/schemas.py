@@ -6,9 +6,8 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from loguru import logger
-
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 
 class AccessContext(BaseModel):
@@ -28,6 +27,8 @@ class AccessContext(BaseModel):
             user_id = session.info.get('user_id')  # type: ignore[assignment]
             if tenant_id is None:
                 raise ValueError('tenant_id missing in session.info')
+            if user_id is None:
+                raise ValueError('user_id missing in session.info')
             return cls(tenant_id=tenant_id, user_id=user_id)
         except Exception as e:
             raise ValueError(f'Failed to get tenant_id and user_id from session: {e}')
@@ -64,9 +65,7 @@ class AuthContext(BaseModel):
             if len(parts) < 2:
                 raise ValueError('Malformed JWT')
 
-            payload_bytes = base64.urlsafe_b64decode(
-                parts[1] + '=' * (-len(parts[1]) % 4)
-            )
+            payload_bytes = base64.urlsafe_b64decode(parts[1] + '=' * (-len(parts[1]) % 4))
             payload = json.loads(payload_bytes.decode('utf-8'))
 
             sub = UUID(payload.get('sub')) if payload.get('sub') else None

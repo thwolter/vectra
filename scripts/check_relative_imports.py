@@ -10,10 +10,7 @@ def main():
         with open(filename, 'r') as f:
             for idx, line in enumerate(f, 1):
                 if ABS_IMPORT_RE.match(line):
-                    print(
-                        f'{filename}:{idx}: '
-                        f'Absolute import detected (use relative import): {line.strip()}'
-                    )
+                    print(f'{filename}:{idx}: Absolute import detected (use relative import): {line.strip()}')
                     return 1
     return 0
 

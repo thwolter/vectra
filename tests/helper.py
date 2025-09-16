@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import pickle
 from pathlib import Path
+from typing import Any, cast
 
 from langchain_core.documents import Document
 from loguru import logger
@@ -16,8 +17,6 @@ from app.services.dependencies import get_upload_service as _get_upload_service_
 from app.services.upload_service import UploadService
 from app.store.local_store import LocalFileStore
 from app.store.protocols import StoreProtocol
-
-from typing import Any, cast
 
 
 def make_files_param(apple_report_first_page):
@@ -51,9 +50,7 @@ def make_client_financial(base_path: Path) -> TestClientWithCleanup:
     def _finalizer():
         app.dependency_overrides.pop(_get_upload_service_dep, None)
 
-    app.dependency_overrides[_get_upload_service_dep] = (
-        lambda: _financial_upload_service_override(base_path)
-    )
+    app.dependency_overrides[_get_upload_service_dep] = lambda: _financial_upload_service_override(base_path)
     client = TestClientWithCleanup(app)
     client._cleanup = _finalizer  # attach for manual cleanup
     return client
@@ -87,14 +84,10 @@ class FakeSampleParser(ParserProtocol):
             docs = data.get('documents') or data.get('docs') or []
             markdown = data.get('markdown') or data.get('md') or ''
         else:
-            raise ValueError(
-                f'Unsupported sample_docs format in {self.sample_path}: {type(data)}'
-            )
+            raise ValueError(f'Unsupported sample_docs format in {self.sample_path}: {type(data)}')
 
         if not isinstance(docs, list):
-            raise ValueError(
-                "sample_docs.pkl must contain list[Document] or a dict with 'documents'"
-            )
+            raise ValueError("sample_docs.pkl must contain list[Document] or a dict with 'documents'")
 
         self._docs = docs
         self._markdown = markdown

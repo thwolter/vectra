@@ -1,61 +1,36 @@
 from __future__ import annotations
 
-from typing import Optional, Literal, AsyncIterator, Tuple
+from typing import AsyncIterator, Literal, Tuple
 from uuid import UUID
 
-from app.schemas.documents import (
-    DocumentRef,
-    DocumentListResponse,
-)
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-
+from app.repositories import DocumentRepository
+from app.repositories.models import DocumentRecord
+from app.repositories.schemas import DocumentCreate, DocumentUpdate
+from app.schemas.documents import DocumentListResponse, DocumentResponse
 from app.schemas.enums import CollectionEnum
-from app.repositories.schemas import DocumentCreate
+from app.store.local_store import make_uri
 from app.store.protocols import StoreProtocol
 from app.store.providers import default_store_provider
-from app.store.local_store import make_uri
 from app.store.schemas import FileInfo
-from app.repositories import Document
 from app.utils.types import SHA256B64
 
 
 class DocumentService:
-    """Service for document orchestration and maintenance.
-
-    Responsibilities:
-    - Canonical Document lifecycle (creation, attribute updates)
-    - Future: query/list/reparse/reembed/delete endpoints
-    """
-
-    def __init__(self, *, collection: CollectionEnum):
-        self.collection = collection
-        self.store: StoreProtocol = default_store_provider(self.collection)
-
-    async def ensure_canonical_document(
+    def __init__(
         self,
-        session,
         *,
-        digest: SHA256B64,
-        original_filename: str | None,
-        content_type: str | None,
-        size_bytes: int | None,
-    ) -> Tuple[UUID, bool]:
-        """Create (or fetch) the canonical Document row and return its UUID string.
+        collection: CollectionEnum = CollectionEnum.DEFAULT,
+        repo=DocumentRepository,
+    ) -> None:
+        self.collection = collection
+        self.store = default_store_provider(self.collection)
+        assert isinstance(self.store, StoreProtocol)
+        self.repo = repo
 
-        Implements first-seen-wins for original_filename via repository upsert.
-        """
-
-        return await Document.upsert(
-            session,
-            data=DocumentCreate(
-                collection=self.collection.value,
-                digest=digest,
-                original_filename=original_filename,
-                content_type=content_type,
-                size_bytes=size_bytes,
-                meta=None,
-            ),
-        )
+    async def ensure_canonical_document(self, session, *, data: DocumentCreate) -> Tuple[DocumentRecord, bool]:
+        return await self.repo.get_or_create(session, data=data)
 
     async def update_document_uris(
         self,
@@ -77,11 +52,13 @@ class DocumentService:
         if not original_uri and not markdown_uri:
             return
 
-        await Document.update_uris(
+        await self.repo.update(
             session,
-            id=document_id,
-            original_uri=original_uri,
-            markdown_uri=markdown_uri,
+            document=DocumentUpdate(
+                id=document_id,
+                original_uri=original_uri,
+                markdown_uri=markdown_uri,
+            ),
         )
 
     async def stream_file(
@@ -90,7 +67,6 @@ class DocumentService:
         """Resolve a document artifact and return (async_bytes_iter, metadata, key)."""
         info = await self.store.info(document_id)
         files = info.files
-        target = None
         if which == 'markdown':
             target = next((f for f in files if f.key.endswith('document.md')), None)
         elif which == 'original':
@@ -102,9 +78,7 @@ class DocumentService:
             raise ValueError("which must be 'original' or 'markdown'")
 
         if not target:
-            raise FileNotFoundError(
-                f'{which} file not found for document {document_id}'
-            )
+            raise FileNotFoundError(f'{which} file not found for document {document_id}')
         key = target.key
         meta = await self.store.head(key)
         streamer = self.store.stream(key)
@@ -116,23 +90,24 @@ class DocumentService:
     async def stream_original(self, document_id: UUID):
         return await self.stream_file(document_id, 'original')
 
-    # Placeholders for API wiring; implementations to be added in future changes
-    async def get_document(self, document_id: UUID) -> DocumentRef:
-        raise NotImplementedError
+    async def get_document(self, session: AsyncSession, *, document_id: UUID) -> DocumentResponse:
+        doc = await self.repo.get(session, document_id=document_id)
+        return DocumentResponse.model_validate(doc)
+
+    async def get_document_by_digest(
+        self, session: AsyncSession, *, digest: SHA256B64, collection: str
+    ) -> DocumentResponse:
+        doc = await self.repo.get_for_digest(session, digest=digest, collection=collection)
+        return DocumentResponse.model_validate(doc)
 
     async def list_documents(
         self,
+        session: AsyncSession,
         *,
-        company_id: Optional[str] = None,
-        doc_type: Optional[str] = None,
-        reporting_year: Optional[int] = None,
-        scope: Optional[str] = None,
-        status: Optional[str] = None,
-        q: Optional[str] = None,
-        page_token: Optional[str] = None,
-        page_size: int = 50,
+        filters: dict,
     ) -> DocumentListResponse:
-        raise NotImplementedError
+        docs = self.repo.get_many(session, filters=filters)
+        return DocumentListResponse.model_validate(docs)
 
-    async def delete(self, document_id: UUID) -> None:
-        raise NotImplementedError
+    async def delete(self, session: AsyncSession, *, document_id: UUID) -> None:
+        await self.repo.delete(session, document_id=document_id)

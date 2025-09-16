@@ -1,39 +1,31 @@
 import pytest
 
+from app.repositories import EmbeddingsRepository
 from app.schemas.enums import CollectionEnum
+from app.vector.factory import get_vectorstore
 from app.vector.ingestor import DocumentIngestor
 from app.vector.models import IngestorSettings
-from app.repositories import Embeddings
-from app.vector.factory import get_vectorstore
 
 
 @pytest.fixture
 def ingestor() -> DocumentIngestor:
     """Create DocumentIngestor instance for testing."""
     ingest_settings = IngestorSettings(max_docs_per_batch=2)
-    return DocumentIngestor(
-        collection=CollectionEnum.DEFAULT.value, ingest_settings=ingest_settings
-    )
+    return DocumentIngestor(collection=CollectionEnum.DEFAULT.value, ingest_settings=ingest_settings)
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.needs_openai
-@pytest.mark.asyncio
-async def test_ingest_creates_embeddings(
-    ingestor, sample_documents, digest_random, session
-):
+async def test_ingest_creates_embeddings(ingestor, sample_documents, digest_random, session, job_created):
     """Test that ingest method creates embeddings in the vector."""
     # Use only first 2 documents for faster testing
 
     test_docs = sample_documents[:2]
-    await ingestor.ingest(session, docs=test_docs, digest=digest_random)
+    await ingestor.ingest(session, docs=test_docs, job_id=job_created.id)
 
     # Search for content from the first document
     first_doc_content = test_docs[0].page_content[:100]  # First 100 chars
-    vs = get_vectorstore(
-        collection=CollectionEnum.DEFAULT.value, tenant_id=session.info['tenant_id']
-    )
+    vs = get_vectorstore(collection=CollectionEnum.DEFAULT.value, tenant_id=session.info['tenant_id'])
     results = vs.similarity_search(first_doc_content, k=1)
 
     assert len(results) > 0, 'No documents found in vector after ingestion'
@@ -41,26 +33,18 @@ async def test_ingest_creates_embeddings(
         'Ingested document content not found in search results'
     )
 
-    await ingestor.delete_embeddings(session=session, digest=digest_random)
 
-
-@pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.needs_openai
-@pytest.mark.asyncio
-async def test_ingest_creates_embeddings_with_metadata(
-    ingestor, sample_documents, digest_random, session
-):
+async def test_ingest_creates_embeddings_with_metadata(ingestor, sample_documents, digest_random, session, job_created):
     """Test that ingest method creates embeddings in the vector."""
     test_docs = sample_documents[:2]
 
-    await ingestor.ingest(session, docs=test_docs, digest=digest_random)
-    metadata = await Embeddings.get_metadata(
+    await ingestor.ingest(session, docs=test_docs, job_id=job_created.id)
+    metadata = await EmbeddingsRepository.get_metadata(
         session, digest=digest_random, collection=CollectionEnum.DEFAULT.value
     )
     assert metadata[0]['digest'] == digest_random
-
-    await ingestor.delete_embeddings(session, digest=digest_random)
 
 
 @pytest.mark.integration

@@ -5,7 +5,6 @@ import typing as t
 
 import typer
 
-
 db = typer.Typer(help='Database management commands')
 
 
@@ -39,8 +38,9 @@ def unlock(
     _set_env_if_provided(env)
 
     # Import here (after potential env change)
-    from app.core.database import DatabaseManager
     from sqlalchemy import text
+
+    from app.core.database import DatabaseManager
 
     async def _run(*_args: object, **_kwargs: object) -> None:
         dbm = DatabaseManager()
@@ -52,13 +52,9 @@ def unlock(
                 if key is None:
                     # Run outside an explicit transaction
                     await conn.exec_driver_sql('SELECT pg_advisory_unlock_all()')
-                    typer.echo(
-                        'Unlocked all advisory locks for the session (pg_advisory_unlock_all)'
-                    )
+                    typer.echo('Unlocked all advisory locks for the session (pg_advisory_unlock_all)')
                 else:
-                    res = await conn.execute(
-                        text('SELECT pg_advisory_unlock(:key)'), {'key': key}
-                    )
+                    res = await conn.execute(text('SELECT pg_advisory_unlock(:key)'), {'key': key})
                     row = res.fetchone()
                     unlocked = bool(row[0]) if row else False
                     typer.echo(f'pg_advisory_unlock({key}) -> {unlocked}')
@@ -95,10 +91,7 @@ def drop_tables(
     metadata used by the application models.
     """
     if not yes:
-        proceed = typer.confirm(
-            'This will DROP ALL DATABASE TABLES. Do you want to continue?',
-            default=False,
-        )
+        proceed = typer.confirm('This will DROP ALL DATABASE TABLES. Do you want to continue?')
         if not proceed:
             typer.echo('Aborted.')
             raise typer.Exit(code=1)
@@ -107,9 +100,10 @@ def drop_tables(
 
     # Import here (after potential env change)
     from loguru import logger
-    from sqlmodel import SQLModel
-    from app.core.database import DatabaseManager
     from sqlalchemy import text
+    from sqlmodel import SQLModel
+
+    from app.core.database import DatabaseManager
 
     async def _run(*args: object, **kwargs: object) -> None:
         dbm = DatabaseManager()
@@ -127,12 +121,8 @@ def drop_tables(
                 # Drop application tables managed by SQLModel
                 await conn.run_sync(SQLModel.metadata.drop_all)
                 # Also drop LangChain pgvector tables if they exist
-                await conn.execute(
-                    text('DROP TABLE IF EXISTS langchain_pg_embedding CASCADE')
-                )
-                await conn.execute(
-                    text('DROP TABLE IF EXISTS langchain_pg_collection CASCADE')
-                )
+                await conn.execute(text('DROP TABLE IF EXISTS langchain_pg_embedding CASCADE'))
+                await conn.execute(text('DROP TABLE IF EXISTS langchain_pg_collection CASCADE'))
             typer.echo('All tables (including vectorstore) dropped successfully.')
         finally:
             await dbm.close()

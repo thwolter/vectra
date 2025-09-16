@@ -1,7 +1,6 @@
 from app.parsers.docling import DoclingParser
 from app.parsers.protocols import ParserProtocol
 
-
 _PARSER_REGISTRY: dict = {
     'docling': DoclingParser,
     'auto': DoclingParser,

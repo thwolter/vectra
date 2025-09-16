@@ -4,9 +4,9 @@ from langchain_core.documents import Document
 
 from app.metadata.base import Strategy
 from app.metadata.schemas import (
-    ProposedMetadata,
-    FinanceReportMetadata,
     AssessmentResult,
+    FinanceReportMetadata,
+    ProposedMetadata,
 )
 
 
@@ -78,9 +78,7 @@ class FinanceReportStrategy(Strategy):
             'Context:\n' + context
         )
 
-    def assess_quality(
-        self, *, metadata: ProposedMetadata, docs: List[Document]
-    ) -> AssessmentResult:
+    def assess_quality(self, *, metadata: ProposedMetadata, docs: List[Document]) -> AssessmentResult:
         """Assess quality using a simple evidence rule.
 
         Current heuristic: pass if each provided evidence item has score > 0.75

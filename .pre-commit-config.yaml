@@ -26,6 +26,15 @@ repos:
       types_or: [ python, pyi ]
       language_version: python3.12
 
+- repo: https://github.com/pycqa/isort
+  rev: 5.13.2
+  hooks:
+    - id: isort
+      name: isort (imports)
+      args: ["--profile=black"]
+      types_or: [ python, pyi ]
+      language_version: python3.12
+
 - repo: https://github.com/gitleaks/gitleaks
   rev: v8.28.0
   hooks:

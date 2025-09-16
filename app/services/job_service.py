@@ -1,23 +1,26 @@
 from __future__ import annotations
 
+from typing import Tuple
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.metadata.schemas import ProposedMetadata
-from app.repositories import Job
-from app.repositories import Embeddings
-from app.schemas.jobs import InitJob
-from app.repositories.schemas import (
-    CreateJobCmd,
-)
+from app.metadata.utils import merge_metadata
+from app.repositories import EmbeddingsRepository, JobRepository
+from app.repositories.exceptions import RecordNotFoundError
+from app.repositories.models import IngestionRecord, JobRecord
+from app.repositories.schemas import IngestionVersion, JobCreate, JobUpdate
 from app.schemas.upload import (
-    JobStatus,
+    JOBS_PENDING,
     JobProgress,
-    JobStatusResponse,
+    JobReviewPayload,
     JobReviewResponse,
+    JobStatus,
+    JobStatusResponse,
 )
-from app.schemas.upload import JobReviewPayload
+
+from .utils import assert_job_needs_review, normalise_progress
 
 
 class JobService:
@@ -44,26 +47,18 @@ class JobService:
         JobStatus.FAILED: {JobStatus.FAILED, JobStatus.COMPLETED},
     }
 
-    async def init_job(self, session: AsyncSession, *, job: InitJob) -> UUID:
-        """Create/init a job row with canonical defaults using schemas.jobs.InitJob.
+    def __init__(self, job_repository=JobRepository) -> None:
+        self.repo = job_repository
 
-        Defaults: status=processing, percent=0, step='hash'.
-        Optionally guards uniqueness by (collection, digest) if a future repo method exists.
-        """
-        create = CreateJobCmd(
+    async def init_job(self, session: AsyncSession, *, job: JobCreate) -> JobRecord:
+        create = JobCreate(
             status=JobStatus.PROCESSING,
             percent=0,
             step='hash',
-            digest=job.digest,
-            document_uuid=job.document_uuid,
-            collection=job.collection,
-            original_filename=job.original_filename,
-            content_type=job.content_type,
-            size_bytes=job.size_bytes,
+            document_id=job.document_id,
             proposed_metadata=job.proposed_metadata,
         )
-        job_id, _ = await Job.upsert(session, job=create)
-        return job_id
+        return await self.repo.create(session, job=create)
 
     async def update_progress(
         self,
@@ -74,13 +69,14 @@ class JobService:
         step: str | None = None,
     ) -> None:
         """Clamp percent to 0-100; ensure monotonicity; normalize empty step to None."""
-        norm_step = (step or None) if step else None
-        # Fetch existing to enforce monotonic
-        current = await Job.status(session=session, job_id=job_id)
-        old = int(current.progress.percent) if current else 0
-        new_percent = max(old, max(0, min(100, int(percent))))
-        await Job.update_progress(
-            session=session, job_id=job_id, percent=new_percent, step=norm_step
+        job = await self.repo.get(session=session, job_id=job_id)
+        await self.repo.update(
+            session,
+            job=JobUpdate(
+                id=job_id,
+                percent=max(job.percent, max(0, min(100, int(percent)))),
+                step=(step or None) if step else None,
+            ),
         )
 
     async def update_status(
@@ -94,41 +90,21 @@ class JobService:
         step: str | None = None,
     ) -> None:
         """Enforce valid transitions; normalize fields and persist."""
-        cur = await Job.status(session=session, job_id=job_id)
-        cur_status = (
-            JobStatus(cur.status) if cur and cur.status else JobStatus.PROCESSING
-        )
-        allowed = self._ALLOWED.get(cur_status, set())
+        job = await self.repo.get(session=session, job_id=job_id)
+
+        allowed = self._ALLOWED.get(JobStatus(job.status), set())
         if status not in allowed:
-            raise ValueError(
-                f'Invalid job status transition {cur_status.value} -> {status.value}'
-            )
+            raise ValueError(f'Invalid job status transition {job.status} -> {status.value}')
 
-        norm_percent, norm_step = self.normalise_progress(step, percent, status)
-
-        await Job.update_status(
-            session=session,
-            job_id=job_id,
+        norm_percent, norm_step = normalise_progress(step, percent, status)
+        data = JobUpdate(
+            id=job_id,
             status=status,
-            proposed_metadata=proposed_metadata,
             percent=norm_percent,
             step=norm_step,
+            proposed_metadata=proposed_metadata,
         )
-
-    @staticmethod
-    def normalise_progress(step, percent, status):
-        if status == JobStatus.COMPLETED:
-            return 100, ''
-        else:
-            if step is None or step == '':
-                norm_step = None
-            else:
-                norm_step = step
-            if percent is None:
-                norm_percent = None
-            else:
-                norm_percent = max(0, min(100, int(percent)))
-            return norm_percent, norm_step
+        await self.repo.update(session, job=data)
 
     async def fail_job(
         self,
@@ -139,98 +115,94 @@ class JobService:
         last_step: str | None = None,
     ) -> None:
         """Record failure with exception text and optional last step."""
-        await Job.update_status(
-            session=session,
-            job_id=job_id,
-            status=JobStatus.FAILED,
-            step=last_step or None,
-        )
-
-    async def get_status(
-        self, session: AsyncSession, *, job_id: UUID
-    ) -> JobStatusResponse:
-        snap = await Job.status(session=session, job_id=job_id)
-        if snap is None:
-            return JobStatusResponse(
-                job_id=job_id,
+        await self.repo.update(
+            session,
+            job=JobUpdate(
+                id=job_id,
                 status=JobStatus.FAILED,
-                progress=JobProgress(percent=0, step=None),
-                errors=['job_not_found'],
-            )
-
-        # Map domain snapshot to API DTO
-        return JobStatusResponse(
-            job_id=snap.job_id,
-            status=JobStatus(snap.status)
-            if not isinstance(snap.status, JobStatus)
-            else snap.status,
-            progress=JobProgress(
-                percent=snap.progress.percent, step=snap.progress.step
+                step=last_step or None,
             ),
-            original_filename=snap.original_filename,
-            proposed_metadata=snap.proposed_metadata,
-            warnings=snap.warnings,
-            errors=snap.errors,
         )
 
-    async def _apply_corrections_to_embeddings(
-        self, session: AsyncSession, *, job_id, proposed_obj
-    ) -> bool:
-        refs = await Job.document_refs(session=session, job_id=job_id)
-        if refs:
-            meta_payload = proposed_obj.metadata or {}
-            if hasattr(meta_payload, 'model_dump'):
-                meta_payload = meta_payload.model_dump(exclude_none=True)  # type: ignore[attr-defined]
-            if not isinstance(meta_payload, dict):
-                meta_payload = {}
-            await Embeddings.update_metadata(
-                session,
-                digest=refs.digest,
-                collection=refs.collection,
-                metadata=meta_payload,
-            )
-            return True
-        return False
+    async def get_status(self, session: AsyncSession, *, job_id: UUID) -> JobStatusResponse:
+        try:
+            job = await self.repo.get(session=session, job_id=job_id)
+        except RecordNotFoundError:
+            return JobStatusResponse.job_not_found(job_id=job_id)
 
-    @staticmethod
-    async def _apply_corrections(
-        *, status: JobStatusResponse, payload: JobReviewPayload
-    ):
-        if status.proposed_metadata is None:
-            return None
-        meta_dict = status.proposed_metadata.metadata or {}
+        assert job.proposed_metadata is not None, 'proposed_metadata must be set on job'
+
+        metadata = ProposedMetadata.model_validate(job.proposed_metadata)
+
+        return JobStatusResponse(
+            job_id=job.id,
+            status=JobStatus(job.status),
+            progress=JobProgress(percent=job.percent, step=job.step),
+            original_filename=job.document.original_filename,
+            proposed_metadata=metadata,
+            warnings=list(job.warnings or []),
+            errors=list(job.errors or []),
+        )
+
+    async def get_pending_job(self, session: AsyncSession, *, document_id: UUID, collection: str) -> JobRecord | None:
+        fp = IngestionVersion.from_settings(collection=collection).fingerprint()
+        job = await self.repo.get_for_fingerprint(session, document_id=document_id, fingerprint=fp)
+        if job and job.status not in JOBS_PENDING:
+            return job
+        return None
+
+    async def get_pending_or_create(
+        self,
+        session: AsyncSession,
+        *,
+        document_id: UUID,
+        collection: str,
+        proposed_metadata: ProposedMetadata,
+    ) -> Tuple[JobRecord, bool]:
+        job = await self.get_pending_job(session, document_id=document_id, collection=collection)
+        if job:
+            return job, False
+        job = await self.init_job(
+            session,
+            job=JobCreate(
+                document_id=document_id,
+                proposed_metadata=proposed_metadata,
+            ),
+        )
+        return job, True
+
+    async def review_job(self, session: AsyncSession, *, job_id: UUID, payload: JobReviewPayload) -> JobReviewResponse:
+        # Only allow review when the job is awaiting human review
+        job = await self.repo.get(session, job_id=job_id)
+        await assert_job_needs_review(job)
+        if not job.ingestion:
+            raise ValueError('Job must have an associated ingestion record')
+
+        status = JobStatus.COMPLETED if payload.confirm else JobStatus(job.status)
+
         if payload.corrections:
-            meta_dict.update(
-                {k: v for k, v in payload.corrections.items() if v is not None}
+            metadata = merge_metadata(current=job.proposed_metadata, adjustments=payload.corrections)
+            await EmbeddingsRepository.update_metadata(
+                session,
+                digest=job.ingestion.digest,
+                collection=job.ingestion.collection,
+                metadata=metadata.model_dump(exclude_unset=True),
             )
-        # Rebuild ProposedMetadata with merged metadata
-        return ProposedMetadata(
-            metadata=meta_dict,
-            confidence=status.proposed_metadata.confidence or {},
-            conflicts=[],  # assume conflicts resolved after human review
-        )
-
-    async def review_job(
-        self, session: AsyncSession, *, job_id: UUID, payload: JobReviewPayload
-    ) -> JobReviewResponse:
-        status = await self.get_status(session=session, job_id=job_id)
-        new_status = JobStatus.COMPLETED if payload.confirm else JobStatus.NEEDS_REVIEW
-        proposed_obj = await self._apply_corrections(status=status, payload=payload)
-
-        if new_status is JobStatus.COMPLETED and proposed_obj is not None:
-            await self._apply_corrections_to_embeddings(
-                session=session, job_id=job_id, proposed_obj=proposed_obj
-            )
-
-        # Update job status with (possibly corrected) proposed metadata
-        await self.update_status(
-            session=session,
-            job_id=job_id,
-            status=new_status,
-            proposed_metadata=proposed_obj,
-        )
-        return JobReviewResponse(job_id=job_id, status=new_status)
+            await self.update_status(session, job_id=job_id, status=status, proposed_metadata=metadata)
+        else:
+            await self.update_status(session, job_id=job_id, status=status)
+        return JobReviewResponse(job_id=job_id, status=status)
 
     async def delete_job(self, session: AsyncSession, *, job_id: UUID) -> bool:
         """Delete a job by job_id."""
-        return await Job.delete(session, job_id=job_id)
+        return await self.repo.delete(session, job_id=job_id)
+
+    async def ingestion_created(self, session: AsyncSession, *, job_id: UUID, ingestion: IngestionRecord) -> None:
+        """Link the newly created ingestion to its job."""
+        await self.repo.update(
+            session,
+            job=JobUpdate(
+                id=job_id,
+                ingestion_id=ingestion.id,
+            ),
+        )

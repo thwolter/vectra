@@ -1,21 +1,31 @@
-from __future__ import annotations
+from datetime import datetime
+from typing import List, Optional
+from uuid import UUID
 
-from datetime import datetime, timezone
-from uuid import UUID, uuid4
+from pydantic import ConfigDict
+from sqlalchemy import Column, Index, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
-from sqlmodel import Field, SQLModel, UniqueConstraint
-from sqlalchemy import Column, DateTime, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
-
+from app.repositories.fields import (
+    created_at_field,
+    created_by_field,
+    document_fk,
+    ingestion_fk,
+    job_fk,
+    tenant_id_field,
+    updated_at_field,
+    updated_by_field,
+    uuid_pk,
+)
 from app.utils.types import SHA256B64
 
 
-class DocumentRecord(SQLModel, table=True):
-    """Canonical documents table keyed by (collection, binary_hash).
+class BaseSQLModel(SQLModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, from_attributes=True)
 
-    Stores immutable original_filename (first-seen wins) and basic attributes.
-    """
 
+class DocumentRecord(BaseSQLModel, table=True):
     __tablename__ = 'documents'
     __table_args__ = (
         UniqueConstraint(
@@ -26,169 +36,125 @@ class DocumentRecord(SQLModel, table=True):
         ),
     )
 
-    id: UUID = Field(
-        default_factory=uuid4,
-        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
-    )
-    tenant_id: UUID = Field(
-        sa_column=Column(
-            PGUUID(as_uuid=True),
-            nullable=False,
-            server_default=text("current_setting('app.tenant_id', true)::uuid"),
-        )
-    )
+    id: UUID = uuid_pk()
+    tenant_id: UUID = tenant_id_field()
+
     collection: str = Field(index=True)
     digest: SHA256B64 = Field(index=True)
-    original_filename: str | None = Field(default=None)
-    content_type: str | None = Field(default=None)
-    size_bytes: int | None = Field(default=None)
-    original_uri: str | None = Field(default=None)
-    markdown_uri: str | None = Field(default=None)
-    store: str | None = Field(default=None)
-    meta: dict | None = Field(default=None, sa_column=Column(JSONB))
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+    original_filename: str | None = None
+    content_type: str | None = None
+    size_bytes: int | None = None
+    original_uri: str | None = None
+    markdown_uri: str | None = None
+    store: str | None = None
+    meta: dict = Field(default_factory=dict, sa_column=Column(JSONB))
+
+    created_at: datetime = created_at_field()
+    updated_at: datetime = updated_at_field()
+    created_by: UUID = created_by_field()
+    updated_by: UUID | None = updated_by_field()
+
+    # Relationships
+    jobs: List['JobRecord'] = Relationship(
+        back_populates='document',
+        sa_relationship_kwargs={
+            'cascade': 'all, delete, delete-orphan',
+            'passive_deletes': True,
+        },
     )
-    updated_at: datetime = Field(
-        sa_column=Column(
-            DateTime(timezone=True),
-            nullable=False,
-            server_default=text("timezone('utc', now())"),
-        )
-    )
-    created_by: UUID = Field(
-        sa_column=Column(
-            PGUUID(as_uuid=True),
-            nullable=False,
-            index=True,
-            server_default=text("current_setting('app.user_id', true)::uuid"),
-        )
+    ingestions: List['IngestionRecord'] = Relationship(
+        back_populates='document',
+        sa_relationship_kwargs={
+            'cascade': 'all, delete, delete-orphan',
+            'passive_deletes': True,
+        },
     )
 
 
-class IngestionRecord(SQLModel, table=True):
-    """SQLModel representation of the ingestion_versions table.
+class JobRecord(BaseSQLModel, table=True):
+    __tablename__ = 'upload_jobs'
+    __table_args__ = (
+        Index(
+            'uq_active_job_per_doc',
+            'tenant_id',
+            'document_id',
+            unique=True,
+            postgresql_where=text("status IN ('queued','processing')"),
+        ),
+    )
 
-    Uniqueness is enforced across the tuple:
-    (collection, source, content_fp, chunker_version, embed_model, embed_model_ver)
-    """
+    id: UUID = uuid_pk()
+    tenant_id: UUID = tenant_id_field()
+    document_id: UUID = document_fk()
+    ingestion_id: UUID | None = ingestion_fk(nullable=True)
 
+    status: str = Field(index=True)
+    percent: int = Field(default=0)
+    step: str | None = None
+
+    # ORM relationships
+    document: DocumentRecord = Relationship(back_populates='jobs')
+    # Link to the produced/reused ingestion (nullable; FK on Job)
+    ingestion: Optional['IngestionRecord'] = Relationship(
+        sa_relationship_kwargs={
+            'uselist': False,
+            'primaryjoin': 'JobRecord.ingestion_id==IngestionRecord.id',
+            'foreign_keys': '[JobRecord.ingestion_id]',
+            'passive_deletes': True,
+        },
+    )
+
+    # JSONB columns for proposed metadata and messages
+    proposed_metadata: dict = Field(default_factory=dict, sa_column=Column(JSONB))
+    warnings: list = Field(default_factory=list, sa_column=Column(JSONB))
+    errors: list = Field(default_factory=list, sa_column=Column(JSONB))
+
+    created_at: datetime = created_at_field()
+    updated_at: datetime = updated_at_field()
+    created_by: UUID = created_by_field()
+    updated_by: UUID | None = updated_by_field()
+
+
+class IngestionRecord(BaseSQLModel, table=True):
     __tablename__ = 'ingestion_versions'
     __table_args__ = (
         UniqueConstraint(
             'tenant_id',
+            'document_id',
             'collection',
             'digest',
-            'chunker_version',
-            'embed_model',
-            'embed_model_ver',
-            name='uq_ingestion_tenant_composite',
+            name='uq_ingestion_compound',
         ),
     )
 
-    id: UUID = Field(
-        default_factory=uuid4,
-        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
-    )
-    tenant_id: UUID = Field(
-        sa_column=Column(
-            PGUUID(as_uuid=True),
-            nullable=False,
-            server_default=text("current_setting('app.tenant_id', true)::uuid"),
-        )
-    )
-    collection: str = Field(index=True)
-    digest: SHA256B64 = Field(index=True)
+    id: UUID = uuid_pk()
+    tenant_id: UUID = tenant_id_field()
+    document_id: UUID = document_fk()
+    job_id: UUID | None = job_fk(nullable=True)
+
+    chunker_model: str
     chunker_version: str
+    chunker_params: dict = Field(default_factory=dict, sa_column=Column(JSONB))
     embed_model: str
-    embed_model_ver: str
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-    )
-    updated_at: datetime = Field(
-        sa_column=Column(
-            DateTime(timezone=True),
-            nullable=False,
-            server_default=text("timezone('utc', now())"),
-        )
-    )
-    created_by: UUID = Field(
-        sa_column=Column(
-            PGUUID(as_uuid=True),
-            nullable=False,
-            index=True,
-            server_default=text("current_setting('app.user_id', true)::uuid"),
-        )
-    )
+    embed_model_version: str
+    embed_dim: int
+    collection: str
+    digest: SHA256B64 = Field(index=True)
+    fingerprint: str = Field(index=True)
+    num_chunks: int
 
+    created_at: datetime = created_at_field()
+    updated_at: datetime = updated_at_field()
+    created_by: UUID = created_by_field()
+    updated_by: UUID | None = updated_by_field()
 
-class JobRecord(SQLModel, table=True):
-    """SQLModel table for tracking upload job statuses.
-
-    Linkage:
-    - document_uuid: UUID of the canonical row in `documents` (DB-local PK).
-    - digest: deterministic hex digest used for vector and idempotency.
-    Mirrors collection and binary_hash for observability and joins.
-    """
-
-    __tablename__ = 'upload_jobs'
-    __table_args__ = (
-        UniqueConstraint(
-            'tenant_id',
-            'document_uuid',
-            'collection',
-            'digest',
-            name='uq_job_tenant_document_collection_digest',
-        ),
-    )
-
-    id: UUID = Field(
-        default_factory=uuid4,
-        sa_column=Column(PGUUID(as_uuid=True), primary_key=True, nullable=False),
-    )
-    tenant_id: UUID = Field(
-        sa_column=Column(
-            PGUUID(as_uuid=True),
-            nullable=False,
-            server_default=text("current_setting('app.tenant_id', true)::uuid"),
-        )
-    )
-    status: str = Field(index=True)
-    percent: int = Field(default=0)
-    step: str | None = Field(default=None)
-
-    # Linkage to Document
-    document_uuid: UUID | None = Field(default=None, index=True)
-    collection: str = Field(index=True)
-    digest: str = Field(index=True, max_length=44)
-
-    # Descriptive fields
-    original_filename: str | None = Field(default=None)
-    content_type: str | None = Field(default=None)
-    size_bytes: int | None = Field(default=None)
-
-    # JSONB columns for proposed metadata and messages
-    proposed_metadata: dict | None = Field(default=None, sa_column=Column(JSONB))
-    warnings: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
-    errors: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-    )
-    updated_at: datetime = Field(
-        sa_column=Column(
-            DateTime(timezone=True),
-            nullable=False,
-            server_default=text("timezone('utc', now())"),
-        )
-    )
-    created_by: UUID = Field(
-        sa_column=Column(
-            PGUUID(as_uuid=True),
-            nullable=False,
-            index=True,
-            server_default=text("current_setting('app.user_id', true)::uuid"),
-        )
+    # Relationships
+    document: DocumentRecord = Relationship(back_populates='ingestions')
+    # Provenance: which job created this ingestion (separate relationship, no back_populates)
+    job: Optional[JobRecord] = Relationship(
+        sa_relationship_kwargs={
+            'uselist': False,
+            'primaryjoin': 'IngestionRecord.job_id==JobRecord.id',
+            'foreign_keys': '[IngestionRecord.job_id]',
+        },
     )

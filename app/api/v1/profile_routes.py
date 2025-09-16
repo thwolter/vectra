@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from fastapi import Depends, APIRouter
+from fastapi import APIRouter, Depends
 
 from app.schemas.documents import ProfilesResponse
 from app.services.dependencies import get_profiles_service
 from app.services.profiles_service import ProfilesService
-
 
 router = APIRouter(prefix='/v1/profiles')
 

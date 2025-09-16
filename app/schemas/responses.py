@@ -7,9 +7,7 @@ class BaseResponse(BaseModel):
     """Base response model for API endpoints."""
 
     success: bool = Field(..., description='Whether the operation was successful')
-    message: str = Field(
-        ..., description='Message describing the result of the operation'
-    )
+    message: str = Field(..., description='Message describing the result of the operation')
 
 
 class ErrorResponse(BaseResponse):
@@ -17,9 +15,7 @@ class ErrorResponse(BaseResponse):
 
     success: bool = Field(False, description='Operation was not successful')
     error_code: Optional[str] = Field(None, description='Error code')
-    details: Optional[Dict[str, Any]] = Field(
-        None, description='Additional error details'
-    )
+    details: Optional[Dict[str, Any]] = Field(None, description='Additional error details')
 
 
 class UploadResponse(BaseResponse):

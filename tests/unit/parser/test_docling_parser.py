@@ -1,4 +1,4 @@
-from unittest.mock import create_autospec, AsyncMock
+from unittest.mock import AsyncMock, create_autospec
 
 import pytest
 from langchain_core.documents import Document
@@ -22,11 +22,7 @@ async def test_parse_success(tiny_pdf):
     """Test parsing a real PDF file."""
 
     loader = create_autospec(DoclingLoader, instance=True, spec_set=True)
-    loader.aload = AsyncMock(
-        return_value=[
-            Document(page_content='Hello World', metadata={'source': 'unit://doc/1'})
-        ]
-    )
+    loader.aload = AsyncMock(return_value=[Document(page_content='Hello World', metadata={'source': 'unit://doc/1'})])
     parser = DoclingParser(file=tiny_pdf, loader=loader)
 
     assert parser.loader == loader

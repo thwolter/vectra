@@ -1,10 +1,10 @@
 from typing import List
+from uuid import UUID
 
 from langchain_core.documents import Document
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.utils.types import SHA256B64
-from app.vector.schemas import IngestionResult
+from app.repositories.schemas import IngestionResult
 
 
 class IngestorProtocol:
@@ -13,5 +13,5 @@ class IngestorProtocol:
         session: AsyncSession,
         *,
         docs: List[Document],
-        digest: SHA256B64,
+        job_id: UUID,
     ) -> IngestionResult: ...

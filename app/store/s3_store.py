@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 import gzip
+import tempfile
 from contextlib import suppress
 from io import BytesIO
 from pathlib import Path
@@ -12,10 +14,8 @@ from loguru import logger
 from app.api.file import TemporaryUploadFile
 from app.core.config import get_settings
 from app.schemas.enums import CollectionEnum
-from app.store.schemas import ArtifactInfo, FileInfo, StoredFiles
 from app.store.mixins import StoreKeyHelpers
-import tempfile
-
+from app.store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
 settings = get_settings()
 
@@ -26,9 +26,7 @@ def get_client():
 
 
 class S3Store(StoreKeyHelpers):
-    def __init__(
-        self, collection: CollectionEnum, *, base_path: str | Path | None = None
-    ):
+    def __init__(self, collection: CollectionEnum, *, base_path: str | Path | None = None):
         self.collection = collection
         self.base_path = str(base_path or settings.aws_s3_path)
         self.client_factory = get_client
@@ -75,9 +73,7 @@ class S3Store(StoreKeyHelpers):
 
                         # We own the buffer; upload from it
                         tmp.seek(0)
-                        await s3.upload_fileobj(
-                            tmp, settings.aws_s3_bucket, key, ExtraArgs=extra_args
-                        )
+                        await s3.upload_fileobj(tmp, settings.aws_s3_bucket, key, ExtraArgs=extra_args)
                     finally:
                         try:
                             tmp.close()
@@ -134,9 +130,7 @@ class S3Store(StoreKeyHelpers):
                 buf = BytesIO(md_text.encode('utf-8'))
                 extra_args = {'ContentType': 'text/markdown; charset=utf-8'}
 
-                await s3.upload_fileobj(
-                    buf, settings.aws_s3_bucket, key, ExtraArgs=extra_args
-                )
+                await s3.upload_fileobj(buf, settings.aws_s3_bucket, key, ExtraArgs=extra_args)
                 logger.success(
                     'Markdown uploaded to S3',
                     extra={'key': key, 'document_id': document_id},
@@ -191,9 +185,7 @@ class S3Store(StoreKeyHelpers):
         async with self.client_factory() as s3:
             try:
                 # List objects under prefix
-                resp = await s3.list_objects_v2(
-                    Bucket=settings.aws_s3_bucket, Prefix=prefix
-                )
+                resp = await s3.list_objects_v2(Bucket=settings.aws_s3_bucket, Prefix=prefix)
                 contents = resp.get('Contents', [])
                 keys = [o['Key'] for o in contents]
                 to_delete = []
@@ -236,9 +228,7 @@ class S3Store(StoreKeyHelpers):
                 body = await resp['Body'].read()
                 return body
             except Exception as e:
-                logger.error(
-                    'Failed to load S3 object', extra={'error': str(e), 'key': key}
-                )
+                logger.error('Failed to load S3 object', extra={'error': str(e), 'key': key})
                 raise
 
     async def head(self, key: str) -> FileInfo:
@@ -246,11 +236,7 @@ class S3Store(StoreKeyHelpers):
         async with self.client_factory() as s3:
             resp = await s3.head_object(Bucket=settings.aws_s3_bucket, Key=key)
             last_modified = resp.get('LastModified')
-            lm_iso = (
-                last_modified.isoformat()
-                if hasattr(last_modified, 'isoformat')
-                else None
-            )
+            lm_iso = last_modified.isoformat() if hasattr(last_modified, 'isoformat') else None
             return FileInfo(
                 key=key,
                 size=resp.get('ContentLength') or 0,
@@ -289,9 +275,7 @@ class S3Store(StoreKeyHelpers):
         prefix = self._prefix(document_id)
         async with self.client_factory() as s3:
             try:
-                resp = await s3.list_objects_v2(
-                    Bucket=settings.aws_s3_bucket, Prefix=prefix
-                )
+                resp = await s3.list_objects_v2(Bucket=settings.aws_s3_bucket, Prefix=prefix)
                 contents = resp.get('Contents', [])
                 files: list[FileInfo] = []
                 for o in contents:

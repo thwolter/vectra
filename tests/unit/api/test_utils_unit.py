@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+
 import pytest
 from fastapi import HTTPException
 
 from app.api.utils import parse_hints_from_any
-from app.metadata.schemas import NoopHints, FinanceReportHints
+from app.metadata.schemas import FinanceReportHints, NoopHints
 
 
 def test_parse_hints_empty_string_returns_noop():

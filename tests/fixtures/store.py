@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from loguru import logger
 
 from app.core.config import get_settings
-from loguru import logger
 
 
 @pytest.fixture(autouse=True)

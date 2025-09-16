@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable, AsyncIterator
+from typing import AsyncIterator, Protocol, runtime_checkable
 from uuid import UUID
 
 from app.api.file import TemporaryUploadFile

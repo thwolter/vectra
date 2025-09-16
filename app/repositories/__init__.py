@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from .documents import Document
-from .embeddings import Embeddings
-from .ingestions import Ingestion
-from .jobs import Job
+from .document_repo import DocumentRepository
+from .embeddings_repo import EmbeddingsRepository
+from .ingestion_repo import IngestionRepository
+from .job_repo import JobRepository
 
 __all__ = [
-    'Document',
-    'Embeddings',
-    'Ingestion',
-    'Job',
+    'DocumentRepository',
+    'EmbeddingsRepository',
+    'IngestionRepository',
+    'JobRepository',
 ]

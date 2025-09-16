@@ -5,22 +5,19 @@ Contains MetadataRepository responsible for metadata queries and updates.
 """
 
 import json
-
 from typing import Any, Dict, List, overload
 
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from sqlmodel import SQLModel
-
 from loguru import logger
+from sqlalchemy import text
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.utils.types import SHA256B64
 
 _metadata = SQLModel.metadata
 
 
-class Embeddings:
+class EmbeddingsRepository:
     _ALLOWED_FILTERS = {
         'digest': "e.cmetadata->>'digest'",
         'source': "e.cmetadata->>'source'",
@@ -55,48 +52,40 @@ class Embeddings:
         metadata_json = json.dumps(metadata)
         params = {
             'collection': collection,
-            'digest': digest,
             'metadata': metadata_json,
+            'digest': digest,
         }
         # Rely on explicit CAST(:metadata AS JSONB) in SQL; no need for JSONB bind param
-        stmt = text(sql)
+        stmt: Any = text(sql)
 
         try:
-            await session.execute(stmt, params)
+            await session.exec(stmt, params=params)  # type: ignore[arg-type]
             await session.commit()
         except Exception as e:
             logger.error(f"Failed to update metadata for digest '{digest}': {e}")
 
     @overload
     @staticmethod
-    async def exists(
-        session: AsyncSession, *, collection: str, digest: str
-    ) -> bool: ...
+    async def exists(session: AsyncSession, *, collection: str, digest: str) -> bool: ...
 
     @overload
     @staticmethod
-    async def exists(
-        session: AsyncSession, *, collection: str, source: str
-    ) -> bool: ...
+    async def exists(session: AsyncSession, *, collection: str, source: str) -> bool: ...
 
     @overload
     @staticmethod
-    async def exists(
-        session: AsyncSession, *, collection: str, digest: str, source: str
-    ) -> bool: ...
+    async def exists(session: AsyncSession, *, collection: str, digest: str, source: str) -> bool: ...
 
     @staticmethod
     async def exists(session: AsyncSession, *, collection: str, **filters: Any) -> bool:
         if not filters:
             raise ValueError('Provide at least one filter (digest=..., source=...).')
 
-        unknown = set(filters) - set(Embeddings._ALLOWED_FILTERS)
+        unknown = set(filters) - set(EmbeddingsRepository._ALLOWED_FILTERS)
         if unknown:
             raise ValueError(f'Unsupported filters: {", ".join(sorted(unknown))}')
 
-        where = ' AND '.join(
-            f'{Embeddings._ALLOWED_FILTERS[k]} = :{k}' for k in filters
-        )
+        where = ' AND '.join(f'{EmbeddingsRepository._ALLOWED_FILTERS[k]} = :{k}' for k in filters)
         sql = f"""
                 SELECT EXISTS (
                     SELECT 1
@@ -106,13 +95,12 @@ class Embeddings:
                 )
             """
         params = {'collection': collection, **filters}
-        result = await session.execute(text(sql), params)
+        stmt: Any = text(sql)
+        result = await session.exec(stmt, params=params)  # type: ignore[arg-type]
         return bool(result.scalar())
 
     @staticmethod
-    async def get_metadata(
-        session: AsyncSession, *, digest: SHA256B64, collection: str
-    ) -> List[Dict[str, Any]]:
+    async def get_metadata(session: AsyncSession, *, digest: SHA256B64, collection: str) -> List[Dict[str, Any]]:
         """
         Return cmetadata for all chunks belonging to a given digest within a collection.
 
@@ -126,13 +114,13 @@ class Embeddings:
             WHERE c.name = :collection AND e.cmetadata->>'digest' = :digest
             ORDER BY e.id
         """
-        result = await session.execute(
-            text(sql), {'collection': collection, 'digest': digest}
-        )
-        rows = result.mappings().all()
+        stmt: Any = text(sql)
+        result = await session.exec(stmt, params={'collection': collection, 'digest': digest})
+        # For text() statements, SQLModel returns a TupleResult; use .all() and index column 0
+        rows = result.all()
         out: List[Dict[str, Any]] = []
         for row in rows:
-            cm = row.get('cmetadata')  # type: ignore[assignment]
+            cm = row[0]
             if isinstance(cm, dict):
                 out.append(cm)
             else:
@@ -153,11 +141,10 @@ class Embeddings:
 
         logger.info(f"Deleting embeddings with digest='{digest}'")
 
-        delete_sql = (
-            "DELETE FROM langchain_pg_embedding WHERE cmetadata->>'digest' = :digest"
-        )
+        delete_sql = "DELETE FROM langchain_pg_embedding WHERE cmetadata->>'digest' = :digest"
 
-        await session.execute(text(delete_sql), {'digest': digest})
+        stmt: Any = text(delete_sql)
+        await session.exec(stmt, params={'digest': digest})  # type: ignore[arg-type]
         await session.commit()
 
         logger.success(f"Deleted embeddings for digest='{digest}'")

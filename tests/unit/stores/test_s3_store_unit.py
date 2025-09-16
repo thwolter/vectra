@@ -1,7 +1,7 @@
+import datetime as dt
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
-import datetime as dt
 import pytest
 from fastapi import UploadFile
 
@@ -107,9 +107,7 @@ async def test_info_calls_list_and_head_object():
 
     client = MagicMock()
     client.list_objects_v2 = AsyncMock(
-        return_value={
-            'Contents': [{'Key': 'any/key', 'Size': 123, 'LastModified': last_modified}]
-        }
+        return_value={'Contents': [{'Key': 'any/key', 'Size': 123, 'LastModified': last_modified}]}
     )
     client.head_object = AsyncMock(
         return_value={

@@ -2,11 +2,12 @@ from typing import TYPE_CHECKING, List
 
 from loguru import logger
 
-from .utils import get_doc_content, estimate_text_tokens
+from .utils import estimate_text_tokens, get_doc_content
 
 if TYPE_CHECKING:
-    from .models import IngestorSettings
     from langchain_core.documents import Document
+
+    from .models import IngestorSettings
 
 
 class BatchBuilder:
@@ -15,9 +16,7 @@ class BatchBuilder:
     def __init__(self, settings: 'IngestorSettings') -> None:
         self.settings = settings
 
-    def batch_documents_by_tokens(
-        self, docs: List['Document']
-    ) -> List[List['Document']]:
+    def batch_documents_by_tokens(self, docs: List['Document']) -> List[List['Document']]:
         """Batch documents by token count and max docs per batch.
 
         Rules:
@@ -42,9 +41,7 @@ class BatchBuilder:
                 )
                 continue
 
-            over_token_limit = (
-                current_tokens + tokens > self.settings.max_tokens_per_request
-            )
+            over_token_limit = current_tokens + tokens > self.settings.max_tokens_per_request
             over_doc_limit = len(current_batch) >= self.settings.max_docs_per_batch
 
             if over_token_limit or over_doc_limit:

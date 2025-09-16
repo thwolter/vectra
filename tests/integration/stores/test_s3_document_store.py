@@ -4,11 +4,11 @@ from pathlib import Path
 import pytest
 from fastapi import UploadFile
 
-from app.store import s3_store as module
 from app.api.file import TemporaryUploadFile
-from app.store.s3_store import S3Store
 from app.schemas.enums import CollectionEnum
+from app.store import s3_store as module
 from app.store.protocols import StoreProtocol
+from app.store.s3_store import S3Store
 
 
 @pytest.fixture
@@ -39,9 +39,7 @@ async def test_save_original_and_delete_success(store, file):
     assert saved.original_key is not None
 
     info = await store.info(saved.document_id)
-    files = (
-        info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
-    )
+    files = info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
     keys = [(f['key'] if isinstance(f, dict) else getattr(f, 'key', '')) for f in files]
     assert any(k.endswith('.pdf') or k.endswith('.pdf.gz') for k in keys)
 
@@ -64,23 +62,13 @@ async def test_save_markdown_then_load_and_delete_success(store):
 
     # Info should include markdown file with proper content type
     info = await store.info(document_id)
-    files = (
-        info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
-    )
+    files = info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
     md_files = [
-        f
-        for f in files
-        if (
-            (f['key'] if isinstance(f, dict) else getattr(f, 'key', '')).endswith(
-                'document.md'
-            )
-        )
+        f for f in files if ((f['key'] if isinstance(f, dict) else getattr(f, 'key', '')).endswith('document.md'))
     ]
     assert len(md_files) == 1
     md_ctype = (
-        md_files[0]['content_type']
-        if isinstance(md_files[0], dict)
-        else getattr(md_files[0], 'content_type', '')
+        md_files[0]['content_type'] if isinstance(md_files[0], dict) else getattr(md_files[0], 'content_type', '')
     )
     assert str(md_ctype).startswith('text/markdown')
 
@@ -99,13 +87,9 @@ async def test_info_with_both_files_success(store, file):
     await store.save_markdown('# Doc\ncontent', document_id=digest)
 
     info = await store.info(digest)
-    files = (
-        info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
-    )
+    files = info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
     keys = [(f['key'] if isinstance(f, dict) else getattr(f, 'key', '')) for f in files]
-    assert any(
-        k.endswith('original.pdf') or k.endswith('original.pdf.gz') for k in keys
-    )
+    assert any(k.endswith('original.pdf') or k.endswith('original.pdf.gz') for k in keys)
     assert any(k.endswith('document.md') for k in keys)
 
     assert await store.delete(digest) is True
@@ -139,9 +123,7 @@ async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
 @pytest.mark.integration
 @pytest.mark.needs_aws
 @pytest.mark.asyncio
-async def test_save_failures_invalid_bucket(
-    monkeypatch, base_prefix, apple_report_first_page_upload: UploadFile
-):
+async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_report_first_page_upload: UploadFile):
     # Force invalid bucket to cause save operations to fail
 
     monkeypatch.setattr(
@@ -169,32 +151,16 @@ async def test_save_failures_invalid_bucket(
 async def test_head_returns_expected_metadata_s3(store, file):
     document_id = uuid.uuid4()
     saved_orig = await store.save_original(file, document_id=document_id)
-    saved_md = await store.save_markdown(
-        '# Head Test\ncontent', document_id=document_id
-    )
+    saved_md = await store.save_markdown('# Head Test\ncontent', document_id=document_id)
 
     # Head markdown
     md_meta = await store.head(saved_md.markdown_key)
-    md_ctype = (
-        md_meta['content_type']
-        if isinstance(md_meta, dict)
-        else getattr(md_meta, 'content_type', '')
-    )
+    md_ctype = md_meta['content_type'] if isinstance(md_meta, dict) else getattr(md_meta, 'content_type', '')
     md_cenc = (
-        md_meta.get('content_encoding')
-        if isinstance(md_meta, dict)
-        else getattr(md_meta, 'content_encoding', None)
+        md_meta.get('content_encoding') if isinstance(md_meta, dict) else getattr(md_meta, 'content_encoding', None)
     )
-    md_size = (
-        md_meta.get('size')
-        if isinstance(md_meta, dict)
-        else getattr(md_meta, 'size', 0)
-    )
-    md_meta_dict = (
-        md_meta.get('metadata')
-        if isinstance(md_meta, dict)
-        else getattr(md_meta, 'metadata', {})
-    )
+    md_size = md_meta.get('size') if isinstance(md_meta, dict) else getattr(md_meta, 'size', 0)
+    md_meta_dict = md_meta.get('metadata') if isinstance(md_meta, dict) else getattr(md_meta, 'metadata', {})
     assert str(md_ctype).startswith('text/markdown')
     assert md_cenc in (None, '')
     assert isinstance(md_size, int) and md_size > 0
@@ -203,21 +169,13 @@ async def test_head_returns_expected_metadata_s3(store, file):
     # Head original
     assert saved_orig.original_key is not None
     orig_meta = await store.head(saved_orig.original_key)
-    orig_ctype = (
-        orig_meta['content_type']
-        if isinstance(orig_meta, dict)
-        else getattr(orig_meta, 'content_type', '')
-    )
+    orig_ctype = orig_meta['content_type'] if isinstance(orig_meta, dict) else getattr(orig_meta, 'content_type', '')
     orig_cenc = (
         orig_meta.get('content_encoding')
         if isinstance(orig_meta, dict)
         else getattr(orig_meta, 'content_encoding', None)
     )
-    orig_size = (
-        orig_meta.get('size')
-        if isinstance(orig_meta, dict)
-        else getattr(orig_meta, 'size', 0)
-    )
+    orig_size = orig_meta.get('size') if isinstance(orig_meta, dict) else getattr(orig_meta, 'size', 0)
     assert str(orig_ctype).startswith('application/pdf')
     assert orig_cenc in (None, 'gzip')
     assert isinstance(orig_size, int) and orig_size > 0
@@ -232,9 +190,7 @@ async def test_head_returns_expected_metadata_s3(store, file):
 async def test_stream_matches_load_for_both_files_s3(store, file):
     document_id = uuid.uuid4()
     saved_orig = await store.save_original(file, document_id=document_id)
-    saved_md = await store.save_markdown(
-        '# Stream Test\ncontent', document_id=document_id
-    )
+    saved_md = await store.save_markdown('# Stream Test\ncontent', document_id=document_id)
 
     # Stream markdown
     md_chunks = bytearray()

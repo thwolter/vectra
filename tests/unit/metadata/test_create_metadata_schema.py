@@ -1,12 +1,10 @@
 from app.metadata.finance_report import FinanceReportStrategy
-from app.metadata.schemas import FinanceReportHints, Evidence
+from app.metadata.schemas import Evidence, FinanceReportHints
 
 
 def test_create_metadata_schema_finance_report_filters_hinted_fields():
     # company is provided (hinted), others are missing
-    hints = FinanceReportHints(
-        company='Acme Inc', financial_year=None, document_type=None
-    )
+    hints = FinanceReportHints(company='Acme Inc', financial_year=None, document_type=None)
 
     strategy = FinanceReportStrategy(hints=hints)
     SchemaModel = strategy.build_llm_response_model()
@@ -58,9 +56,7 @@ def test_create_metadata_schema_evidence_model_fields_and_types():
 
 def test_create_metadata_schema_descriptions_propagated_and_evidence_prefixed():
     # Provide a hint for company only, so metadata subset contains financial_year, document_type
-    hints = FinanceReportHints(
-        company='Acme Inc', financial_year=None, document_type=None
-    )
+    hints = FinanceReportHints(company='Acme Inc', financial_year=None, document_type=None)
     strategy = FinanceReportStrategy(hints=hints)
     SchemaModel = strategy.build_llm_response_model()
 

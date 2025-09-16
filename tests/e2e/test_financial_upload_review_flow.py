@@ -5,16 +5,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.metadata.schemas import FinanceReportHints
+from app.repositories import EmbeddingsRepository
 from app.schemas.enums import CollectionEnum
-
 from app.store.local_store import LocalFileStore
-from app.repositories import Embeddings
-from tests.helper import make_files_param, make_client_financial
+from tests.helper import make_client_financial, make_files_param
 
 
-def _poll_job(
-    client: TestClient, job_id: str, *, timeout: float = 90.0, interval: float = 0.5
-) -> str:
+def _poll_job(client: TestClient, job_id: str, *, timeout: float = 90.0, interval: float = 0.5) -> str:
     deadline = time.time() + timeout
     while time.time() < deadline:
         rs = client.get(f'/api/v1/jobs/{job_id}')
@@ -45,9 +42,9 @@ def test_financial_upload_review_then_patch(apple_report_first_page, tmp_path, s
     files = make_files_param(apple_report_first_page)
 
     # Provide incomplete hints to force needs_review (missing doc_type/reporting_year)
-    hints_json = FinanceReportHints(
-        company='Acme Corp', document_type=None, financial_year=None
-    ).model_dump_json(exclude_none=True)
+    hints_json = FinanceReportHints(company='Acme Corp', document_type=None, financial_year=None).model_dump_json(
+        exclude_none=True
+    )
 
     data = {'hints': hints_json}
 
@@ -91,13 +88,11 @@ def test_financial_upload_review_then_patch(apple_report_first_page, tmp_path, s
 
     # Verify store artifacts in FINANCIAL collection
     keys = _store_keys_for_digest(document_id=document_id, tmp_path=tmp_path)
-    assert any(
-        k.endswith('original.pdf') or k.endswith('original.pdf.gz') for k in keys
-    ), keys
+    assert any(k.endswith('original.pdf') or k.endswith('original.pdf.gz') for k in keys), keys
     assert any(k.endswith('document.md') for k in keys), keys
 
     async def _get_all_md(*args, **kwargs):
-        return await Embeddings.get_metadata(
+        return await EmbeddingsRepository.get_metadata(
             session, digest=digest, collection=CollectionEnum.FINANCIAL.value
         )
 

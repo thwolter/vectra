@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import enum
-from typing import List, Annotated, Union
+from typing import Annotated, List, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.api.schemas import AccessContext
 from app.api.file import TemporaryUploadFile
-from app.metadata.schemas import NoopHints, FinanceReportHints, ProposedMetadata
+from app.api.schemas import AccessContext
+from app.metadata.schemas import FinanceReportHints, NoopHints, ProposedMetadata
 from app.utils.types import SHA256B64
 
 
@@ -62,9 +62,7 @@ class StartUploadInput(BaseModel):
     """
 
     file: TemporaryUploadFile = Field(..., description='File object')
-    hints: UploadHints | None = Field(
-        default=None, description='Optional routing/parsing hints'
-    )
+    hints: UploadHints | None = Field(default=None, description='Optional routing/parsing hints')
 
 
 class ContinueProcessingInput(StartUploadInput):
@@ -88,32 +86,40 @@ class JobStatus(enum.Enum):
     FAILED = 'failed'
 
 
+JOBS_PENDING = [JobStatus.QUEUED, JobStatus.PROCESSING]
+
+
 class UploadInitResponse(BaseModel):
     job_id: UUID
     document_id: UUID
     status: JobStatus
-    deduplicated: bool = Field(False)
+    already_running: bool = Field(False)
     digest: SHA256B64
     original_filename: str | None = Field(default=None)
 
 
 class JobProgress(BaseModel):
     percent: Annotated[int, Field(default=0, strict=True, ge=0, le=100)]
-    step: str | None = Field(
-        None, description='store|parse|extract-meta|validate|chunk|embed|finalize'
-    )
+    step: str | None = Field(None, description='store|parse|extract-meta|validate|chunk|embed|finalize')
 
 
 class JobStatusResponse(BaseModel):
     job_id: UUID = Field(...)
     status: JobStatus = Field(...)
-    progress: JobProgress = Field(
-        default_factory=lambda: JobProgress(percent=0, step=None)
-    )
+    progress: JobProgress = Field(default_factory=lambda: JobProgress(percent=0, step=None))
     proposed_metadata: ProposedMetadata | None = None
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     original_filename: str | None = Field(default=None)
+
+    @classmethod
+    def job_not_found(cls, job_id: UUID) -> 'JobStatusResponse':
+        return JobStatusResponse(
+            job_id=job_id,
+            status=JobStatus.FAILED,
+            progress=JobProgress(percent=0, step=None),
+            errors=['job_not_found'],
+        )
 
 
 class JobReviewPayload(BaseModel):

@@ -1,9 +1,9 @@
-import pytest
 import pickle
 import sys
 from pathlib import Path
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
+import pytest
 from langchain_core.documents import Document
 
 # Load session-level fixtures (auth, tenant, httpx client) for all tests
@@ -15,6 +15,8 @@ pytest_plugins = [
     'tests.fixtures.digest',
     'tests.fixtures.data',
     'tests.fixtures.store',
+    'tests.fixtures.document',
+    'tests.fixtures.ingestion',
 ]
 
 if TYPE_CHECKING:
@@ -25,6 +27,12 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _PROJECT_ROOT_STR = str(_PROJECT_ROOT)
 if _PROJECT_ROOT_STR not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT_STR)
+
+# Also ensure the tests directory itself is importable so `from fixtures...` works under xdist
+_TESTS_ROOT = Path(__file__).resolve().parent
+_TESTS_ROOT_STR = str(_TESTS_ROOT)
+if _TESTS_ROOT_STR not in sys.path:
+    sys.path.insert(0, _TESTS_ROOT_STR)
 
 
 def pytest_ignore_collect(path, config):
@@ -85,9 +93,7 @@ def pytest_runtest_setup(item: pytest.Item):
             pytest.skip(f'skipped: missing env vars for Postgres: {", ".join(missing)}')
 
     if item.get_closest_marker('needs_aws'):
-        missing = _missing(
-            ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET']
-        )
+        missing = _missing(['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET'])
         if missing:
             pytest.skip(f'skipped: missing env vars for AWS/S3: {", ".join(missing)}')
 

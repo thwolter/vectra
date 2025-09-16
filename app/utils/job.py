@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from app.schemas.enums import CollectionEnum
-from app.schemas.upload import ContinueProcessingInput
-from app.schemas.jobs import JobCtx
 from app.metadata.schemas import NoopHints
+from app.schemas.enums import CollectionEnum
+from app.schemas.jobs import JobCtx
+from app.schemas.upload import ContinueProcessingInput
 
 
 def build_job_ctx(

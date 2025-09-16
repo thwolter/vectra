@@ -1,11 +1,11 @@
 import pytest
 
 from app.extract.agent import extract_metadata
+from app.metadata.schemas import FinanceReportHints, ProposedMetadata
 from app.schemas.enums import CollectionEnum
 from app.vector.errors import EmbeddingsAlreadyExistError
 from app.vector.ingestor import DocumentIngestor
 from app.vector.models import IngestorSettings
-from app.metadata.schemas import FinanceReportHints, ProposedMetadata
 
 
 @pytest.fixture
@@ -18,9 +18,7 @@ def ingestor():
 
 async def sanitize(sample_documents):
     # Sanity: ensure text contains Apple Inc somewhere
-    raw_concat = '\n'.join(
-        (getattr(d, 'page_content', '') or '') for d in sample_documents[:50]
-    )
+    raw_concat = '\n'.join((getattr(d, 'page_content', '') or '') for d in sample_documents[:50])
     assert ('Apple Inc' in raw_concat) or ('APPLE INC' in raw_concat)
 
     test_documents = sample_documents
@@ -40,13 +38,9 @@ async def sanitize(sample_documents):
     return test_documents
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
 @pytest.mark.needs_openai
-@pytest.mark.asyncio
-async def test_get_document_info_with_sample_docs(
-    sample_documents, ingestor, digest_random, session
-):
+async def test_get_document_info_with_sample_docs(sample_documents, ingestor, digest_random, session, job_created):
     """
     Integration test: ingest sample documents into the vector, then retrieve
     by source and extract metadata. Also verify company equals "Apple Inc".
@@ -58,7 +52,7 @@ async def test_get_document_info_with_sample_docs(
         await ingestor.ingest(
             session,
             docs=test_documents,
-            digest=digest_random,
+            job_id=job_created.id,
         )
     except EmbeddingsAlreadyExistError:
         pass

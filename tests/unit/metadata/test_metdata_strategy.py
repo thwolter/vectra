@@ -1,10 +1,11 @@
 from unittest.mock import create_autospec
 
+import pytest
+
 from app.metadata.base import Strategy
 from app.metadata.finance_report import FinanceReportStrategy
 from app.metadata.noop import NoopStrategy
-from app.metadata.schemas import ProposedMetadata, NoopHints, FinanceReportHints
-import pytest
+from app.metadata.schemas import FinanceReportHints, NoopHints, ProposedMetadata
 
 
 def test_metadata_strategy_returns_finance_report_class():
@@ -57,9 +58,7 @@ def test_finance_report_conflicts_include_none_attributes():
 
 def test_prepare_metadata_model_builds_without_error_and_has_expected_fields():
     # Ensure prepare_metadata_model completes and the schema includes expected fields
-    hints = FinanceReportHints(
-        company='Acme Inc', document_type='10-K', financial_year=2024
-    )
+    hints = FinanceReportHints(company='Acme Inc', document_type='10-K', financial_year=2024)
     strategy = FinanceReportStrategy(hints=hints)
 
     # Should not raise
@@ -83,9 +82,7 @@ def test_prepare_metadata_model_raises_when_metadata_model_missing():
     # Bind the real implementation so validation logic executes
     from types import MethodType
 
-    bad_instance.prepare_metadata_model = MethodType(
-        Strategy.prepare_metadata_model, bad_instance
-    )
+    bad_instance.prepare_metadata_model = MethodType(Strategy.prepare_metadata_model, bad_instance)
 
     with pytest.raises(ValueError):
         bad_instance.prepare_metadata_model()

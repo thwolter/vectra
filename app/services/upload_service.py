@@ -1,39 +1,32 @@
 from __future__ import annotations
 
-from uuid import UUID
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from dataclasses import dataclass
 from functools import partial
-from typing import Awaitable, Callable, Any
+from typing import Any, Awaitable, Callable
+from uuid import UUID
 
+from loguru import logger
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.core.dependencies import access_scoped_session_ctx, get_database_manager
 from app.metadata.base import Strategy
 from app.parsers.protocols import ParserProtocol
+from app.protocols.services import UploadServiceProtocol
+from app.repositories.schemas import DocumentCreate, JobCreate
 from app.schemas.enums import CollectionEnum
 from app.schemas.upload import (
-    UploadInitResponse,
+    ContinueProcessingInput,
     JobStatus,
     StartUploadInput,
-    ContinueProcessingInput,
+    UploadInitResponse,
 )
-from app.services.job_service import JobService
-from app.services.upload_steps import UploadPipeline
 from app.store.protocols import StoreProtocol
-
 from app.utils.job import build_job_ctx
-from loguru import logger
-
-from app.services.document_service import DocumentService
-from app.schemas.jobs import InitJob
 from app.vector.protocols import IngestorProtocol
-from app.protocols.services import UploadServiceProtocol
-from app.repositories import Ingestion
-from app.repositories import Job
-from app.core.dependencies import (
-    get_database_manager,
-    access_scoped_session_ctx,
-)
+
+from .document_service import DocumentService
+from .job_service import JobService
+from .upload_steps import UploadPipeline
 
 
 @dataclass(frozen=True)
@@ -55,90 +48,71 @@ class UploadService(UploadServiceProtocol):
         ingestor: IngestorProtocol | None = None,
     ) -> None:
         self.collection = collection
-        self.parser_provider = parser
         self.pipeline = UploadPipeline(store=store, ingestor=ingestor, parser=parser)
         self.job_service = JobService()
         self.db = get_database_manager()
 
-    async def start_document_upload(
-        self, session: AsyncSession, *, payload: StartUploadInput
-    ) -> UploadInitResponse:
+    async def start_document_upload(self, session: AsyncSession, *, payload: StartUploadInput) -> UploadInitResponse:
         """Initialize a job and immediately return UploadInitResponse.
 
         Heavy processing continues asynchronously in the background.
         """
 
-        # Compute stable hash from the uploaded file (streamed)
         digest = await payload.file.sha256_b64()
-
         document_service = DocumentService(collection=self.collection)
-        document_uuid, _ = await document_service.ensure_canonical_document(
-            session,
-            digest=digest,
-            original_filename=payload.file.filename,
-            content_type=payload.file.content_type,
-            size_bytes=payload.file.size,
-        )
+        already_running = False
 
-        job_record = None
-        if job_id := await Job.find(
+        document, created = await document_service.ensure_canonical_document(
             session,
-            digest=digest,
-            collection=self.collection.value,
-            document_id=document_uuid,
-        ):
-            logger.info(f'Found existing job {job_id} for {digest}')
-            job_record = await Job.get(session, job_id=job_id)
-        else:
-            strategy: Strategy = Strategy.from_hints(payload.hints)
-            propose_metadata = strategy.proposed_metadata()
-
-            init_job = InitJob(
-                document_uuid=document_uuid,
+            data=DocumentCreate(
                 collection=self.collection.value,
                 digest=digest,
                 original_filename=payload.file.filename,
                 content_type=payload.file.content_type,
                 size_bytes=payload.file.size,
-                proposed_metadata=propose_metadata,
+            ),
+        )
+
+        # Prepare proposed metadata once (used only when creating a fresh job)
+        strategy: Strategy = Strategy.from_hints(payload.hints)
+        proposed_metadata = strategy.proposed_metadata()
+
+        if created:
+            # New document -> always create a new job
+            job = await self.job_service.init_job(
+                session,
+                job=JobCreate(
+                    document_id=document.id,
+                    proposed_metadata=proposed_metadata,
+                ),
             )
-            job_id = await self.job_service.init_job(session, job=init_job)
-
-        # Early dedup signal based on any existing ingestion version for (collection, digest)
-        dedup = await Ingestion.exists(
-            session,
-            digest=digest,
-            collection=self.collection.value,
-        )
-
-        status = JobStatus(job_record.status) if job_record else JobStatus.PROCESSING
-        original_filename = (
-            job_record.original_filename if job_record else payload.file.filename
-        )
+        else:
+            # Existing document: try to reuse a still-active job (enforced by partial unique index)
+            job, created = await self.job_service.get_pending_or_create(
+                session,
+                document_id=document.id,
+                collection=self.collection.value,
+                proposed_metadata=proposed_metadata,
+            )
+            already_running = created
 
         return UploadInitResponse(
-            job_id=job_id,
-            document_id=document_uuid,
-            status=status,
-            deduplicated=dedup,
+            job_id=job.id,
+            document_id=document.id,
+            status=JobStatus(job.status),
             digest=digest,
-            original_filename=original_filename,
+            original_filename=payload.file.filename,
+            already_running=already_running,
         )
 
     async def _run_step(self, session: AsyncSession, job_id: UUID, step: _Step) -> bool:
-        await self.job_service.update_progress(
-            session, job_id=job_id, percent=step.percent, step=step.step
-        )
+        await self.job_service.update_progress(session, job_id=job_id, percent=step.percent, step=step.step)
         try:
             await step.call()
             return True
         except Exception as e:
-            logger.exception(
-                f'Background processing failed for job {job_id} ({step.step}): {e}'
-            )
-            await self.job_service.fail_job(
-                session, job_id=job_id, exc=e, last_step=step.step
-            )
+            logger.exception(f'Background processing failed for job {job_id} ({step.step}): {e}')
+            await self.job_service.fail_job(session, job_id=job_id, exc=e, last_step=step.step)
             return False
 
     async def continue_processing(
@@ -161,13 +135,11 @@ class UploadService(UploadServiceProtocol):
                 _Step(20, 'parse', pipeline.parse_document),
                 _Step(50, 'store_markdown', pipeline.store_markdown),
                 _Step(60, 'prepare_metadata', pipeline.enrich_docs_metadata),
-                _Step(
-                    70, 'ingest', partial(pipeline.ingest_documents, session=session)
-                ),
+                _Step(70, 'ingest', partial(pipeline.ingest_documents, session=session)),
                 _Step(
                     90,
                     'ensure_metadata',
-                    partial(pipeline.persist_metadata, session=session),
+                    partial(pipeline.persist_metadata, session=session, update_embeddings=False),
                 ),
                 _Step(
                     95,
@@ -181,11 +153,7 @@ class UploadService(UploadServiceProtocol):
                 if not success:
                     return
 
-            job_status = (
-                JobStatus.NEEDS_REVIEW
-                if pipeline.ctx.needs_review
-                else JobStatus.COMPLETED
-            )
+            job_status = JobStatus.NEEDS_REVIEW if pipeline.ctx.needs_review else JobStatus.COMPLETED
             await self.job_service.update_status(
                 session,
                 job_id=job_id,

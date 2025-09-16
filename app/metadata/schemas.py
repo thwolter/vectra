@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Literal, Dict, Any
+from typing import Any, Dict, List, Literal
 
 from pydantic import BaseModel, Field, conint
 
@@ -19,12 +19,8 @@ class ProposedMetadata(BaseModel):
     """System-proposed metadata + confidence and conflicts."""
 
     metadata: dict = Field(default_factory=dict, description='Proposed metadata')
-    confidence: Dict[str, Evidence] = Field(
-        default_factory=dict, description='Confidence scores'
-    )
-    conflicts: List[str] = Field(
-        default_factory=list, description='Conflicting metadata fields'
-    )
+    confidence: Dict[str, Evidence] = Field(default_factory=dict, description='Confidence scores')
+    conflicts: List[str] = Field(default_factory=list, description='Conflicting metadata fields')
 
 
 class NoopHints(BaseModel):
@@ -40,15 +36,9 @@ class FinanceReportMetadata(BaseModel):
     satisfying OpenAI structured output requirements.
     """
 
-    company: str | None = Field(
-        default=None, description='Legal company name as printed'
-    )
-    financial_year: conint(ge=1900, le=2100) | None = Field(
-        default=None, description='Reporting financial year (YYYY)'
-    )
-    document_type: str | None = Field(
-        default=None, description='Document type (e.g., Annual Report, 10-K)'
-    )
+    company: str | None = Field(default=None, description='Legal company name as printed')
+    financial_year: conint(ge=1900, le=2100) | None = Field(default=None, description='Reporting financial year (YYYY)')
+    document_type: str | None = Field(default=None, description='Document type (e.g., Annual Report, 10-K)')
 
 
 class FinanceReportHints(FinanceReportMetadata):

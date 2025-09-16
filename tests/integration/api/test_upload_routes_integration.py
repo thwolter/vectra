@@ -1,17 +1,16 @@
 import io
 import json
-
-import pytest
-from fastapi.testclient import TestClient
 from pathlib import Path
 
-from app.repositories import Embeddings
+import pytest
+
+from app.main import app as fastapi_app
 from app.metadata.schemas import FinanceReportHints
+from app.repositories import EmbeddingsRepository
+from app.schemas.enums import CollectionEnum
+from app.services.dependencies import get_upload_service
 from app.services.upload_service import UploadService
 from app.store.local_store import LocalFileStore
-from app.main import app as fastapi_app
-from app.services.dependencies import get_upload_service
-from app.schemas.enums import CollectionEnum
 from app.store.protocols import StoreProtocol
 
 
@@ -26,19 +25,17 @@ def base_prefix(tmp_path) -> Path:
     return tmp_path / 'local-tests'
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
-@pytest.mark.asyncio
 async def test_upload_then_continue_processing_and_status_completed(
-    small_pdf, session, auth_client, monkeypatch, fake_embeddings_vectorstore
+    small_pdf,
+    session,
+    auth_client,
+    monkeypatch,
+    vectorstore_factory,
 ):
-    file_store = LocalFileStore(CollectionEnum.DEFAULT)
-    assert isinstance(file_store, StoreProtocol)
-    service = UploadService(store=file_store)
-
-    fastapi_app.dependency_overrides[get_upload_service] = lambda: service
     monkeypatch.setattr(
-        'app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore
+        'app.vector.ingestor.get_vectorstore',
+        lambda collection, *, tenant_id, embeddings=None: (vectorstore_factory(collection, embeddings)),
     )
 
     api_client = auth_client
@@ -60,47 +57,30 @@ async def test_upload_then_continue_processing_and_status_completed(
     assert status_payload['job_id'] == init['job_id']
 
     # Step 4: verify embeddings exist for the document by digest via metadata repo
-    exists = await Embeddings.exists(
-        session, digest=init['digest'], collection=CollectionEnum.DEFAULT.value
-    )
+    exists = await EmbeddingsRepository.exists(session, digest=init['digest'], collection=CollectionEnum.DEFAULT.value)
 
     assert exists, 'Expected embeddings to exist in DB for the uploaded document'
 
 
-@pytest.mark.integration
 @pytest.mark.needs_postgres
-@pytest.mark.asyncio
 async def test_second_upload_is_deduplicated_after_first_ingestion(
-    apple_report_first_page, base_prefix, monkeypatch, fake_embeddings_vectorstore
+    apple_report_first_page, monkeypatch, fake_embeddings_vectorstore, auth_client
 ):
-    file_store = LocalFileStore(CollectionEnum.DEFAULT)
-    assert isinstance(file_store, StoreProtocol)
-    service = UploadService(store=file_store)
-
-    fastapi_app.dependency_overrides[get_upload_service] = lambda: service
-    monkeypatch.setattr(
-        'app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore
-    )
-
-    api_client = TestClient(fastapi_app)
+    monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore)
 
     with open(apple_report_first_page, 'rb') as f:
         file_bytes = f.read()
     files = {'file': ('tiny.pdf', io.BytesIO(file_bytes), 'application/pdf')}
 
     # First upload + full processing
-    r1 = api_client.post(
-        '/api/v1/uploads', files=files, data={'hints_json': json.dumps({})}
-    )
+    r1 = auth_client.post('/api/v1/uploads', files=files, data={'hints_json': json.dumps({})})
     assert r1.status_code == 201
 
     # Second upload init should report deduplicated True
-    r2 = api_client.post(
-        '/api/v1/uploads', files=files, data={'hints_json': json.dumps({})}
-    )
+    r2 = auth_client.post('/api/v1/uploads', files=files, data={'hints_json': json.dumps({})})
     assert r2.status_code == 201
     init2 = r2.json()
-    assert init2['deduplicated'] is True
+    assert init2['already_running'] is True
 
 
 @pytest.mark.integration
@@ -117,15 +97,11 @@ def test_hints_influence_proposed_metadata_on_job(
     service = UploadService(store=file_store)
 
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
-    monkeypatch.setattr(
-        'app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore
-    )
+    monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore)
 
     files = {'file': ('tiny.pdf', io.BytesIO(tiny_pdf_bytes), 'application/pdf')}
 
-    hints = FinanceReportHints(
-        company='Acme Corp', document_type='10-K', financial_year=2024
-    ).model_dump_json()
+    hints = FinanceReportHints(company='Acme Corp', document_type='10-K', financial_year=2024).model_dump_json()
 
     r = auth_client.post(
         '/api/v1/uploads',
