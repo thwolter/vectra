@@ -1,15 +1,14 @@
+from functools import partial
 from pathlib import Path
-from typing import List
+from typing import List, Protocol
 
 import tiktoken
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
 from langchain_core.documents import Document
 from langchain_docling import DoclingLoader
-from langchain_docling.loader import ExportType
 from loguru import logger
 
-from .protocols import ParserProtocol
 from .schemas import ParserConfig, ParseResult
 
 
@@ -19,52 +18,38 @@ class DoclingParserConfig(ParserConfig):
     pass
 
 
-class DoclingParser(ParserProtocol):
+class LoaderFactory(Protocol):
+    def __call__(self, file: str) -> DoclingLoader: ...
+
+
+class DoclingParser:
     def __init__(
         self,
-        file: str,
         *,
         config: DoclingParserConfig | None = None,
-        loader: DoclingLoader | None = None,
+        loader: DoclingLoader | LoaderFactory | None = None,
     ):
-        """
-        Initialize the DoclingParser.
-
-        :param file: Path to the document file
-        :param config: Optional configuration dictionary with keys:
-            - model_name: Name of the tokenizer model (default: "gpt-4")
-            - max_tokens: Maximum tokens for the tokenizer (default: 128*1024)
-            - header_chunks: Number of chunks to use for header extraction (default: 3)
-        """
-
-        if not Path(file).exists():
-            raise ValueError(f'File not found: {file}')
-
         self.config = config or DoclingParserConfig()
-        self.file = file
 
         self.tokenizer = OpenAITokenizer(
             tokenizer=tiktoken.encoding_for_model(self.config.model_name),
             max_tokens=self.config.max_tokens,  # context window length for OpenAI models
         )
-
-        self.loader = loader or DoclingLoader(
-            file_path=file,
-            export_type=ExportType.DOC_CHUNKS,
-            chunker=HybridChunker(tokenizer=self.tokenizer),
-        )
+        if loader:
+            self.loader = loader
+        else:
+            self.loader = partial(DoclingLoader, chunker=HybridChunker(tokenizer=self.tokenizer))
 
         self._parsed_docs: List[Document] | None = None
 
-    async def parse(self) -> ParseResult:
-        """
-        Parse the document asynchronously.
+    async def parse(self, file: str) -> ParseResult:
+        if not Path(file).exists():
+            raise ValueError(f'File not found: {file}')
 
-        :return: List of Document objects
-        """
         try:
             logger.debug('Parsing document with DoclingLoader...')
-            docs = await self.loader.aload()
+            loader = self.loader(file) if callable(self.loader) else self.loader
+            docs = await loader.aload()
             logger.success(f'Parsed {len(docs)} document chunks.')
 
             if docs:

@@ -8,20 +8,20 @@ from app.api.file import TemporaryUploadFile
 from app.api.schemas import AccessContext
 from app.schemas.upload import ContinueProcessingInput
 from app.services.job_service import JobService
-from app.services.upload_service import UploadService
 from app.services.upload_steps import UploadPipeline
 
 
 @pytest.mark.asyncio
-async def test_continue_processing_calls_all_upload_handlers(tiny_pdf_upload: UploadFile, digest_random, session):
+async def test_continue_processing_calls_all_upload_handlers(
+    tiny_pdf_upload: UploadFile, digest_random, session, upload_service
+):
     pipeline = create_autospec(UploadPipeline, instance=True, spec_set=True)
     pipeline.init.return_value = pipeline
 
     job_service = create_autospec(JobService, instance=True, spec_set=True)
 
-    service = UploadService()
-    service.pipeline = pipeline
-    service.job_service = job_service
+    upload_service.pipeline = pipeline
+    upload_service.job_service = job_service
 
     process_input = ContinueProcessingInput(
         job_id=uuid.uuid4(),
@@ -32,7 +32,7 @@ async def test_continue_processing_calls_all_upload_handlers(tiny_pdf_upload: Up
         access_context=AccessContext.from_session(session).model_dump(),
     )
 
-    await service.continue_processing(payload=process_input)
+    await upload_service.continue_processing(payload=process_input)
 
     # Verify each pipeline step was awaited exactly once
     assert pipeline.store_original.await_count == 1

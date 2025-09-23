@@ -9,25 +9,16 @@ from app.parsers.schemas import ParseResult
 
 
 @pytest.mark.asyncio
-async def test_initialize_success(tiny_pdf):
-    """Test initialization of DoclingParser."""
-    parser = DoclingParser(file=tiny_pdf)
-    assert parser.file == tiny_pdf
-    assert hasattr(parser, 'loader')
-    assert parser._parsed_docs is None
-
-
-@pytest.mark.asyncio
 async def test_parse_success(tiny_pdf):
     """Test parsing a real PDF file."""
 
     loader = create_autospec(DoclingLoader, instance=True, spec_set=True)
     loader.aload = AsyncMock(return_value=[Document(page_content='Hello World', metadata={'source': 'unit://doc/1'})])
-    parser = DoclingParser(file=tiny_pdf, loader=loader)
+    parser = DoclingParser(loader=loader)
 
     assert parser.loader == loader
     assert parser._parsed_docs is None
-    result = await parser.parse()
+    result = await parser.parse(file=tiny_pdf)
 
     # Verify that documents were parsed
     assert isinstance(result, ParseResult)

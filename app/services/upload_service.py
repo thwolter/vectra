@@ -8,10 +8,8 @@ from uuid import UUID
 from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.dependencies import access_scoped_session_ctx, get_database_manager
+from app.core.dependencies import access_scoped_session_ctx
 from app.metadata.base import Strategy
-from app.parsers.protocols import ParserProtocol
-from app.protocols.services import UploadServiceProtocol
 from app.repositories.schemas import DocumentCreate, JobCreate
 from app.schemas.enums import CollectionEnum
 from app.schemas.upload import (
@@ -20,9 +18,7 @@ from app.schemas.upload import (
     StartUploadInput,
     UploadInitResponse,
 )
-from app.store.protocols import StoreProtocol
 from app.utils.job import build_job_ctx
-from app.vector.protocols import IngestorProtocol
 
 from .document_service import DocumentService
 from .job_service import JobService
@@ -36,21 +32,13 @@ class _Step:
     call: Callable[[], Awaitable[Any]]
 
 
-class UploadService(UploadServiceProtocol):
+class UploadService:
     """Ingestion service orchestrating upload → parse → store → embed."""
 
-    def __init__(
-        self,
-        *,
-        collection: CollectionEnum = CollectionEnum.DEFAULT,
-        parser: ParserProtocol | None = None,
-        store: StoreProtocol | None = None,
-        ingestor: IngestorProtocol | None = None,
-    ) -> None:
+    def __init__(self, *, collection: CollectionEnum = CollectionEnum.DEFAULT, pipeline: UploadPipeline) -> None:
         self.collection = collection
-        self.pipeline = UploadPipeline(store=store, ingestor=ingestor, parser=parser)
+        self.pipeline = pipeline
         self.job_service = JobService()
-        self.db = get_database_manager()
 
     async def start_document_upload(self, session: AsyncSession, *, payload: StartUploadInput) -> UploadInitResponse:
         """Initialize a job and immediately return UploadInitResponse.

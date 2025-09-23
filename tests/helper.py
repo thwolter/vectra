@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import pickle
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from langchain_core.documents import Document
 from loguru import logger
@@ -15,8 +15,9 @@ from app.parsers.schemas import ParseResult
 from app.schemas.enums import CollectionEnum
 from app.services.dependencies import get_upload_service as _get_upload_service_dep
 from app.services.upload_service import UploadService
+from app.services.upload_steps import UploadPipeline
 from app.store.local_store import LocalFileStore
-from app.store.protocols import StoreProtocol
+from app.vector.providers import default_ingestor_provider
 
 
 def make_files_param(apple_report_first_page):
@@ -37,23 +38,6 @@ class TestClientWithCleanup(TestClient):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-
-
-def make_client_financial(base_path: Path) -> TestClientWithCleanup:
-    def _financial_upload_service_override(tmp_path):
-        store = LocalFileStore(base_path=tmp_path, collection=CollectionEnum.FINANCIAL)
-        return UploadService(
-            collection=CollectionEnum.FINANCIAL,
-            store=cast(StoreProtocol, store),
-        )
-
-    def _finalizer():
-        app.dependency_overrides.pop(_get_upload_service_dep, None)
-
-    app.dependency_overrides[_get_upload_service_dep] = lambda: _financial_upload_service_override(base_path)
-    client = TestClientWithCleanup(app)
-    client._cleanup = _finalizer  # attach for manual cleanup
-    return client
 
 
 class FakeSampleParser(ParserProtocol):
@@ -92,7 +76,7 @@ class FakeSampleParser(ParserProtocol):
         self._docs = docs
         self._markdown = markdown
 
-    async def parse(self) -> ParseResult:
+    async def parse(self, file: str) -> ParseResult:
         logger.debug('Fake parsing document...')
         self._load_once()
         return ParseResult(documents=list(self._docs or []))
@@ -101,3 +85,21 @@ class FakeSampleParser(ParserProtocol):
         logger.debug('Fake markdown conversion...')
         self._load_once()
         return self._markdown or 'test markdown'
+
+
+def make_client_financial(base_path: Path) -> TestClientWithCleanup:
+    def _financial_upload_service_override(tmp_path):
+        collection = CollectionEnum.FINANCIAL
+        store = LocalFileStore(base_path=tmp_path, collection=collection)
+        ingestor = default_ingestor_provider(collection=collection)
+        parser = FakeSampleParser(tmp_path / 'sample_docs.pkl')
+        pipeline = UploadPipeline(store=store, ingestor=ingestor, parser=parser)
+        return UploadService(collection=collection, pipeline=pipeline)
+
+    def _finalizer():
+        app.dependency_overrides.pop(_get_upload_service_dep, None)
+
+    app.dependency_overrides[_get_upload_service_dep] = lambda: _financial_upload_service_override(base_path)
+    client = TestClientWithCleanup(app)
+    client._cleanup = _finalizer  # attach for manual cleanup
+    return client

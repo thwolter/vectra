@@ -8,17 +8,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.metadata.base import Strategy
 from app.parsers.protocols import ParserProtocol
-from app.parsers.providers import parser_provider
 from app.repositories import DocumentRepository as DBDocument
 from app.repositories import EmbeddingsRepository, IngestionRepository, JobRepository
 from app.repositories.schemas import DocumentUpdate, IngestionVersion, JobUpdate
 from app.schemas.jobs import JobCtx
 from app.services.document_service import DocumentService
 from app.store.protocols import StoreProtocol
-from app.store.providers import default_store_provider
 from app.store.schemas import ArtifactInfo
 from app.vector.protocols import IngestorProtocol
-from app.vector.providers import default_ingestor_provider
 
 
 class UploadPipeline:
@@ -27,9 +24,9 @@ class UploadPipeline:
     def __init__(
         self,
         *,
-        store: StoreProtocol | None = None,
-        parser: ParserProtocol | None = None,
-        ingestor: IngestorProtocol | None = None,
+        store: StoreProtocol,
+        parser: ParserProtocol,
+        ingestor: IngestorProtocol,
     ) -> None:
         self.store = store
         self.parser = parser
@@ -54,8 +51,7 @@ class UploadPipeline:
         """Store original file in S3 and return ctx with original_key set."""
 
         # todo: should we add a base path here?
-        store = self.store or default_store_provider(self.ctx.collection)
-        saved: ArtifactInfo = await store.save_original(
+        saved: ArtifactInfo = await self.store.save_original(
             file=self.ctx.file,
             document_id=self.ctx.document_id,
         )
@@ -69,12 +65,8 @@ class UploadPipeline:
         - source: S3 original key (used for repository checks and deletes)
         - digest: deterministic document id used for idempotency and grouping
         """
-        parser = self.parser or parser_provider(
-            file_path=str(self.ctx.file.path),
-            profile='auto',
-        )
-        result = await parser.parse()
-        markdown = await parser.to_markdown()
+        result = await self.parser.parse(file=str(self.ctx.file.path))
+        markdown = await self.parser.to_markdown()
         docs = list(result.documents or [])
         if docs:
             # Attach required metadata for downstream vector and tests
@@ -105,10 +97,7 @@ class UploadPipeline:
             return self
 
         if self.ctx.docs:
-            ingestor = self.ingestor or default_ingestor_provider(
-                collection=self.ctx.collection,
-            )
-            result = await ingestor.ingest(session=session, docs=self.ctx.docs, job_id=self.ctx.job_id)
+            result = await self.ingestor.ingest(session=session, docs=self.ctx.docs, job_id=self.ctx.job_id)
             await JobRepository.update(session, job=JobUpdate(id=self.ctx.job_id, ingestion_id=result.ingestion_id))
 
         self.ctx = dc_replace(self.ctx, skip_embed=False)
@@ -121,13 +110,11 @@ class UploadPipeline:
         Tests do not require updating markdown_key here; exceptions must propagate.
         """
 
-        # todo: should we add a base path here?
-        store = self.store or default_store_provider(self.ctx.collection)
         if not self.ctx.markdown_text:
             logger.warning('No markdown text to store; skipping.')
             return self
         # Let any exception from the store propagate to the caller
-        saved = await store.save_markdown(
+        saved = await self.store.save_markdown(
             self.ctx.markdown_text,
             document_id=self.ctx.document_id,
         )

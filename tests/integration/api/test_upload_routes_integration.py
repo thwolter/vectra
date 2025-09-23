@@ -9,9 +9,6 @@ from app.metadata.schemas import FinanceReportHints
 from app.repositories import EmbeddingsRepository
 from app.schemas.enums import CollectionEnum
 from app.services.dependencies import get_upload_service
-from app.services.upload_service import UploadService
-from app.store.local_store import LocalFileStore
-from app.store.protocols import StoreProtocol
 
 
 @pytest.fixture()
@@ -86,15 +83,9 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 def test_hints_influence_proposed_metadata_on_job(
-    tiny_pdf_bytes,
-    base_prefix,
-    auth_client,
-    monkeypatch,
-    fake_embeddings_vectorstore,
+    tiny_pdf_bytes, base_prefix, auth_client, monkeypatch, fake_embeddings_vectorstore, upload_service
 ):
-    file_store = LocalFileStore(CollectionEnum.DEFAULT)
-    assert isinstance(file_store, StoreProtocol)
-    service = UploadService(store=file_store)
+    service = upload_service
 
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
     monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore)

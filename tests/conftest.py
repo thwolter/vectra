@@ -17,6 +17,7 @@ pytest_plugins = [
     'tests.fixtures.store',
     'tests.fixtures.document',
     'tests.fixtures.ingestion',
+    'tests.fixtures.service',
 ]
 
 if TYPE_CHECKING:

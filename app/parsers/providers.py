@@ -8,9 +8,8 @@ _PARSER_REGISTRY: dict = {
 }
 
 
-def parser_provider(*, file_path: str, profile: str) -> ParserProtocol:
+def parser_provider(*, profile: str) -> ParserProtocol:
     try:
-        parser_cls = _PARSER_REGISTRY[profile]
+        return _PARSER_REGISTRY[profile]
     except KeyError as e:
         raise ValueError(f'Unknown parser profile: {profile!r}') from e
-    return parser_cls(file=file_path)

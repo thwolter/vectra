@@ -7,21 +7,12 @@ from app.repositories import EmbeddingsRepository, JobRepository
 from app.schemas.enums import CollectionEnum
 from app.schemas.upload import ContinueProcessingInput, JobStatus, StartUploadInput
 from app.services.dependencies import get_job_service
-from app.services.upload_service import UploadService
-from app.store.local_store import LocalFileStore
-from app.store.protocols import StoreProtocol
 
 
 @pytest.fixture
-def service():
-    store = LocalFileStore(CollectionEnum.DEFAULT)
-    assert isinstance(store, StoreProtocol)
-    return UploadService(store=store)
-
-
-@pytest.fixture
-async def job_uploaded(session, apple_report_first_page_upload, service):
+async def job_uploaded(session, apple_report_first_page_upload, upload_service):
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
+    service = upload_service
 
     hints = FinanceReportHints(company='Acme Corp', document_type='10-K', financial_year=2024)
     init = await service.start_document_upload(session, payload=StartUploadInput(file=file, hints=hints))
