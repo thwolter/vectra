@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from app.api.file import TemporaryUploadFile
 from app.main import app
 from app.schemas.enums import CollectionEnum
+from app.services.dependencies import get_document_service
 from app.services.dependencies import get_document_service as _get_document_service_dep
-from app.services.document_service import DocumentService
 from app.store.local_store import LocalFileStore
 
 
@@ -20,8 +20,8 @@ async def streaming_env(apple_report_first_page_upload):
     a tuple of (client, store, document_id).
     """
     document_id = uuid.uuid4()
-    store = LocalFileStore(CollectionEnum.DEFAULT)
-    service = DocumentService(collection=CollectionEnum.DEFAULT)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value)
+    service = get_document_service()
     service.store = store
 
     def _override_service():

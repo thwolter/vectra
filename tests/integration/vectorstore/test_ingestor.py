@@ -11,7 +11,7 @@ from app.vector.models import IngestorSettings
 def ingestor() -> DocumentIngestor:
     """Create DocumentIngestor instance for testing."""
     ingest_settings = IngestorSettings(max_docs_per_batch=2)
-    return DocumentIngestor(collection=CollectionEnum.DEFAULT.value, ingest_settings=ingest_settings)
+    return DocumentIngestor(collection=CollectionEnum.DEFAULT.value, config=ingest_settings)
 
 
 @pytest.mark.needs_postgres
@@ -25,7 +25,9 @@ async def test_ingest_creates_embeddings(ingestor, sample_documents, digest_rand
 
     # Search for content from the first document
     first_doc_content = test_docs[0].page_content[:100]  # First 100 chars
-    vs = get_vectorstore(collection=CollectionEnum.DEFAULT.value, tenant_id=session.info['tenant_id'])
+    vs = get_vectorstore(
+        collection=CollectionEnum.DEFAULT.value, tenant_id=session.info['tenant_id'], config=ingestor.config
+    )
     results = vs.similarity_search(first_doc_content, k=1)
 
     assert len(results) > 0, 'No documents found in vector after ingestion'

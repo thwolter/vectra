@@ -5,6 +5,7 @@ import pytest
 from app.repositories import IngestionRepository, JobRepository
 from app.schemas.enums import CollectionEnum
 from app.vector.ingestor import DocumentIngestor
+from app.vector.models import IngestorSettings
 
 
 @pytest.fixture
@@ -16,8 +17,7 @@ def ingestor():
 
     job_repo = create_autospec(JobRepository, instance=True)
 
-    return DocumentIngestor(
-        CollectionEnum.DEFAULT.value,
-        job_repo=job_repo,
-        ingestion_repo=ing_repo,
-    )
+    ingestor = DocumentIngestor(CollectionEnum.DEFAULT.value, config=IngestorSettings())
+    ingestor._job_repo = job_repo
+    ingestor._ingestion_repo = ing_repo
+    return ingestor

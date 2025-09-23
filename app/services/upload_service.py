@@ -11,7 +11,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.dependencies import access_scoped_session_ctx
 from app.metadata.base import Strategy
 from app.repositories.schemas import DocumentCreate, JobCreate
-from app.schemas.enums import CollectionEnum
 from app.schemas.upload import (
     ContinueProcessingInput,
     JobStatus,
@@ -35,7 +34,7 @@ class _Step:
 class UploadService:
     """Ingestion service orchestrating upload → parse → store → embed."""
 
-    def __init__(self, *, collection: CollectionEnum = CollectionEnum.DEFAULT, pipeline: UploadPipeline) -> None:
+    def __init__(self, *, collection: str, pipeline: UploadPipeline) -> None:
         self.collection = collection
         self.pipeline = pipeline
         self.job_service = JobService()
@@ -47,13 +46,13 @@ class UploadService:
         """
 
         digest = await payload.file.sha256_b64()
-        document_service = DocumentService(collection=self.collection)
+        document_service = DocumentService()
         already_running = False
 
         document, created = await document_service.ensure_canonical_document(
             session,
             data=DocumentCreate(
-                collection=self.collection.value,
+                collection=self.collection,
                 digest=digest,
                 original_filename=payload.file.filename,
                 content_type=payload.file.content_type,
@@ -79,7 +78,7 @@ class UploadService:
             job, created = await self.job_service.get_pending_or_create(
                 session,
                 document_id=document.id,
-                collection=self.collection.value,
+                collection=self.collection,
                 proposed_metadata=proposed_metadata,
             )
             already_running = created

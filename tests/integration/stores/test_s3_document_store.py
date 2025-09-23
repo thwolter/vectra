@@ -18,7 +18,7 @@ def base_prefix(tmp_path) -> Path:
 
 @pytest.fixture
 def store(base_prefix: str):
-    return S3Store(CollectionEnum.DEFAULT, base_path=base_prefix)
+    return S3Store(CollectionEnum.DEFAULT.value, base_path=base_prefix)
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def file(tiny_pdf_upload: UploadFile):
 
 
 def test_local_store_conforms_runtime(tmp_path):
-    store = S3Store(CollectionEnum.DEFAULT, base_path=tmp_path)
+    store = S3Store(CollectionEnum.DEFAULT.value, base_path=tmp_path)
     assert isinstance(store, StoreProtocol)
 
 
@@ -115,7 +115,7 @@ async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
         'definitely-nonexistent-bucket-vecapi-tests-12345',
         raising=False,
     )
-    bad_store = S3Store(CollectionEnum.DEFAULT, base_path=base_prefix)
+    bad_store = S3Store(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     with pytest.raises(Exception):
         await bad_store.info(uuid.uuid4())
 
@@ -132,7 +132,7 @@ async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_repo
         'definitely-nonexistent-bucket-vecapi-tests-67890',
         raising=False,
     )
-    bad_store = S3Store(CollectionEnum.DEFAULT, base_path=base_prefix)
+    bad_store = S3Store(CollectionEnum.DEFAULT.value, base_path=base_prefix)
 
     # save_markdown should raise
     document_id = uuid.uuid4()

@@ -6,8 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.schemas.enums import CollectionEnum
-
 
 @dataclass(frozen=True)
 class ArtifactInfo:
@@ -21,7 +19,7 @@ class ArtifactInfo:
     """
 
     document_id: UUID
-    collection: CollectionEnum
+    collection: str
     original_key: str | None
     markdown_key: str | None
 

@@ -1,18 +1,9 @@
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings
+from pydantic import BaseModel
 
 
-class IngestorSettings(BaseSettings):
-    """Configuration for ingestion limits and embedding model.
-
-    - model_name: name of embedding model used by the vector
-    - embed_model_ver: semantic version or hash for model settings
-    - chunker_version: semantic version of chunking logic
-    - max_tokens_per_request: hard cap for total tokens per batch
-    - max_docs_per_batch: hard cap for number of docs per batch
-    """
-
+class IngestorSettings(BaseModel):
     chunker_model: str = 'docling'
     chunker_version: str = 'v1'
     chunker_params: dict = {}

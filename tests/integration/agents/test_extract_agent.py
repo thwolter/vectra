@@ -1,6 +1,7 @@
 import pytest
 
 from app.extract.agent import extract_metadata
+from app.metadata.config import ExtractConfig
 from app.metadata.schemas import FinanceReportHints, ProposedMetadata
 from app.schemas.enums import CollectionEnum
 from app.vector.errors import EmbeddingsAlreadyExistError
@@ -12,7 +13,7 @@ from app.vector.models import IngestorSettings
 def ingestor():
     return DocumentIngestor(
         collection=CollectionEnum.FINANCIAL.value,
-        ingest_settings=IngestorSettings(max_docs_per_batch=3),
+        config=IngestorSettings(max_docs_per_batch=3),
     )
 
 
@@ -62,6 +63,8 @@ async def test_get_document_info_with_sample_docs(sample_documents, ingestor, di
         digest=digest_random,
         collection=CollectionEnum.FINANCIAL,
         hints=FinanceReportHints(),
+        ingestor_config=IngestorSettings(),
+        extract_config=ExtractConfig(),
     )
 
     assert isinstance(result, ProposedMetadata)

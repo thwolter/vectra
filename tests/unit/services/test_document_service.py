@@ -1,13 +1,12 @@
 import pytest
 
-from app.schemas.enums import CollectionEnum
-from app.services.document_service import DocumentService
+from app.services.dependencies import get_document_service
 
 
 @pytest.fixture
 def document_service():
     """Create a DocumentService instance for testing."""
-    return DocumentService(collection=CollectionEnum.DEFAULT)
+    return get_document_service()
 
 
 @pytest.fixture

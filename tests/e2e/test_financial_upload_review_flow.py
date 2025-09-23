@@ -26,7 +26,7 @@ def _poll_job(client: TestClient, job_id: str, *, timeout: float = 90.0, interva
 def _store_keys_for_digest(document_id: UUID, tmp_path) -> list[str]:
     import anyio
 
-    store = LocalFileStore(collection=CollectionEnum.FINANCIAL, base_path=tmp_path)
+    store = LocalFileStore(collection=CollectionEnum.FINANCIAL.value)
 
     async def _info(*args, **kwargs):
         return await store.info(document_id=document_id)

@@ -17,6 +17,7 @@ from app.services.dependencies import get_upload_service as _get_upload_service_
 from app.services.upload_service import UploadService
 from app.services.upload_steps import UploadPipeline
 from app.store.local_store import LocalFileStore
+from app.vector.models import IngestorSettings
 from app.vector.providers import default_ingestor_provider
 
 
@@ -89,9 +90,9 @@ class FakeSampleParser(ParserProtocol):
 
 def make_client_financial(base_path: Path) -> TestClientWithCleanup:
     def _financial_upload_service_override(tmp_path):
-        collection = CollectionEnum.FINANCIAL
+        collection = CollectionEnum.FINANCIAL.value
         store = LocalFileStore(base_path=tmp_path, collection=collection)
-        ingestor = default_ingestor_provider(collection=collection)
+        ingestor = default_ingestor_provider(collection=collection, config=IngestorSettings())
         parser = FakeSampleParser(tmp_path / 'sample_docs.pkl')
         pipeline = UploadPipeline(store=store, ingestor=ingestor, parser=parser)
         return UploadService(collection=collection, pipeline=pipeline)

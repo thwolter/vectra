@@ -1,9 +1,3 @@
-"""
-Database session/engine management using SQLModel (+ SQLAlchemy async).
-
-Provides DatabaseManager which encapsulates AsyncEngine lifecycle and safe AsyncSession access.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +13,7 @@ from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.vector.factory import get_vectorstore
+from app.vector.models import IngestorSettings
 
 from .config import get_settings
 from .exceptions import RlsNotEnforcedError
@@ -101,8 +96,7 @@ async def assert_rls_enforced(conn) -> None:
 async def _ensure_vs_tables():
     logger.info('Ensuring vectorstore tables')
     vs = get_vectorstore(
-        collection=str(uuid.uuid4()),
-        tenant_id=UUID('00000000-0000-0000-0000-000000000000'),
+        collection=str(uuid.uuid4()), tenant_id=UUID('00000000-0000-0000-0000-000000000000'), config=IngestorSettings()
     )
     vs.delete_collection()
 

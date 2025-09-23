@@ -7,7 +7,6 @@ from langchain_core.documents import Document
 
 from app.api.file import TemporaryUploadFile
 from app.metadata.schemas import FinanceReportHints, NoopHints, ProposedMetadata
-from app.schemas.enums import CollectionEnum
 from app.utils.types import SHA256B64
 
 
@@ -21,7 +20,7 @@ class JobCtx:
 
     # Identifiers and settings
     job_id: UUID
-    collection: CollectionEnum
+    collection: str
     file: TemporaryUploadFile
     hints: FinanceReportHints | NoopHints
 

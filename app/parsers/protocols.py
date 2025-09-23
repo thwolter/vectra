@@ -3,7 +3,8 @@ from typing import Protocol, runtime_checkable
 from app.parsers.schemas import ParseResult
 
 
-class ParserProtocol:
+@runtime_checkable
+class ParserProtocol(Protocol):
     async def parse(self, file: str) -> ParseResult: ...
     async def to_markdown(self) -> str: ...
 

@@ -6,13 +6,14 @@ from langchain_core.documents import Document
 from app.repositories import EmbeddingsRepository
 from app.schemas.enums import CollectionEnum
 from app.vector.factory import get_vectorstore
+from app.vector.ingestor import IngestorSettings
 
 
 @pytest.mark.needs_postgres
 @pytest.mark.needs_openai
 async def test_update_document_metadata_by_digest_merges_across_all_chunks(session):
     tenant_id = session.info['tenant_id']
-    vs = get_vectorstore(CollectionEnum.FINANCIAL.value, tenant_id=tenant_id)
+    vs = get_vectorstore(CollectionEnum.FINANCIAL.value, tenant_id=tenant_id, config=IngestorSettings())
     digest = uuid.uuid4().hex[:10]
 
     docs = [
@@ -46,7 +47,7 @@ async def test_update_metadata_keeps_existing_metadata_when_replace_false(
     session,
 ):
     tenant_id = session.info['tenant_id']
-    vs = get_vectorstore(collection=CollectionEnum.FINANCIAL.value, tenant_id=tenant_id)
+    vs = get_vectorstore(collection=CollectionEnum.FINANCIAL.value, tenant_id=tenant_id, config=IngestorSettings())
     digest = uuid.uuid4().hex[:10]
     docs = [
         Document(
@@ -79,7 +80,7 @@ async def test_update_metadata_replaces_metadata_when_replace_true(
     session,
 ):
     tenant_id = session.info['tenant_id']
-    vs = get_vectorstore(collection=CollectionEnum.FINANCIAL.value, tenant_id=tenant_id)
+    vs = get_vectorstore(collection=CollectionEnum.FINANCIAL.value, tenant_id=tenant_id, config=IngestorSettings())
     digest = uuid.uuid4().hex[:10]
     docs = [
         Document(
@@ -116,7 +117,9 @@ async def test_check_documents_exists_scoped_by_collection(
     digest = uuid.uuid4().hex[:10]
 
     tenant_id = session.info['tenant_id']
-    vs_default = get_vectorstore(collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id)
+    vs_default = get_vectorstore(
+        collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id, config=IngestorSettings()
+    )
     vs_default.add_documents(
         documents=[
             Document(
@@ -144,7 +147,7 @@ async def test_update_document_metadata_noop_on_empty_updates(
     session,
 ):
     tenant_id = session.info['tenant_id']
-    vs = get_vectorstore(collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id)
+    vs = get_vectorstore(collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id, config=IngestorSettings())
     digest = uuid.uuid4().hex[:10]
 
     # Insert one chunk via vector

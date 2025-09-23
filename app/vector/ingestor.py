@@ -28,18 +28,15 @@ class DocumentIngestor(IngestorProtocol):
         self,
         collection: str,
         *,
-        ingest_settings: IngestorSettings | None = None,
-        ingestion_repo=IngestionRepository,
-        embedding_repo=EmbeddingsRepository,
-        job_repo=JobRepository,
+        config: IngestorSettings,
     ) -> None:
         """Initialize the ingestor with a collection and optional settings."""
-        self.collection: str = collection
-        self.ingest_settings: IngestorSettings = ingest_settings or IngestorSettings()
-        self.batcher = BatchBuilder(self.ingest_settings)
-        self._ingestion_repo = ingestion_repo
-        self._embedding_repo = embedding_repo
-        self._job_repo = job_repo
+        self.collection = collection
+        self.config = config
+        self.batcher = BatchBuilder(self.config)
+        self._ingestion_repo = IngestionRepository()
+        self._embedding_repo = EmbeddingsRepository()
+        self._job_repo = JobRepository()
 
     async def ingest(self, session: AsyncSession, *, docs: List[Document], job_id: UUID) -> IngestionResult:
         """
@@ -70,14 +67,14 @@ class DocumentIngestor(IngestorProtocol):
 
         batches = self.batch_documents_by_tokens(docs)
 
-        vs = get_vectorstore(collection=self.collection, tenant_id=session.info['tenant_id'])
+        vs = get_vectorstore(collection=self.collection, tenant_id=session.info['tenant_id'], config=self.config)
 
         total_ingested = 0
         for batch in batches:
             self.enrich_metadata(batch, digest=digest, offset=total_ingested)
             vs.add_documents(documents=batch)
             total_ingested += len(batch)
-            logger.debug(f"Added {len(batch)} docs with digest {digest}) to collection '{vs.collection_name}'")
+            logger.debug(f"Added {len(batch)} docs with digest {digest}) to collection '{self.collection}'")
 
         ingestion_id = await self.mark_ingestion(session=session, job=job, digest=digest)
 

@@ -26,11 +26,10 @@ class DoclingParser:
     def __init__(
         self,
         *,
-        config: DoclingParserConfig | None = None,
+        config: DoclingParserConfig,
         loader: DoclingLoader | LoaderFactory | None = None,
     ):
-        self.config = config or DoclingParserConfig()
-
+        self.config = config
         self.tokenizer = OpenAITokenizer(
             tokenizer=tiktoken.encoding_for_model(self.config.model_name),
             max_tokens=self.config.max_tokens,  # context window length for OpenAI models

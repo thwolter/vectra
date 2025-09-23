@@ -14,7 +14,7 @@ def get_store(client: MagicMock):
     _client = MagicMock()
     _client.__aenter__ = AsyncMock(return_value=client)
     _client.__aexit__ = AsyncMock(return_value=None)
-    store = S3Store(collection=CollectionEnum.DEFAULT)
+    store = S3Store(collection=CollectionEnum.DEFAULT.value)
     # Override client factory to return our async context manager
     store.client_factory = lambda: _client  # type: ignore[assignment]
     return store

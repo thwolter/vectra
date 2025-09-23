@@ -9,6 +9,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_postgres import PGVector
 
 from app.vector.factory import get_vectorstore
+from app.vector.models import IngestorSettings
 
 
 class FakeEmbeddings(Embeddings):
@@ -67,6 +68,7 @@ def vectorstore_factory(session) -> Callable[[str, Embeddings | None], PGVector]
             collection=collection,
             tenant_id=tenant_id,
             embeddings=embeddings or FakeEmbeddings(),
+            config=IngestorSettings(),
         )
 
     return _make
@@ -76,4 +78,6 @@ def vectorstore_factory(session) -> Callable[[str, Embeddings | None], PGVector]
 @pytest.fixture
 def fake_embeddings_vectorstore(session) -> PGVector:
     tenant_id = session.info['tenant_id']
-    return get_vectorstore(collection='default', tenant_id=tenant_id, embeddings=FakeEmbeddings())
+    return get_vectorstore(
+        collection='default', tenant_id=tenant_id, embeddings=FakeEmbeddings(), config=IngestorSettings()
+    )

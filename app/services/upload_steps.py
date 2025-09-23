@@ -86,10 +86,10 @@ class UploadPipeline:
         ingestion version repository. If present, skips embedding; otherwise ingests.
         """
 
-        fp = IngestionVersion.from_settings(collection=self.ctx.collection.value).fingerprint()
+        fp = IngestionVersion.from_settings(collection=self.ctx.collection).fingerprint()
 
         ingestion_exists = await IngestionRepository.exists(
-            session, fingerprint=fp, collection=self.ctx.collection.value, digest=self.ctx.digest
+            session, fingerprint=fp, collection=self.ctx.collection, digest=self.ctx.digest
         )
         if ingestion_exists:
             logger.info(f'{self.ctx.job_id} IngestionVersion exists; skipping chunk/embed')
@@ -170,7 +170,7 @@ class UploadPipeline:
             await EmbeddingsRepository.update_metadata(
                 session,
                 digest=self.ctx.digest,
-                collection=self.ctx.collection.value,
+                collection=self.ctx.collection,
                 metadata=self.ctx.metadata,
             )
         await DBDocument.update(
@@ -189,7 +189,7 @@ class UploadPipeline:
         DocumentStore implementation and persists them via the repository.
         Errors are logged and swallowed to avoid failing the entire job at this stage.
         """
-        document_service = DocumentService(collection=self.ctx.collection)
+        document_service = DocumentService()
         try:
             await document_service.update_document_uris(
                 session=session,

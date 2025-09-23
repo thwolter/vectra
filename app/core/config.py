@@ -34,16 +34,6 @@ class Settings(BaseSettings):
     aws_s3_bucket: str = 'vecapi-documents'
     aws_s3_path: str = 'documents' if env == 'production' else 'documents-dev'
 
-    # Vectorstore configuration
-    collection_name: str = 'financial'
-    embedding_model: str = 'text-embedding-3-small'
-
-    # DocInfo extraction model
-    doc_info_model_name: str = 'gpt-5-mini'
-    doc_info_model_temperature: float = 0.0
-    doc_info_k: int = 6
-    doc_info_max_iters: int = 3
-
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
 

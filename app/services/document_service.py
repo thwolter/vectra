@@ -9,7 +9,6 @@ from app.repositories import DocumentRepository
 from app.repositories.models import DocumentRecord
 from app.repositories.schemas import DocumentCreate, DocumentUpdate
 from app.schemas.documents import DocumentListResponse, DocumentResponse
-from app.schemas.enums import CollectionEnum
 from app.store.local_store import make_uri
 from app.store.protocols import StoreProtocol
 from app.store.providers import default_store_provider
@@ -21,11 +20,9 @@ class DocumentService:
     def __init__(
         self,
         *,
-        collection: CollectionEnum = CollectionEnum.DEFAULT,
         repo=DocumentRepository,
     ) -> None:
-        self.collection = collection
-        self.store = default_store_provider(self.collection)
+        self.store = default_store_provider('default')
         assert isinstance(self.store, StoreProtocol)
         self.repo = repo
 

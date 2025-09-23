@@ -1,11 +1,21 @@
-from __future__ import annotations
-
-from app.schemas.documents import ProfilesResponse
+from app.core.profiles import ProcessingProfileSettings
+from app.parsers.docling import DoclingParserConfig
+from app.vector.models import IngestorSettings
 
 
 class ProfilesService:
-    """Service to expose available parser/embedding profiles to clients."""
+    def __init__(self):
+        # Minimal in-code catalogue for now; swap to YAML/DB later.
+        self._profiles = {
+            'default': ProcessingProfileSettings(
+                name='default',
+                ingestor_config=IngestorSettings(),
+                parser_config=DoclingParserConfig(),
+            )
+        }
 
-    async def get_profiles(self) -> ProfilesResponse:
-        # :todo read from registry (DB/YAML) and return
-        raise NotImplementedError
+    def get(self, name: str = 'default') -> ProcessingProfileSettings:
+        return self._profiles.get(name, self._profiles['default'])
+
+    async def get_profiles(self) -> list[ProcessingProfileSettings]:
+        return list(self._profiles.values())

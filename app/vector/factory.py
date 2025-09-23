@@ -6,6 +6,7 @@ from langchain_postgres import PGVector
 
 from app.core.config import get_settings
 from app.core.tenancy import dsn_with_tenant
+from app.vector.models import IngestorSettings
 
 settings = get_settings()
 
@@ -14,6 +15,7 @@ def get_vectorstore(
     collection: str,
     *,
     tenant_id: UUID,
+    config: IngestorSettings,
     embeddings: Embeddings | None = None,
 ) -> PGVector:
     """Create a PGVector instance for the requested collection.
@@ -28,7 +30,7 @@ def get_vectorstore(
 
     if not embeddings:
         embeddings = OpenAIEmbeddings(
-            model=settings.embedding_model,
+            model=config.embed_model,
         )
 
     return PGVector(

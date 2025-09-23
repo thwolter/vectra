@@ -4,8 +4,6 @@ import base64
 from pathlib import Path
 from uuid import UUID
 
-from app.schemas.enums import CollectionEnum
-
 
 class StoreKeyHelpers:
     """Mixin providing common key-building helpers for stores.
@@ -16,7 +14,7 @@ class StoreKeyHelpers:
     `DocumentStore` to reuse the helpers.
     """
 
-    collection: CollectionEnum
+    collection: str
     base_path: str
 
     @staticmethod
@@ -35,7 +33,7 @@ class StoreKeyHelpers:
         value is padding-stripped to keep keys concise.
         """
         encoded = self._encode_document_id(document_id)
-        return f'{self.base_path}/{self.collection.value}/{encoded}/'
+        return f'{self.base_path}/{self.collection}/{encoded}/'
 
     def _original_key(self, document_id: UUID, ext: str, *, gzip_enabled: bool) -> str:
         """Return the original file key, with optional .gz suffix for compressed uploads.

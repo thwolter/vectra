@@ -10,7 +10,6 @@ from loguru import logger
 
 from app.api.file import TemporaryUploadFile
 from app.core.config import get_settings
-from app.schemas.enums import CollectionEnum
 from app.store.mixins import StoreKeyHelpers
 from app.store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
@@ -52,7 +51,7 @@ class LocalFileStore(StoreKeyHelpers):
     Only storage/retrieval responsibilities are implemented.
     """
 
-    def __init__(self, collection: CollectionEnum, *, base_path: str | Path | None = None) -> None:
+    def __init__(self, collection: str, *, base_path: str | Path | None = None) -> None:
         self.collection = collection
         self.base_path = str(base_path or settings.local_file_path)
 
@@ -228,6 +227,6 @@ class LocalFileStore(StoreKeyHelpers):
                     files.append(file_info)
         return StoredFiles(
             document_id=document_id,
-            collection=self.collection.value,
+            collection=self.collection,
             files=files,
         )

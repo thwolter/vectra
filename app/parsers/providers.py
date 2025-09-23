@@ -1,15 +1,9 @@
-from app.parsers.docling import DoclingParser
-from app.parsers.protocols import ParserProtocol
-
-_PARSER_REGISTRY: dict = {
-    'docling': DoclingParser,
-    'auto': DoclingParser,
-    # "pdfminer": PdfMinerParser,
-}
+from .docling import DoclingParser, DoclingParserConfig
+from .protocols import ParserProtocol
 
 
-def parser_provider(*, profile: str) -> ParserProtocol:
-    try:
-        return _PARSER_REGISTRY[profile]
-    except KeyError as e:
-        raise ValueError(f'Unknown parser profile: {profile!r}') from e
+def parser_provider(*, name: str, config: DoclingParserConfig) -> ParserProtocol:
+    if name == 'docling':
+        return DoclingParser(config=config)
+    else:
+        raise ValueError(f'Unknown parser profile: {name!r}')

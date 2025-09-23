@@ -13,7 +13,6 @@ from loguru import logger
 
 from app.api.file import TemporaryUploadFile
 from app.core.config import get_settings
-from app.schemas.enums import CollectionEnum
 from app.store.mixins import StoreKeyHelpers
 from app.store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
@@ -26,7 +25,7 @@ def get_client():
 
 
 class S3Store(StoreKeyHelpers):
-    def __init__(self, collection: CollectionEnum, *, base_path: str | Path | None = None):
+    def __init__(self, collection: str, *, base_path: str | Path | None = None):
         self.collection = collection
         self.base_path = str(base_path or settings.aws_s3_path)
         self.client_factory = get_client
@@ -122,7 +121,7 @@ class S3Store(StoreKeyHelpers):
                 logger.debug(
                     'Uploading markdown to S3',
                     extra={
-                        'collection': self.collection.value,
+                        'collection': self.collection,
                         'key': key,
                         'document_id': document_id,
                     },
@@ -301,7 +300,7 @@ class S3Store(StoreKeyHelpers):
                     files.append(fi)
                 return StoredFiles(
                     document_id=document_id,
-                    collection=self.collection.value,
+                    collection=self.collection,
                     files=files,
                 )
             except Exception as e:

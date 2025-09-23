@@ -2,33 +2,22 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.file import TemporaryUploadFile
-from app.api.schemas import AccessContext
-from app.api.utils import parse_hints_from_any
 from app.core.dependencies import access_scoped_session
+from app.core.profiles import ProcessingProfileSettings
 from app.protocols.services import UploadServiceProtocol
 from app.schemas.upload import (
     ContinueProcessingInput,
     StartUploadInput,
     UploadInitResponse,
 )
-from app.services.dependencies import get_upload_service
+from app.services.dependencies import get_profile_settings, get_upload_service
 
-# Hard limits to protect memory/CPU. Adjust via settings if needed.
-MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
-READ_CHUNK_SIZE = 1024 * 1024  # 1 MB
+from ..file import TemporaryUploadFile
+from ..schemas import AccessContext
+from ..utils import check_file_type_size, parse_hints_from_any
 
 router = APIRouter(prefix='/v1')
 
@@ -48,6 +37,7 @@ async def upload_document(
     file: Annotated[UploadFile, File(description='Document to upload (PDF, DOCX, etc.)')],
     hints: Annotated[str | None, Form(description='Optional hints for document parsing')] = None,
     upload_service: UploadServiceProtocol = Depends(get_upload_service),
+    config: ProcessingProfileSettings = Depends(get_profile_settings),
     session: AsyncSession = Depends(access_scoped_session),
 ) -> UploadInitResponse:
     """Upload a document for ingestion.
@@ -66,33 +56,7 @@ async def upload_document(
     - Files larger than 50 MB are rejected with HTTP 413
     """
 
-    # Basic content-type allowlist to prevent unexpected parsers from running
-    allowed_types = {
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  # .docx
-        'application/msword',  # legacy .doc
-        'text/plain',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # .xlsx (if you support it)
-    }
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f'Unsupported content type: {file.content_type}',
-        )
-
-    # Enforce upload size guardrail (without consuming the stream)
-    try:
-        file.file.seek(0, 2)  # move to end
-        size = file.file.tell()
-        file.file.seek(0)  # rewind
-    except Exception:
-        size = None
-
-    if size is not None and size > MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f'File is {size} bytes; limit is {MAX_UPLOAD_SIZE} bytes',
-        )
+    await check_file_type_size(file, config=config)
 
     hints_model = parse_hints_from_any(hints)
     tmp_file = TemporaryUploadFile.from_upload(file)

@@ -4,7 +4,7 @@ import pytest
 from langchain_core.documents import Document
 from langchain_docling import DoclingLoader
 
-from app.parsers.docling import DoclingParser
+from app.parsers.docling import DoclingParser, DoclingParserConfig
 from app.parsers.schemas import ParseResult
 
 
@@ -14,7 +14,7 @@ async def test_parse_success(tiny_pdf):
 
     loader = create_autospec(DoclingLoader, instance=True, spec_set=True)
     loader.aload = AsyncMock(return_value=[Document(page_content='Hello World', metadata={'source': 'unit://doc/1'})])
-    parser = DoclingParser(loader=loader)
+    parser = DoclingParser(config=DoclingParserConfig(), loader=loader)
 
     assert parser.loader == loader
     assert parser._parsed_docs is None

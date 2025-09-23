@@ -31,7 +31,7 @@ def base_prefix(tmp_path) -> Path:
 
 
 def test_local_store_conforms_runtime(tmp_path):
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=tmp_path)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=tmp_path)
     assert isinstance(store, StoreProtocol)
 
 
@@ -42,7 +42,7 @@ async def test_save_original_and_delete_success(
     apple_report_first_page_upload,
 ):
     document_id = uuid.uuid4()
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=base_prefix)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
 
     saved = await store.save_original(file, document_id=document_id)
@@ -62,7 +62,7 @@ async def test_save_original_and_delete_success(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_save_markdown_then_load_and_delete_success(base_prefix):
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=str(base_prefix))
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=str(base_prefix))
 
     document_id = uuid.uuid4()
     content = '# Title\nHello world'
@@ -88,7 +88,7 @@ async def test_save_markdown_then_load_and_delete_success(base_prefix):
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_info_with_both_files_success(base_prefix, apple_report_first_page_upload):
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=base_prefix)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
 
     document_id = uuid.uuid4()
@@ -108,7 +108,7 @@ async def test_info_with_both_files_success(base_prefix, apple_report_first_page
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_load_failure_nonexistent_key_raises(base_prefix):
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=base_prefix)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
 
     with pytest.raises(Exception):
         await store.load(str(base_prefix / 'does-not-exist.txt'))
@@ -117,7 +117,7 @@ async def test_load_failure_nonexistent_key_raises(base_prefix):
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_make_uri_returns_file_scheme(base_prefix, apple_report_first_page_upload):
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=base_prefix)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
 
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
     document_id = uuid.uuid4()
@@ -130,7 +130,7 @@ async def test_make_uri_returns_file_scheme(base_prefix, apple_report_first_page
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_head_returns_expected_metadata(base_prefix, apple_report_first_page_upload):
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=base_prefix)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     document_id = uuid.uuid4()
 
     upload = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
@@ -172,7 +172,7 @@ async def test_head_returns_expected_metadata(base_prefix, apple_report_first_pa
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_stream_markdown_and_original_success(base_prefix, apple_report_first_page_upload):
-    store = LocalFileStore(CollectionEnum.DEFAULT, base_path=base_prefix)
+    store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     document_id = uuid.uuid4()
 
     # Save original (no gzip) and markdown
