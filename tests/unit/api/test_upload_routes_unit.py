@@ -15,7 +15,7 @@ from app.schemas.upload import (
     JobStatusResponse,
     UploadInitResponse,
 )
-from app.services.dependencies import get_job_service, get_upload_service
+from app.services.factory import get_job_service, get_upload_service
 
 JOB_ID = uuid.uuid4()
 DOCUMENT_ID = uuid.uuid4()

@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.dependencies import access_scoped_session
 from app.protocols.services import JobServiceProtocol
 from app.schemas.upload import JobReviewPayload, JobReviewResponse, JobStatusResponse
-from app.services.dependencies import get_job_service
+from app.services.factory import get_job_service
 
 router = APIRouter(prefix='/v1', tags=['jobs'])
 

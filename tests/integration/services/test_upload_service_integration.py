@@ -6,7 +6,7 @@ from app.metadata.schemas import FinanceReportHints
 from app.repositories import EmbeddingsRepository, JobRepository
 from app.schemas.enums import CollectionEnum
 from app.schemas.upload import ContinueProcessingInput, JobStatus, StartUploadInput
-from app.services.dependencies import get_job_service
+from app.services.factory import get_job_service
 
 
 @pytest.fixture

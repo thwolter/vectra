@@ -6,8 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.responses import StreamingResponse
 
-from app.services.dependencies import get_document_service
 from app.services.document_service import DocumentService
+from app.services.factory import get_document_service
 
 streaming_router = APIRouter(prefix='/v1/documents')
 

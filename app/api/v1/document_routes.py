@@ -8,8 +8,8 @@ from starlette.responses import Response
 
 from app.core.dependencies import access_scoped_session
 from app.schemas.documents import DocumentListResponse, DocumentResponse
-from app.services.dependencies import get_document_service
 from app.services.document_service import DocumentService
+from app.services.factory import get_document_service
 
 router = APIRouter(prefix='/v1/documents')
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.profiles import ProcessingProfileSettings
 from app.schemas.documents import ProfilesResponse
-from app.services.dependencies import get_profiles_service
+from app.services.factory import get_profiles_service
 from app.services.profiles_service import ProfilesService
 
 router = APIRouter(prefix='/v1/profiles')

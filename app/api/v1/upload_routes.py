@@ -13,7 +13,7 @@ from app.schemas.upload import (
     StartUploadInput,
     UploadInitResponse,
 )
-from app.services.dependencies import get_profile_settings, get_upload_service
+from app.services.factory import get_profile_settings, get_upload_service
 
 from ..file import TemporaryUploadFile
 from ..schemas import AccessContext

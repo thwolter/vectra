@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     version: str = '0.1.0'
     admin_email: str = 'support@riskary.de'
 
+    default_profile: str = 'default'
+
     postgres_url: SecretStr
 
     # ChatDoc API configuration
@@ -33,6 +35,12 @@ class Settings(BaseSettings):
     aws_region: str = 'eu-west-1'
     aws_s3_bucket: str = 'vecapi-documents'
     aws_s3_path: str = 'documents' if env == 'production' else 'documents-dev'
+
+    # JWT configuration
+    jwt_secret: SecretStr = SecretStr('dev-secret-change-me')
+    jwt_issuer: str = 'vecapi'
+    jwt_audience: str = 'vecapi-clients'
+    jwt_ttl_seconds: int = 3600
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

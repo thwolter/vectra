@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.dependencies import get_document_service
+from app.services.factory import get_document_service
 
 
 @pytest.fixture

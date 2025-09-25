@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.dependencies import (
+from app.services.factory import (
     get_profile_settings,
     get_upload_pipeline,
     get_upload_service,

@@ -22,11 +22,14 @@ APP_DIR = ROOT / 'app'
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
+from commands.auth import auth  # noqa: E402
+
 # Import command groups
 from commands.db import db  # noqa: E402
 
 app = typer.Typer(help='Management CLI for database and maintenance tasks')
 app.add_typer(db, name='db')
+app.add_typer(auth, name='auth')
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ from app.main import app
 from app.parsers.protocols import ParserProtocol
 from app.parsers.schemas import ParseResult
 from app.schemas.enums import CollectionEnum
-from app.services.dependencies import get_upload_service as _get_upload_service_dep
+from app.services.factory import get_upload_service as _get_upload_service_dep
 from app.services.upload_service import UploadService
 from app.services.upload_steps import UploadPipeline
 from app.store.local_store import LocalFileStore

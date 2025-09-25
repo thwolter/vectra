@@ -27,17 +27,20 @@ def get_database_manager() -> DatabaseManager:
 
 
 async def require_auth(
-    authorization: str = Header(..., alias='Authorization'),
+    authorization: str | None = Header(None, alias='Authorization'),
 ) -> AuthContext:
-    """Require Authorization and return AuthContext, else 401."""
+    """Require Authorization and return AuthContext, else 401.
+
+    We intentionally make the header optional at the framework level to allow
+    returning a 401 (Unauthorized) instead of FastAPI's default 422 when the
+    header is missing, matching API contract and tests.
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail='Missing Authorization header')
     scheme, _, token = authorization.partition(' ')
     if scheme.lower() != 'bearer' or not token:
         raise HTTPException(status_code=401, detail='Invalid authorization scheme')
     auth = AuthContext.from_token(token)
-    if auth is None:
-        raise HTTPException(status_code=401, detail='Missing Authorization header')
     return auth
 
 

@@ -8,7 +8,7 @@ from app.main import app as fastapi_app
 from app.metadata.schemas import FinanceReportHints
 from app.repositories import EmbeddingsRepository
 from app.schemas.enums import CollectionEnum
-from app.services.dependencies import get_upload_service
+from app.services.factory import get_upload_service
 
 
 @pytest.fixture()

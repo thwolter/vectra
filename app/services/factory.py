@@ -1,3 +1,4 @@
+from app.core.config import get_settings
 from app.core.profiles import ProcessingProfileSettings
 from app.parsers.providers import parser_provider
 from app.store.providers import default_store_provider
@@ -18,7 +19,9 @@ def get_job_service() -> JobService:
     return JobService()
 
 
-def get_profile_settings(profile_name: str = 'default') -> ProcessingProfileSettings:
+def get_profile_settings(profile_name: str | None = None) -> ProcessingProfileSettings:
+    if not profile_name:
+        profile_name = get_settings().default_profile
     profile_service = ProfilesService()
     return profile_service.get(profile_name)
 
@@ -31,7 +34,9 @@ def get_upload_pipeline(profile: ProcessingProfileSettings) -> UploadPipeline:
     return UploadPipeline(store=store, ingestor=ingestor, parser=parser)
 
 
-def get_upload_service(profile_name: str = 'default') -> UploadService:
+def get_upload_service(profile_name: str | None = None) -> UploadService:
+    if not profile_name:
+        profile_name = get_settings().default_profile
     profile = get_profile_settings(profile_name)
     pipeline = get_upload_pipeline(profile=profile)
     return UploadService(collection=profile.collection, pipeline=pipeline)
