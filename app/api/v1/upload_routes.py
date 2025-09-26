@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import access_scoped_session
@@ -14,6 +14,7 @@ from app.schemas.upload import (
     UploadInitResponse,
 )
 from app.services.factory import get_profile_settings, get_upload_service
+from app.worker.dispatcher import enqueue_upload_processing
 
 from ..file import TemporaryUploadFile
 from ..schemas import AccessContext
@@ -33,7 +34,6 @@ router = APIRouter(prefix='/v1')
     },
 )
 async def upload_document(
-    background_tasks: BackgroundTasks,
     file: Annotated[UploadFile, File(description='Document to upload (PDF, DOCX, etc.)')],
     hints: Annotated[str | None, Form(description='Optional hints for document parsing')] = None,
     upload_service: UploadServiceProtocol = Depends(get_upload_service),
@@ -65,7 +65,7 @@ async def upload_document(
         file=tmp_file,
         hints=hints_model,
     )
-    response = await upload_service.start_document_upload(session, payload=upload_input)
+    response = await upload_service.initiate_document_intake(session, payload=upload_input)
 
     job_kwargs = {
         **upload_input.model_dump(),
@@ -77,5 +77,5 @@ async def upload_document(
 
     job_input = ContinueProcessingInput(**job_kwargs)
 
-    background_tasks.add_task(upload_service.continue_processing, payload=job_input)
+    await enqueue_upload_processing(job_input)
     return response

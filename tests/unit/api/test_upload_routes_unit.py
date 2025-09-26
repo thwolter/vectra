@@ -29,7 +29,7 @@ def api_client(monkeypatch, digest_random, auth_client) -> TestClient:
     upload_mock: UploadServiceProtocol = create_autospec(UploadServiceProtocol, instance=True, spec_set=True)
     job_mock: JobServiceProtocol = create_autospec(JobServiceProtocol, instance=True, spec_set=True)
 
-    upload_mock.start_document_upload = AsyncMock(
+    upload_mock.initiate_document_intake = AsyncMock(
         return_value=UploadInitResponse(
             job_id=JOB_ID,
             document_id=DOCUMENT_ID,
@@ -61,8 +61,12 @@ def api_client(monkeypatch, digest_random, auth_client) -> TestClient:
     app.dependency_overrides[get_upload_service] = lambda: upload_mock
     app.dependency_overrides[get_job_service] = lambda: job_mock
 
+    enqueue_mock = AsyncMock()
+    monkeypatch.setattr('app.api.v1.upload_routes.enqueue_upload_processing', enqueue_mock)
+
     client.upload_mock = upload_mock
     client.job_mock = job_mock
+    client.enqueue_mock = enqueue_mock
     return client
 
 
@@ -86,10 +90,12 @@ def test_upload_document_with_finance_hints_is_parsed(api_client):
     assert data['document_id'] == str(DOCUMENT_ID)
 
     mock_service = api_client.upload_mock  # type: ignore[attr-defined]
-    assert mock_service.start_document_upload.await_count == 1
-    assert mock_service.continue_processing.await_count == 1
+    assert mock_service.initiate_document_intake.await_count == 1
 
-    _, kwargs = mock_service.start_document_upload.await_args
+    enqueue_mock = api_client.enqueue_mock  # type: ignore[attr-defined]
+    assert enqueue_mock.await_count == 1
+
+    _, kwargs = mock_service.initiate_document_intake.await_args
     passed_hints = kwargs['payload'].hints
     assert isinstance(passed_hints, FinanceReportHints)
 
@@ -105,10 +111,12 @@ def test_upload_document_allows_missing_hints(api_client: TestClient):
     assert data['document_id'] == str(DOCUMENT_ID)
 
     mock_service = api_client.upload_mock  # type: ignore[attr-defined]
-    assert mock_service.start_document_upload.await_count == 1
-    assert mock_service.continue_processing.await_count == 1
+    assert mock_service.initiate_document_intake.await_count == 1
 
-    _, kwargs = mock_service.start_document_upload.await_args
+    enqueue_mock = api_client.enqueue_mock  # type: ignore[attr-defined]
+    assert enqueue_mock.await_count == 1
+
+    _, kwargs = mock_service.initiate_document_intake.await_args
     passed_hints = kwargs['payload'].hints
     assert isinstance(passed_hints, NoopHints)
 

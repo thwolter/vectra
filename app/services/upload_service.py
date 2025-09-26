@@ -39,7 +39,7 @@ class UploadService:
         self.pipeline = pipeline
         self.job_service = JobService()
 
-    async def start_document_upload(self, session: AsyncSession, *, payload: StartUploadInput) -> UploadInitResponse:
+    async def initiate_document_intake(self, session: AsyncSession, *, payload: StartUploadInput) -> UploadInitResponse:
         """Initialize a job and immediately return UploadInitResponse.
 
         Heavy processing continues asynchronously in the background.
@@ -109,7 +109,7 @@ class UploadService:
         """Perform the heavy processing steps for an initialized job.
 
         This uses precomputed identifiers from the initialization step
-        and is intended to be scheduled via FastAPI BackgroundTasks.
+        and is intended to be scheduled via the Dramatiq task queue.
         """
 
         init_ctx = build_job_ctx(payload=payload, collection=self.collection)

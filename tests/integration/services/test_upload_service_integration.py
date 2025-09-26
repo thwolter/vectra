@@ -15,7 +15,7 @@ async def job_uploaded(session, apple_report_first_page_upload, upload_service):
     service = upload_service
 
     hints = FinanceReportHints(company='Acme Corp', document_type='10-K', financial_year=2024)
-    init = await service.start_document_upload(session, payload=StartUploadInput(file=file, hints=hints))
+    init = await service.initiate_document_intake(session, payload=StartUploadInput(file=file, hints=hints))
     await service.continue_processing(
         payload=ContinueProcessingInput(
             hints=hints,

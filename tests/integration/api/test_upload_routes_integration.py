@@ -37,6 +37,12 @@ async def test_upload_then_continue_processing_and_status_completed(
 
     api_client = auth_client
 
+    async def immediate_dispatch(payload):
+        service = get_upload_service()
+        await service.continue_processing(payload=payload)
+
+    monkeypatch.setattr('app.api.v1.upload_routes.enqueue_upload_processing', immediate_dispatch)
+
     with open(small_pdf, 'rb') as f:
         file_bytes = f.read()
     files = {'file': ('tiny.pdf', io.BytesIO(file_bytes), 'application/pdf')}
@@ -64,6 +70,12 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
     apple_report_first_page, monkeypatch, fake_embeddings_vectorstore, auth_client
 ):
     monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore)
+
+    async def immediate_dispatch(payload):
+        service = get_upload_service()
+        await service.continue_processing(payload=payload)
+
+    monkeypatch.setattr('app.api.v1.upload_routes.enqueue_upload_processing', immediate_dispatch)
 
     with open(apple_report_first_page, 'rb') as f:
         file_bytes = f.read()
@@ -93,6 +105,11 @@ def test_hints_influence_proposed_metadata_on_job(
     files = {'file': ('tiny.pdf', io.BytesIO(tiny_pdf_bytes), 'application/pdf')}
 
     hints = FinanceReportHints(company='Acme Corp', document_type='10-K', financial_year=2024).model_dump_json()
+
+    async def immediate_dispatch(payload):
+        await service.continue_processing(payload=payload)
+
+    monkeypatch.setattr('app.api.v1.upload_routes.enqueue_upload_processing', immediate_dispatch)
 
     r = auth_client.post(
         '/api/v1/uploads',

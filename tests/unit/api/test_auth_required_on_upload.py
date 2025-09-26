@@ -1,9 +1,10 @@
 import io
+
 import pytest
 from starlette.testclient import TestClient
 
+from app.core.dependencies import require_access_context, require_auth
 from app.main import app
-from app.core.dependencies import require_auth, require_access_context
 
 
 @pytest.fixture()

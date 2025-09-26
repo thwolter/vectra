@@ -56,3 +56,18 @@ class TemporaryUploadFile:
                 h.update(chunk)
 
             return base64.b64encode(h.digest()).decode('ascii')
+
+    def to_serializable(self) -> dict[str, str]:
+        return {
+            'path': str(self.path),
+            'filename': self.filename,
+            'content_type': self.content_type,
+        }
+
+    @classmethod
+    def from_serialized(cls, data: dict[str, str]) -> 'TemporaryUploadFile':
+        required_keys = {'path', 'filename', 'content_type'}
+        missing = required_keys.difference(data)
+        if missing:
+            raise ValueError(f'Missing keys for TemporaryUploadFile: {", ".join(sorted(missing))}')
+        return cls(path=Path(data['path']), filename=data['filename'], content_type=data['content_type'])

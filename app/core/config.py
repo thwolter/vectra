@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Literal, Any
 
 from dotenv import load_dotenv
 from pydantic import SecretStr
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     default_profile: str = 'default'
 
     postgres_url: SecretStr
+    redis_url: SecretStr
 
     # ChatDoc API configuration
     chatdoc_api_key: SecretStr
@@ -41,6 +42,17 @@ class Settings(BaseSettings):
     jwt_issuer: str = 'vecapi'
     jwt_audience: str = 'vecapi-clients'
     jwt_ttl_seconds: int = 3600
+
+    # Dramatiq task processing
+    dramatiq_broker_url: SecretStr
+    dramatiq_queue_name: str = 'upload-processing'
+    dramatiq_time_limit_ms: int = 15 * 60 * 1000
+    dramatiq_max_retries: int = 3
+
+    # Monitoring & alerting
+    monitoring_enabled: bool = True
+    metrics_endpoint_enabled: bool = True
+    alerting_webhook_url: SecretStr | None = None
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

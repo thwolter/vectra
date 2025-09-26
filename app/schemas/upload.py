@@ -77,6 +77,54 @@ class ContinueProcessingInput(StartUploadInput):
     digest: SHA256B64 = Field(..., description='SHA-256 hex digest of the document')
     access_context: AccessContext
 
+    def to_message(self) -> dict:
+        """Serialize this payload for message queue transport.
+
+        Ensures UUIDs and complex fields are converted to plain types.
+        """
+        data = self.model_dump()
+        data['job_id'] = str(self.job_id)
+        data['document_id'] = str(self.document_id)
+        data['file'] = self.file.to_serializable()
+
+        if self.hints is not None:
+            data['hints'] = self.hints.model_dump()
+
+        access_context = self.access_context.model_dump()
+        access_context['tenant_id'] = str(access_context['tenant_id'])
+        access_context['user_id'] = str(access_context['user_id'])
+        data['access_context'] = access_context
+        return data
+
+    @classmethod
+    def from_message(cls, data: dict) -> 'ContinueProcessingInput':
+        """Rebuild a ContinueProcessingInput instance from a queue message dict."""
+        file = TemporaryUploadFile.from_serialized(data['file'])
+
+        hints_data = data.get('hints')
+        hints = None
+        if hints_data:
+            strategy = hints_data.get('strategy')
+            if strategy == 'finance_report':
+                hints = FinanceReportHints.model_validate(hints_data)
+            else:
+                hints = NoopHints.model_validate(hints_data)
+
+        access_context_data = data['access_context']
+        access_context = AccessContext(
+            tenant_id=UUID(access_context_data['tenant_id']),
+            user_id=UUID(access_context_data['user_id']),
+        )
+
+        return cls(
+            file=file,
+            hints=hints,
+            job_id=UUID(data['job_id']),
+            document_id=UUID(data['document_id']),
+            digest=data['digest'],
+            access_context=access_context,
+        )
+
 
 class JobStatus(enum.Enum):
     QUEUED = 'queued'

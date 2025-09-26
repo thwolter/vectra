@@ -14,7 +14,7 @@ from app.schemas.upload import (
 
 
 class UploadServiceProtocol(Protocol):
-    async def start_document_upload(
+    async def initiate_document_intake(
         self, session: AsyncSession, *, payload: StartUploadInput
     ) -> UploadInitResponse: ...
 
