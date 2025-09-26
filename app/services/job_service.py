@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Tuple
 from uuid import UUID
 
+from asyncpg import UniqueViolationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.metadata.schemas import ProposedMetadata
@@ -10,9 +11,8 @@ from app.metadata.utils import merge_metadata
 from app.repositories import EmbeddingsRepository, JobRepository
 from app.repositories.exceptions import RecordNotFoundError
 from app.repositories.models import IngestionRecord, JobRecord
-from app.repositories.schemas import IngestionVersion, JobCreate, JobUpdate
+from app.repositories.schemas import JobCreate, JobUpdate
 from app.schemas.upload import (
-    JOBS_PENDING,
     JobProgress,
     JobReviewPayload,
     JobReviewResponse,
@@ -144,32 +144,34 @@ class JobService:
             errors=list(job.errors or []),
         )
 
-    async def get_pending_job(self, session: AsyncSession, *, document_id: UUID, collection: str) -> JobRecord | None:
-        fp = IngestionVersion.from_settings(collection=collection).fingerprint()
-        job = await self.repo.get_for_fingerprint(session, document_id=document_id, fingerprint=fp)
-        if job and job.status not in JOBS_PENDING:
-            return job
-        return None
+    async def get_pending_job(self, session: AsyncSession, *, document_id: UUID) -> JobRecord | None:
+        job = await self.repo.get_active_for_document(session, document_id=document_id)
+        return job
 
     async def get_pending_or_create(
         self,
         session: AsyncSession,
         *,
         document_id: UUID,
-        collection: str,
         proposed_metadata: ProposedMetadata,
     ) -> Tuple[JobRecord, bool]:
-        job = await self.get_pending_job(session, document_id=document_id, collection=collection)
-        if job:
+        if job := await self.get_pending_job(session, document_id=document_id):
             return job, False
-        job = await self.init_job(
-            session,
-            job=JobCreate(
-                document_id=document_id,
-                proposed_metadata=proposed_metadata,
-            ),
-        )
-        return job, True
+        try:
+            job = await self.init_job(
+                session,
+                job=JobCreate(
+                    document_id=document_id,
+                    proposed_metadata=proposed_metadata,
+                ),
+            )
+            return job, True
+        except UniqueViolationError:
+            job = await self.repo.get_active_for_document(session, document_id=document_id)
+            if job:
+                return job, False
+            else:
+                raise ValueError(f'No active job found for document {document_id}')
 
     async def review_job(self, session: AsyncSession, *, job_id: UUID, payload: JobReviewPayload) -> JobReviewResponse:
         # Only allow review when the job is awaiting human review

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Literal, Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 from pydantic import SecretStr
@@ -53,6 +53,18 @@ class Settings(BaseSettings):
     monitoring_enabled: bool = True
     metrics_endpoint_enabled: bool = True
     alerting_webhook_url: SecretStr | None = None
+
+    # Logging (Loguru) configuration
+    log_file_path: str = 'logs/app.log'
+    log_level: str = 'DEBUG'  # e.g., DEBUG, INFO, WARNING, ERROR
+    log_rotation: str = '1 day'  # time-based rotation (requirement)
+    log_retention: str = '14 days'
+    log_compression: str | None = 'zip'
+    log_serialize: bool = True  # JSON lines by default per guidelines
+    log_enqueue: bool = True
+    log_backtrace: bool = True
+    log_diagnose: bool = False
+    log_remove_default_sink: bool = True
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

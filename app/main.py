@@ -7,8 +7,10 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from app.api.v1 import ROUTERS
 from app.core.config import get_settings
 from app.core.dependencies import get_database_manager
+from app.core.logging import configure_logging
 
 settings = get_settings()
+configure_logging()
 
 
 @asynccontextmanager

@@ -78,7 +78,6 @@ class UploadService:
             job, created = await self.job_service.get_pending_or_create(
                 session,
                 document_id=document.id,
-                collection=self.collection,
                 proposed_metadata=proposed_metadata,
             )
             already_running = created

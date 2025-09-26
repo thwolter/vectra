@@ -45,7 +45,6 @@ class DocumentRepository:
         session.add(record)
         try:
             await session.commit()
-            await session.refresh(record)
         except IntegrityError:
             await session.rollback()
             raise RecordAlreadyExistsError('Document with same digest already exists')

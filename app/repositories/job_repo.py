@@ -4,12 +4,14 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from loguru import logger
+from sqlalchemy import or_
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.schemas import AccessContext
 from app.repositories.models import IngestionRecord, JobRecord
 from app.repositories.schemas import JobCreate, JobUpdate
+from app.schemas.upload import JOBS_PENDING
 
 from .document_repo import DocumentRepository
 from .exceptions import RecordNotFoundError
@@ -40,7 +42,6 @@ class JobRepository:
         session.add(record)
         try:
             await session.commit()
-            await session.refresh(record)
         except Exception as e:
             await session.rollback()
             raise Exception(f'Failed to create job: {e}')
@@ -105,6 +106,19 @@ class JobRepository:
         if len(rows) > 1:
             raise ValueError('Multiple JobRecords found for document and ingestion key; expected at most one.')
         return rows[0]
+
+    @staticmethod
+    async def get_active_for_document(session: AsyncSession, *, document_id: UUID) -> JobRecord | None:
+        statuses = [s.value for s in JOBS_PENDING]
+        stmt = select(JobRecord).where(
+            JobRecord.document_id == document_id,
+            or_(
+                JobRecord.status == statuses[0],
+                JobRecord.status == statuses[1],
+            ),
+        )
+        res = await session.exec(stmt)
+        return res.first()
 
     @staticmethod
     async def exists(session: AsyncSession, *, job_id: UUID) -> bool:

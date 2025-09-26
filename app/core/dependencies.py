@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -26,8 +27,11 @@ def get_database_manager() -> DatabaseManager:
     return _db_manager
 
 
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
 async def require_auth(
-    authorization: str | None = Header(None, alias='Authorization'),
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
 ) -> AuthContext:
     """Require Authorization and return AuthContext, else 401.
 
@@ -35,10 +39,11 @@ async def require_auth(
     returning a 401 (Unauthorized) instead of FastAPI's default 422 when the
     header is missing, matching API contract and tests.
     """
-    if not authorization:
+    if credentials is None or not credentials.credentials:
         raise HTTPException(status_code=401, detail='Missing Authorization header')
-    scheme, _, token = authorization.partition(' ')
-    if scheme.lower() != 'bearer' or not token:
+    scheme = (credentials.scheme or '').lower()
+    token = credentials.credentials
+    if scheme != 'bearer' or not token:
         raise HTTPException(status_code=401, detail='Invalid authorization scheme')
     auth = AuthContext.from_token(token)
     return auth
