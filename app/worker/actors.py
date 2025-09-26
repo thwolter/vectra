@@ -23,8 +23,6 @@ def _run_pipeline(payload: dict) -> None:
 
 @dramatiq.actor(
     queue_name=settings.dramatiq_queue_name,
-    time_limit=settings.dramatiq_time_limit_ms,
-    max_retries=settings.dramatiq_max_retries,
 )
 def process_upload(payload: dict) -> None:
     """Execute the asynchronous upload pipeline inside a Dramatiq worker."""
