@@ -70,7 +70,9 @@ class IngestionRepository:
             return False
 
     @staticmethod
-    async def find(session: AsyncSession, *, fingerprint: str, collection: str, digest: SHA256B64) -> IngestionRecord | None:
+    async def find(
+        session: AsyncSession, *, fingerprint: str, collection: str, digest: SHA256B64
+    ) -> IngestionRecord | None:
         statement = (
             select(IngestionRecord)
             .where(

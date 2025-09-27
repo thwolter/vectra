@@ -6,10 +6,8 @@ from typing import Final
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy import String, bindparam, event, text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
-from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.vector.factory import get_vectorstore
@@ -143,15 +141,8 @@ class DatabaseManager:
                 logger.debug('Database async engine disposed')
 
     async def _create_extensions(self):
-        # Ensure pgcrypto and vector extensions are available (dev/test convenience).
-        if not self._engine:
-            raise RuntimeError('Engine not initialized')
-        try:
-            async with self._engine.begin() as conn:
-                await conn.execute(text('CREATE EXTENSION IF NOT EXISTS pgcrypto;'))
-                await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector;'))
-        except Exception as e:  # pragma: no cover
-            logger.warning(f'Could not ensure pgcrypto/vector extensions: {e}')
+        """No-op: extensions must be created by Alembic migrations, not at runtime."""
+        return None
 
     async def _ensure_engine(self) -> None:
         if self._engine is None:
@@ -178,248 +169,90 @@ class DatabaseManager:
                     cur.execute(f"SET statement_timeout = '{_to}'")
 
     async def initialize(self) -> None:
-        """Explicit initialization hook (optional for callers)."""
+        """Explicit initialization hook (optional for callers).
+
+        Note: All schema changes are managed via Alembic migrations. This method
+        must not execute any DDL. It only initializes the engine and asserts
+        that RLS is enforced at the connection/session level.
+        """
         await self._ensure_engine()
         if not self._engine:
             raise RuntimeError('Engine not initialized')
         async with self._engine.connect() as conn:
             await assert_rls_enforced(conn)
-            await self._create_extensions()
             await conn.commit()
 
     async def _ensure_grants(self, conn):
-        # Enable RLS and create tenant isolation policies for multi-tenant tables
-        for tbl in APP_TENANT_TABLES:
-            # Defensive whitelist check (no SQL injection via identifiers)
-            if tbl not in APP_TENANT_TABLES:
-                raise ValueError(f'Unexpected table name: {tbl}')
-
-            await conn.execute(text(f'ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY'))
-            await conn.execute(text(f'ALTER TABLE {tbl} FORCE ROW LEVEL SECURITY'))
-            await conn.execute(text(f'DROP POLICY IF EXISTS tenant_isolation ON {tbl}'))
-            await conn.execute(
-                text(
-                    f"""
-                    CREATE POLICY tenant_isolation ON {tbl}
-                    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-                    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-                    """
-                )
-            )
-
-        # No commit here; transaction control handled by ensure_schema
+        """No-op: RLS/policies are managed via Alembic migrations, not at runtime."""
+        return None
 
     async def ensure_vs_grants(self, conn):
-        # ---- LangChain PG tables: multi-tenant enablement (DRY over whitelist) ----
-        # 1) Add tenant_id and set DEFAULT from GUC
-        for tbl in LC_TENANT_TABLES:
-            if tbl not in LC_TENANT_TABLES:  # defensive
-                raise ValueError(f'Unexpected LC table name: {tbl}')
-            await conn.execute(text(f'ALTER TABLE IF EXISTS {tbl} ADD COLUMN IF NOT EXISTS tenant_id uuid'))
-            await conn.execute(
-                text(
-                    f"ALTER TABLE IF EXISTS {tbl} ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid"
-                )
-            )
+        """No-op: Vectorstore (LangChain) table grants/policies should be managed via Alembic or vendor migrations.
 
-        # 2) Helper function to set tenant from GUC (idempotent)
-        await conn.execute(
-            text(
-                """
-            CREATE OR REPLACE FUNCTION set_tenant_id_from_guc() RETURNS trigger
-                LANGUAGE plpgsql AS
-            $$
-            BEGIN
-                IF NEW.tenant_id IS NULL THEN
-                    NEW.tenant_id := NULLIF(current_setting('app.tenant_id', true), '')::uuid;
-                END IF;
-                RETURN NEW;
-            END;
-            $$;
-            """
-            )
-        )
-
-        # 3) Attach BEFORE INSERT triggers and supporting indexes if tables exist
-        per_table = {
-            'langchain_pg_collection': {
-                'trigger': 'trg_lc_collections_set_tenant',
-                'index_sql': 'CREATE UNIQUE INDEX IF NOT EXISTS ux_lc_collection_tenant_name ON langchain_pg_collection (tenant_id, name)',
-            },
-            'langchain_pg_embedding': {
-                'trigger': 'trg_lc_embeddings_set_tenant',
-                'index_sql': 'CREATE INDEX IF NOT EXISTS ix_lc_embedding_tenant ON langchain_pg_embedding (tenant_id)',
-            },
-        }
-
-        existing = {}
-        for tbl in LC_TENANT_TABLES:
-            existing[tbl] = bool((await conn.execute(text(f"SELECT to_regclass('{tbl}')"))).scalar())
-
-        for tbl in LC_TENANT_TABLES:
-            if not existing[tbl]:
-                continue
-            trg = per_table[tbl]['trigger']
-            await conn.execute(text(f'DROP TRIGGER IF EXISTS {trg} ON {tbl}'))
-            # The langchain_pg extension ships with a UNIQUE(name) constraint which
-            # conflicts with our per-tenant policy once RLS hides rows from other
-            # tenants. Drop it so we can enforce uniqueness on (tenant_id, name)
-            # instead. Idempotent to keep ensure_vs_grants() safe on repeated runs.
-            if tbl == 'langchain_pg_collection':
-                await conn.execute(
-                    text('ALTER TABLE IF EXISTS langchain_pg_collection DROP CONSTRAINT IF EXISTS langchain_pg_collection_name_key')
-                )
-            await conn.execute(
-                text(
-                    f"""
-                CREATE TRIGGER {trg}
-                BEFORE INSERT ON {tbl}
-                FOR EACH ROW EXECUTE FUNCTION set_tenant_id_from_guc();
-                """
-                )
-            )
-            await conn.execute(text(per_table[tbl]['index_sql']))
-
-        # 4) Temporarily disable RLS to allow NOT NULL enforcement checks
-        for tbl in LC_TENANT_TABLES:
-            if not existing[tbl]:
-                continue
-            await conn.execute(text(f'DROP POLICY IF EXISTS tenant_isolation ON {tbl}'))
-            await conn.execute(text(f'ALTER TABLE {tbl} DISABLE ROW LEVEL SECURITY'))
-
-        # 5) Try to enforce NOT NULL when safe (no NULLs present)
-        await conn.execute(
-            text(
-                """
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_name = 'langchain_pg_collection' AND column_name = 'tenant_id'
-                ) THEN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM langchain_pg_collection WHERE tenant_id IS NULL
-                    ) THEN
-                        EXECUTE 'ALTER TABLE langchain_pg_collection ALTER COLUMN tenant_id SET NOT NULL';
-                    END IF;
-                END IF;
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_name = 'langchain_pg_embedding' AND column_name = 'tenant_id'
-                ) THEN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM langchain_pg_embedding WHERE tenant_id IS NULL
-                    ) THEN
-                        EXECUTE 'ALTER TABLE langchain_pg_embedding ALTER COLUMN tenant_id SET NOT NULL';
-                    END IF;
-                END IF;
-            END$$;
-            """
-            )
-        )
-
-        # 6) Re-enable and force RLS with tenant policies
-        for tbl in LC_TENANT_TABLES:
-            if not existing[tbl]:
-                continue
-            await conn.execute(text(f'ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY'))
-            await conn.execute(text(f'ALTER TABLE {tbl} FORCE ROW LEVEL SECURITY'))
-            await conn.execute(text(f'DROP POLICY IF EXISTS tenant_isolation ON {tbl}'))
-            await conn.execute(
-                text(
-                    f"""
-                CREATE POLICY tenant_isolation ON {tbl}
-                USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-                WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-                """
-                )
-            )
-
-        # No commit here; transaction control handled by ensure_schema
+        Runtime DDL for vendor tables has been removed to ensure strict separation of concerns.
+        """
+        return None
 
     async def ensure_schema(self) -> None:
-        """Create SQLModel tables if they do not exist (idempotent)."""
+        """Validate that the database schema is initialized via Alembic.
+
+        This method performs no DDL. It only checks that Alembic has applied
+        at least one migration and that RLS is enforced on the connection.
+        """
         await self._ensure_engine()
         assert self._engine is not None, 'Engine not initialized'
 
-        await _ensure_models_load()
-
-        # Fast-path: skip heavy DDL if core and vector tables already exist
         if self._schema_ready:
             return
 
         async with self._schema_lock:
-            if await self.tables_exist_and_have_tenant_id():
-                async with self._engine.connect() as conn:
-                    try:
-                        await self.ensure_vs_grants(conn)
-                        await conn.commit()
-                    except Exception:
-                        await conn.rollback()
-                        raise
-                self._schema_ready = True
-                return
-
-            # Heavy path: run once across workers using an advisory lock
             async with self._engine.connect() as conn:
-                await conn.execute(text('SELECT pg_advisory_lock(72727272)'))
+                # Assert RLS settings at session level
+                await assert_rls_enforced(conn)
 
-                await _ensure_vs_tables()
-                try:
-                    await conn.run_sync(SQLModel.metadata.create_all)
-                    await self._ensure_grants(conn)
-                    await self.ensure_vs_grants(conn)
-                    await conn.commit()
-                    self._schema_ready = True
-                except Exception:
-                    await conn.rollback()
-                    raise
-                finally:
-                    await conn.execute(text('SELECT pg_advisory_unlock(72727272)'))
-                    logger.info('Database schema initialized')
+                # Alembic presence check
+                exists = await conn.scalar(text("SELECT to_regclass('alembic_version') IS NOT NULL"))
+                if not exists:
+                    raise RuntimeError(
+                        'Database schema not initialized: alembic_version table missing. Run migrations.'
+                    )
+                count = await conn.scalar(text('SELECT COUNT(*) FROM alembic_version'))
+                if not count:
+                    raise RuntimeError('Database schema not initialized: alembic_version has no rows. Run migrations.')
+
+            self._schema_ready = True
+            logger.info('Database schema validated (managed by Alembic)')
 
     async def tables_exist_and_have_tenant_id(self):
-        """
-        Returns True if all required tables exist and each has a tenant_id column.
+        """Quick readiness check for required tables and tenant_id column.
+
+        Avoids any DDL; uses lightweight information_schema queries per table.
         """
         if not self._engine:
             raise RuntimeError('Engine not initialized')
 
         async with self._engine.connect() as conn:
-            sql = text(
-                """
-                WITH required AS (
-                    SELECT unnest(:tables) AS table_name
-                ),
-                present AS (
-                  SELECT r.table_name
-                  FROM required r
-                  JOIN information_schema.tables t
-                    ON t.table_name = r.table_name AND t.table_schema = 'public'
-                ),
-                tenant_check AS (
-                  SELECT p.table_name,
-                         EXISTS (
-                           SELECT 1 FROM information_schema.columns c
-                           WHERE c.table_schema='public'
-                             AND c.table_name=p.table_name
-                             AND c.column_name='tenant_id'
-                         ) AS has_tenant
-                  FROM present p
+            for tbl in REQUIRED_TABLES:
+                # Table exists?
+                exists = await conn.scalar(text(f"SELECT to_regclass('{tbl}') IS NOT NULL"))
+                if not exists:
+                    return False
+                # tenant_id column exists?
+                col_exists = await conn.scalar(
+                    text(
+                        """
+                        SELECT EXISTS (
+                          SELECT 1
+                          FROM information_schema.columns
+                          WHERE table_schema='public' AND table_name=:tbl AND column_name='tenant_id'
+                        )
+                        """
+                    ),
+                    {'tbl': tbl},
                 )
-                SELECT (
-                    (SELECT COUNT(*) = (SELECT COUNT(*) FROM required) FROM present)
-                )
-                AND
-                (
-                    COALESCE((SELECT bool_and(has_tenant) FROM tenant_check), false)
-                ) AS ok;
-                """
-            )
-            # Bind array parameter with explicit PostgreSQL array type
-            bp = bindparam('tables', value=list(REQUIRED_TABLES), type_=ARRAY(String()))
-            sql = sql.bindparams(bp)
-            return await conn.scalar(sql)
+                if not col_exists:
+                    return False
+            return True
 
     async def close(self) -> None:
         """Dispose the database async engine."""

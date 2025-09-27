@@ -41,6 +41,7 @@ dependencies = [
     "dramatiq[redis]>=1.17.0",
     "prometheus-client>=0.21.0",
     "redis>=5.2.1",
+    "alembic>=1.16.5",
 ]
 
 [tool.pyrefly]

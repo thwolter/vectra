@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Awaitable, Callable
 from uuid import UUID
-import asyncio
 
 from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession

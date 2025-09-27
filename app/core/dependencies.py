@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# Per-event-loop DatabaseManager registry
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 from uuid import UUID
@@ -11,9 +13,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.schemas import AccessContext, AuthContext
 from app.core.database import DatabaseManager
-
-# Per-event-loop DatabaseManager registry
-import asyncio
 
 _db_managers_by_loop: dict[int, DatabaseManager] = {}
 
