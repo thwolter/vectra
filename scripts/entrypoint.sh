@@ -15,6 +15,7 @@ set -euo pipefail
 #   DRAMATIQ_WORKERS            (default: 1)
 #   DRAMATIQ_THREADS            (default: 8)
 #   DRAMATIQ_QUEUE_NAME         (optional; falls back to settings)
+#   SKIP_MIGRATIONS=true|false  (default: false)
 #
 # In Coolify you can:
 # - Run two services from the same image: one with START_WEB=true (default), another with START_WORKER=true
@@ -27,13 +28,42 @@ UVICORN_WORKERS=${UVICORN_WORKERS:-2}
 PORT=${PORT:-8000}
 DRAMATIQ_WORKERS=${DRAMATIQ_WORKERS:-1}
 DRAMATIQ_THREADS=${DRAMATIQ_THREADS:-8}
+SKIP_MIGRATIONS=${SKIP_MIGRATIONS:-false}
+
+run_migrations() {
+  if [[ "${SKIP_MIGRATIONS}" == "true" ]]; then
+    echo "[entrypoint] SKIP_MIGRATIONS=true — skipping alembic upgrade"
+    return 0
+  fi
+
+  echo "[entrypoint] Running database migrations (alembic upgrade head)"
+  local max_retries=10
+  local attempt=1
+  local delay=3
+  while true; do
+    if alembic -c alembic.ini upgrade head; then
+      echo "[entrypoint] Migrations applied successfully"
+      break
+    else
+      if (( attempt >= max_retries )); then
+        echo "[entrypoint] Failed to apply migrations after ${attempt} attempts"
+        exit 1
+      fi
+      echo "[entrypoint] Migration attempt ${attempt} failed; retrying in ${delay}s..."
+      sleep ${delay}
+      attempt=$(( attempt + 1 ))
+    fi
+  done
+}
 
 start_web() {
+  run_migrations
   echo "[entrypoint] Starting uvicorn (workers=${UVICORN_WORKERS}, port=${PORT})"
   exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
 }
 
 start_worker() {
+  run_migrations
   echo "[entrypoint] Starting Dramatiq worker (processes=${DRAMATIQ_WORKERS}, threads=${DRAMATIQ_THREADS})"
   # Note: dramatiq takes --processes and --threads to control concurrency.
   # The target module must import and register actors and the broker.
@@ -41,6 +71,7 @@ start_worker() {
 }
 
 start_both() {
+  run_migrations
   echo "[entrypoint] Starting BOTH: web and worker"
   # Start worker in background, then start web in foreground. Use trap to forward signals.
   dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
