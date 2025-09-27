@@ -99,3 +99,20 @@ line-length = 120
 
 [tool.ruff.format]
 quote-style = "single"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Explicitly control package discovery to avoid including non-package directories
+
+[tool.setuptools.packages.find]
+include = ["app*", "commands*"]
+exclude = [
+  "tests*",
+  "docs*",
+  "alembic*",
+  "data*",
+  "examples*",
+]

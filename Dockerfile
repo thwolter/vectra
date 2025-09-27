@@ -9,7 +9,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PATH="/opt/venv/bin:$PATH" \
     UVICORN_WORKERS=2 \
-    PORT=8000
+    PORT=8000 \
+    START_BOTH=true
 
 # System packages needed for common deps (psycopg2, opencv-headless/easyocr, build tools)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     git \
     curl \
+    wget \
     libpq-dev \
     libglib2.0-0 \
     libgl1 \
@@ -33,13 +35,10 @@ WORKDIR /app
 COPY . /app
 
 # Install project and dependencies from pyproject.toml
-RUN pip install --no-cache-dir .
+RUN pip install .
 
 # Expose the FastAPI port (Coolify will map this)
 EXPOSE 8000
-
-# Optional healthcheck hitting the FastAPI /health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Copy entrypoint and set as default command
 RUN chmod +x scripts/entrypoint.sh
