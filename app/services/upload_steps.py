@@ -6,7 +6,9 @@ from langchain_core.documents import Document
 from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.extract.agent import extract_metadata as run_extract_agent
 from app.metadata.base import Strategy
+from app.metadata.config import ExtractConfig
 from app.parsers.protocols import ParserProtocol
 from app.repositories import DocumentRepository as DBDocument
 from app.repositories import EmbeddingsRepository, IngestionRepository, JobRepository
@@ -15,6 +17,7 @@ from app.schemas.jobs import JobCtx
 from app.services.document_service import DocumentService
 from app.store.protocols import StoreProtocol
 from app.store.schemas import ArtifactInfo
+from app.vector.models import IngestorSettings
 from app.vector.protocols import IngestorProtocol
 
 
@@ -25,10 +28,12 @@ class UploadPipeline:
         store: StoreProtocol,
         parser: ParserProtocol,
         ingestor: IngestorProtocol,
+        extract_config: ExtractConfig,
     ) -> None:
         self.store = store
         self.parser = parser
         self.ingestor = ingestor
+        self.extract_config = extract_config
 
     async def store_original(self, ctx: JobCtx) -> JobCtx:
         """Store original file in S3 and return ctx with original_key set."""
@@ -59,35 +64,6 @@ class UploadPipeline:
                 meta['digest'] = ctx.digest
                 d.metadata = meta
         return dc_replace(ctx, docs=docs, markdown_text=markdown)
-
-    async def ingest_documents(self, ctx: JobCtx, session: AsyncSession) -> JobCtx:
-        """Ingest documents into vector store with idempotency check.
-
-        Computes a stable content fingerprint based on parsed docs and checks the
-        ingestion version repository. If present, skips embedding; otherwise ingests.
-        """
-
-        fp = IngestionVersion.from_settings(collection=ctx.collection).fingerprint()
-
-        record = await IngestionRepository.find(session, fingerprint=fp, collection=ctx.collection, digest=ctx.digest)
-
-        ingestion_id = None
-        skip_embed = False
-        if record:
-            logger.info(f'{ctx.job_id} IngestionVersion exists; skipping chunk/embed')
-            skip_embed = True
-            ingestion_id = record.id
-        elif ctx.docs:
-            skip_embed = False
-            result = await self.ingestor.ingest(session=session, docs=ctx.docs, job_id=ctx.job_id)
-            ingestion_id = result.ingestion_id
-        else:
-            skip_embed = False
-
-        if ingestion_id:
-            await JobRepository.update(session, job=JobUpdate(id=ctx.job_id, ingestion_id=ingestion_id))
-
-        return dc_replace(ctx, skip_embed=skip_embed)
 
     async def store_markdown(self, ctx: JobCtx) -> JobCtx:
         """Store markdown copy of parsed content.
@@ -139,6 +115,81 @@ class UploadPipeline:
             metadata=metadata,
             needs_review=pm.conflicts != [],
             proposed_metadata=pm,
+        )
+
+    async def ingest_documents(self, ctx: JobCtx, session: AsyncSession) -> JobCtx:
+        """Ingest documents into vector store with idempotency check.
+
+        Computes a stable content fingerprint based on parsed docs and checks the
+        ingestion version repository. If present, skips embedding; otherwise ingests.
+        """
+
+        fp = IngestionVersion.from_settings(collection=ctx.collection).fingerprint()
+
+        record = await IngestionRepository.find(session, fingerprint=fp, collection=ctx.collection, digest=ctx.digest)
+
+        ingestion_id = None
+        skip_embed = False
+        if record:
+            logger.info(f'{ctx.job_id} IngestionVersion exists; skipping chunk/embed')
+            skip_embed = True
+            ingestion_id = record.id
+        elif ctx.docs:
+            skip_embed = False
+            result = await self.ingestor.ingest(session=session, docs=ctx.docs, job_id=ctx.job_id)
+            ingestion_id = result.ingestion_id
+        else:
+            skip_embed = False
+
+        if ingestion_id:
+            await JobRepository.update(session, job=JobUpdate(id=ctx.job_id, ingestion_id=ingestion_id))
+
+        return dc_replace(ctx, skip_embed=skip_embed)
+
+    async def extract_metadata(self, ctx: JobCtx, session: AsyncSession) -> JobCtx:
+        """Run the extraction agent and merge results into context and docs.
+
+        Uses vectorstore contents (by digest and collection) to extract document-level
+        metadata. Merges the extracted plain metadata fields into ctx.metadata and
+        attaches the full ProposedMetadata (with evidence) to ctx.proposed_metadata.
+        """
+        # Invoke agent with defaults; hints come from ctx
+        proposed = await run_extract_agent(
+            session,
+            digest=ctx.digest,
+            collection=ctx.collection,
+            hints=ctx.hints,
+            ingestor_config=getattr(self.ingestor, 'config', IngestorSettings()),
+            extract_config=self.extract_config,
+        )
+
+        # Extract the flat metadata dict from the agent response
+        md_all = proposed.metadata or {}
+        extracted_plain = {}
+        if isinstance(md_all, dict):
+            extracted_plain = dict(md_all.get('metadata') or {})
+
+        # Merge into existing context metadata and propagate to docs
+        base_meta: dict = dict(ctx.metadata or {})
+        if extracted_plain:
+            base_meta.update(extracted_plain)
+
+        docs: list[Document] = []
+        if ctx.docs:
+            for d in ctx.docs:
+                d.metadata.update(extracted_plain)
+                docs.append(d)
+
+        # Heuristic: needs_review if any key is missing/null
+        keys = ('company', 'financial_year', 'document_type')
+        needs_review = any(extracted_plain.get(k) in (None, '') for k in keys)
+
+        return dc_replace(
+            ctx,
+            docs=docs or ctx.docs,
+            metadata=base_meta,
+            proposed_metadata=proposed,
+            needs_review=needs_review,
         )
 
     async def persist_metadata(self, ctx: JobCtx, session: AsyncSession, update_embeddings: bool = True) -> JobCtx:

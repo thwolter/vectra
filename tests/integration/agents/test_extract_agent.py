@@ -61,7 +61,7 @@ async def test_get_document_info_with_sample_docs(sample_documents, ingestor, di
     result = await extract_metadata(
         session,
         digest=digest_random,
-        collection=CollectionEnum.FINANCIAL,
+        collection=CollectionEnum.FINANCIAL.value,
         hints=FinanceReportHints(),
         ingestor_config=IngestorSettings(),
         extract_config=ExtractConfig(),

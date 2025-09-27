@@ -7,7 +7,6 @@ from app.core.config import get_settings
 from app.metadata.base import Strategy
 from app.metadata.config import ExtractConfig
 from app.metadata.schemas import ProposedMetadata
-from app.schemas.enums import CollectionEnum
 from app.schemas.upload import UploadHints
 from app.utils.types import SHA256B64
 from app.vector.factory import get_vectorstore
@@ -29,13 +28,13 @@ async def extract_metadata(
     session: AsyncSession,
     *,
     digest: SHA256B64,
-    collection: CollectionEnum,
+    collection: str,
     ingestor_config: IngestorSettings,
     extract_config: ExtractConfig,
     hints: UploadHints,
 ) -> ProposedMetadata:
     tenant_id = session.info['tenant_id']
-    vs = get_vectorstore(collection=collection.value, tenant_id=tenant_id, config=ingestor_config)
+    vs = get_vectorstore(collection=collection, tenant_id=tenant_id, config=ingestor_config)
     llm = get_model(config=extract_config)
     strategy = Strategy.from_hints(hints)
     query = strategy.retrieval_query()
@@ -44,7 +43,7 @@ async def extract_metadata(
 
     init = {
         'digest': digest,
-        'collection': collection.value,
+        'collection': collection,
         'query': query,
         'attempt': 1,
         'max_attempts': extract_config.max_attempts,

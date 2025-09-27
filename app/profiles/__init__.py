@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from .registry import (
-    ProcessingProfileSettings,
     DEFAULT_PROFILE_NAME,
-    register_profile,
+    ProcessingProfileSettings,
     get_profile,
     iter_profiles,
+    register_profile,
 )
 
 __all__ = [

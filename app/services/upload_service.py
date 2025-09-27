@@ -124,6 +124,7 @@ class UploadService:
                 _Step(50, 'store_markdown', pipeline.store_markdown),
                 _Step(60, 'prepare_metadata', pipeline.enrich_docs_metadata),
                 _Step(70, 'ingest', partial(pipeline.ingest_documents, session=session)),
+                _Step(80, 'extract_metadata', partial(pipeline.extract_metadata, session=session)),
                 _Step(
                     90,
                     'ensure_metadata',
