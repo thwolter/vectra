@@ -261,6 +261,14 @@ class DatabaseManager:
                 continue
             trg = per_table[tbl]['trigger']
             await conn.execute(text(f'DROP TRIGGER IF EXISTS {trg} ON {tbl}'))
+            # The langchain_pg extension ships with a UNIQUE(name) constraint which
+            # conflicts with our per-tenant policy once RLS hides rows from other
+            # tenants. Drop it so we can enforce uniqueness on (tenant_id, name)
+            # instead. Idempotent to keep ensure_vs_grants() safe on repeated runs.
+            if tbl == 'langchain_pg_collection':
+                await conn.execute(
+                    text('ALTER TABLE IF EXISTS langchain_pg_collection DROP CONSTRAINT IF EXISTS langchain_pg_collection_name_key')
+                )
             await conn.execute(
                 text(
                     f"""
@@ -342,6 +350,13 @@ class DatabaseManager:
 
         async with self._schema_lock:
             if await self.tables_exist_and_have_tenant_id():
+                async with self._engine.connect() as conn:
+                    try:
+                        await self.ensure_vs_grants(conn)
+                        await conn.commit()
+                    except Exception:
+                        await conn.rollback()
+                        raise
                 self._schema_ready = True
                 return
 
