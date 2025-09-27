@@ -1,14 +1,13 @@
 import io
 import json
-from pathlib import Path
 
 import pytest
 
 from app.main import app as fastapi_app
 from app.metadata.schemas import FinanceReportHints
 from app.repositories import EmbeddingsRepository
-from app.schemas.enums import CollectionEnum
 from app.services.factory import get_upload_service
+from tests.support.profiles import TestProcessingProfile
 
 
 @pytest.fixture()
@@ -17,31 +16,13 @@ def tiny_pdf_bytes(tiny_pdf) -> bytes:
         return f.read()
 
 
-@pytest.fixture
-def base_prefix(tmp_path) -> Path:
-    return tmp_path / 'local-tests'
-
-
 @pytest.mark.needs_postgres
 async def test_upload_then_continue_processing_and_status_completed(
     small_pdf,
     session,
     auth_client,
-    monkeypatch,
-    vectorstore_factory,
 ):
-    monkeypatch.setattr(
-        'app.vector.ingestor.get_vectorstore',
-        lambda collection, *, tenant_id, embeddings=None: (vectorstore_factory(collection, embeddings)),
-    )
-
     api_client = auth_client
-
-    async def immediate_dispatch(payload):
-        service = get_upload_service()
-        await service.continue_processing(payload=payload)
-
-    monkeypatch.setattr('app.api.v1.upload_routes.enqueue_upload_processing', immediate_dispatch)
 
     with open(small_pdf, 'rb') as f:
         file_bytes = f.read()
@@ -60,23 +41,20 @@ async def test_upload_then_continue_processing_and_status_completed(
     assert status_payload['job_id'] == init['job_id']
 
     # Step 4: verify embeddings exist for the document by digest via metadata repo
-    exists = await EmbeddingsRepository.exists(session, digest=init['digest'], collection=CollectionEnum.DEFAULT.value)
+    exists = await EmbeddingsRepository.exists(
+        session,
+        digest=init['digest'],
+        collection=TestProcessingProfile.collection,
+    )
 
     assert exists, 'Expected embeddings to exist in DB for the uploaded document'
 
 
 @pytest.mark.needs_postgres
 async def test_second_upload_is_deduplicated_after_first_ingestion(
-    apple_report_first_page, monkeypatch, fake_embeddings_vectorstore, auth_client
+    apple_report_first_page,
+    auth_client,
 ):
-    monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore)
-
-    async def immediate_dispatch(payload):
-        service = get_upload_service()
-        await service.continue_processing(payload=payload)
-
-    monkeypatch.setattr('app.api.v1.upload_routes.enqueue_upload_processing', immediate_dispatch)
-
     with open(apple_report_first_page, 'rb') as f:
         file_bytes = f.read()
     files = {'file': ('tiny.pdf', io.BytesIO(file_bytes), 'application/pdf')}
@@ -95,21 +73,17 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
 @pytest.mark.integration
 @pytest.mark.needs_postgres
 def test_hints_influence_proposed_metadata_on_job(
-    tiny_pdf_bytes, base_prefix, auth_client, monkeypatch, fake_embeddings_vectorstore, upload_service
+    tiny_pdf_bytes,
+    auth_client,
+    upload_service,
 ):
     service = upload_service
 
     fastapi_app.dependency_overrides[get_upload_service] = lambda: service
-    monkeypatch.setattr('app.vector.ingestor.get_vectorstore', fake_embeddings_vectorstore)
 
     files = {'file': ('tiny.pdf', io.BytesIO(tiny_pdf_bytes), 'application/pdf')}
 
     hints = FinanceReportHints(company='Acme Corp', document_type='10-K', financial_year=2024).model_dump_json()
-
-    async def immediate_dispatch(payload):
-        await service.continue_processing(payload=payload)
-
-    monkeypatch.setattr('app.api.v1.upload_routes.enqueue_upload_processing', immediate_dispatch)
 
     r = auth_client.post(
         '/api/v1/uploads',

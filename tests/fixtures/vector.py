@@ -68,7 +68,7 @@ def vectorstore_factory(session) -> Callable[[str, Embeddings | None], PGVector]
             collection=collection,
             tenant_id=tenant_id,
             embeddings=embeddings or FakeEmbeddings(),
-            config=IngestorSettings(),
+            config=IngestorSettings(embedding_provider='test'),
         )
 
     return _make
@@ -79,5 +79,8 @@ def vectorstore_factory(session) -> Callable[[str, Embeddings | None], PGVector]
 def fake_embeddings_vectorstore(session) -> PGVector:
     tenant_id = session.info['tenant_id']
     return get_vectorstore(
-        collection='default', tenant_id=tenant_id, embeddings=FakeEmbeddings(), config=IngestorSettings()
+        collection='default',
+        tenant_id=tenant_id,
+        embeddings=FakeEmbeddings(),
+        config=IngestorSettings(embedding_provider='test'),
     )

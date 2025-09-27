@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING, List
 
 import pytest
 from langchain_core.documents import Document
+from pydantic import SecretStr
+
+from app.core.config import get_settings
+from tests.support.profiles import TestProcessingProfile, ensure_test_profile
 
 # Load session-level fixtures (auth, tenant, httpx client) for all tests
 pytest_plugins = [
@@ -34,6 +38,14 @@ _TESTS_ROOT = Path(__file__).resolve().parent
 _TESTS_ROOT_STR = str(_TESTS_ROOT)
 if _TESTS_ROOT_STR not in sys.path:
     sys.path.insert(0, _TESTS_ROOT_STR)
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:  # pragma: no cover - pytest hook
+    ensure_test_profile()
+    settings = get_settings()
+    settings.default_profile = TestProcessingProfile.name
+    settings.document_store = 'local'
+    settings.dramatiq_broker_url = SecretStr('')
 
 
 def pytest_ignore_collect(path, config):

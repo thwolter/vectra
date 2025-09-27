@@ -7,6 +7,8 @@ class IngestorSettings(BaseModel):
     chunker_model: str = 'docling'
     chunker_version: str = 'v1'
     chunker_params: dict = {}
+
+    embedding_provider: str = 'openai'
     embed_model: str = 'text-embedding-3-small'
     embed_model_version: str = 'v1'
     embed_dim: int = 1536

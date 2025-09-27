@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from uuid import UUID
 
 from langchain_core.embeddings import Embeddings
@@ -9,6 +10,29 @@ from app.core.tenancy import dsn_with_tenant
 from app.vector.models import IngestorSettings
 
 settings = get_settings()
+
+EmbeddingFactory = Callable[[IngestorSettings], Embeddings]
+EMBEDDING_PROVIDERS: dict[str, EmbeddingFactory] = {}
+
+
+def register_embeddings_provider(name: str, factory: EmbeddingFactory) -> None:
+    EMBEDDING_PROVIDERS[name] = factory
+
+
+def get_embeddings_provider(name: str) -> EmbeddingFactory:
+    try:
+        return EMBEDDING_PROVIDERS[name]
+    except KeyError as exc:
+        raise ValueError(f'Unknown embeddings provider: {name!r}') from exc
+
+
+def _openai_embeddings_factory(config: IngestorSettings) -> Embeddings:
+    return OpenAIEmbeddings(
+        model=config.embed_model,
+    )
+
+
+register_embeddings_provider('openai', _openai_embeddings_factory)
 
 
 def get_vectorstore(
@@ -29,9 +53,8 @@ def get_vectorstore(
     tenant_dsn = dsn_with_tenant(dsn, tenant_id)
 
     if not embeddings:
-        embeddings = OpenAIEmbeddings(
-            model=config.embed_model,
-        )
+        provider = get_embeddings_provider(config.embedding_provider)
+        embeddings = provider(config)
 
     return PGVector(
         connection=tenant_dsn,

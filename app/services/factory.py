@@ -6,7 +6,7 @@ from app.vector.providers import default_ingestor_provider
 
 from .document_service import DocumentService
 from .job_service import JobService
-from .profiles_service import ProfilesService
+from .profiles_service import ProfilesService, get_profile
 from .upload_service import UploadService
 from .upload_steps import UploadPipeline
 
@@ -22,8 +22,7 @@ def get_job_service() -> JobService:
 def get_profile_settings(profile_name: str | None = None) -> ProcessingProfileSettings:
     if not profile_name:
         profile_name = get_settings().default_profile
-    profile_service = ProfilesService()
-    return profile_service.get(profile_name)
+    return get_profile(profile_name)
 
 
 def get_upload_pipeline(profile: ProcessingProfileSettings) -> UploadPipeline:
