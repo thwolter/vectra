@@ -56,3 +56,19 @@ When `ALERTING_WEBHOOK_URL` is configured, every task failure triggers an HTTP P
 ```
 
 Use this hook to integrate with Slack, PagerDuty, or any other incident channel. Failures are also logged via Loguru for local diagnosis.
+
+
+## Coolify deployment notes
+
+You can run the web API and the worker using the same image in different service definitions, or run both in a single container:
+
+- Web only (default): no extra env needed; container starts uvicorn.
+- Worker only: set `START_WORKER=true` and `START_WEB=false`.
+- Both in one container: set `START_BOTH=true` (the worker is started in the background; the web server remains PID 1).
+
+Optional tuning:
+- `DRAMATIQ_WORKERS` (processes, default 1)
+- `DRAMATIQ_THREADS` (threads per process, default 8)
+- `UVICORN_WORKERS` (default 2)
+
+Ensure `DRAMATIQ_BROKER_URL` points to your Redis instance and is shared by both services.
