@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Awaitable, Callable
+from typing import Awaitable, Callable
 from uuid import UUID
 
 from loguru import logger
@@ -12,6 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.dependencies import access_scoped_session_ctx
 from app.metadata.base import Strategy
 from app.repositories.schemas import DocumentCreate, JobCreate
+from app.schemas.jobs import JobCtx
 from app.schemas.upload import (
     ContinueProcessingInput,
     JobStatus,
@@ -29,7 +30,7 @@ from .upload_steps import UploadPipeline
 class _Step:
     percent: int
     step: str
-    call: Callable[[], Awaitable[Any]]
+    call: Callable[[JobCtx], Awaitable[JobCtx]]
 
 
 class UploadService:
@@ -92,15 +93,14 @@ class UploadService:
             already_running=already_running,
         )
 
-    async def _run_step(self, session: AsyncSession, job_id: UUID, step: _Step) -> bool:
+    async def _run_step(self, session: AsyncSession, job_id: UUID, ctx: JobCtx, step: _Step) -> JobCtx | None:
         await self.job_service.update_progress(session, job_id=job_id, percent=step.percent, step=step.step)
         try:
-            await step.call()
-            return True
+            return await step.call(ctx)
         except Exception as e:
             logger.exception(f'Background processing failed for job {job_id} ({step.step}): {e}')
             await self.job_service.fail_job(session, job_id=job_id, exc=e, last_step=step.step)
-            return False
+            return None
 
     async def continue_processing(
         self,
@@ -113,9 +113,9 @@ class UploadService:
         """
 
         logger.debug(f'continue_processing loop_id={id(asyncio.get_running_loop())}')
-        init_ctx = build_job_ctx(payload=payload, collection=self.collection)
-        pipeline = self.pipeline.init(init_ctx)
-        job_id = init_ctx.job_id
+        ctx = build_job_ctx(payload=payload, collection=self.collection)
+        pipeline = self.pipeline
+        job_id = ctx.job_id
 
         async with access_scoped_session_ctx(payload.access_context) as session:
             steps: list[_Step] = [
@@ -137,15 +137,16 @@ class UploadService:
             ]
 
             for s in steps:
-                success = await self._run_step(session, job_id, s)
-                if not success:
+                result = await self._run_step(session, job_id, ctx, s)
+                if result is None:
                     return
+                ctx = result
 
-            job_status = JobStatus.NEEDS_REVIEW if pipeline.ctx.needs_review else JobStatus.COMPLETED
+            job_status = JobStatus.NEEDS_REVIEW if ctx.needs_review else JobStatus.COMPLETED
             await self.job_service.update_status(
                 session,
                 job_id=job_id,
                 status=job_status,
-                proposed_metadata=pipeline.ctx.proposed_metadata,
+                proposed_metadata=ctx.proposed_metadata,
             )
             logger.success(f'Finalized job {job_id}')

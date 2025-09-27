@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from pathlib import Path
 from logging.config import fileConfig
-from typing import Any
+from pathlib import Path
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import SQLModel
+
+from alembic import context
 
 # Ensure project root is on sys.path so `app` package is importable when running `alembic` CLI
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +26,9 @@ if config.config_file_name is not None:
 
 # Import application settings and models to populate target metadata
 from app.core.config import get_settings  # noqa: E402
-from app.repositories import models as _models  # noqa: F401,E402  Ensure models are imported
+from app.repositories import (  # noqa: F401,E402  Ensure models are imported
+    models as _models,
+)
 
 # Target metadata for autogeneration
 target_metadata = SQLModel.metadata
@@ -39,10 +41,10 @@ def _get_async_db_url() -> str:
     """
     settings = get_settings()
     url = settings.pg_vector_url.get_secret_value()
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-    if url.startswith("postgresql://") and "+asyncpg" not in url:
-        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith('postgres://'):
+        url = url.replace('postgres://', 'postgresql://', 1)
+    if url.startswith('postgresql://') and '+asyncpg' not in url:
+        url = url.replace('postgresql://', 'postgresql+asyncpg://', 1)
     return url
 
 
@@ -51,14 +53,14 @@ def run_migrations_offline() -> None:
     url = _get_async_db_url()
     # For offline mode, Alembic prefers a sync driver URL, but modern Alembic can handle literal SQL generation.
     # We normalize to a sync-style URL for offline rendering.
-    if url.startswith("postgresql+asyncpg://"):
-        url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    if url.startswith('postgresql+asyncpg://'):
+        url = url.replace('postgresql+asyncpg://', 'postgresql://', 1)
 
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
+        dialect_opts={'paramstyle': 'named'},
         compare_type=True,
         compare_server_default=True,
     )

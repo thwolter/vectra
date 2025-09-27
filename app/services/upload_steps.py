@@ -19,8 +19,6 @@ from app.vector.protocols import IngestorProtocol
 
 
 class UploadPipeline:
-    _ctx: JobCtx | None = None
-
     def __init__(
         self,
         *,
@@ -32,165 +30,143 @@ class UploadPipeline:
         self.parser = parser
         self.ingestor = ingestor
 
-    def init(self, ctx: JobCtx) -> UploadPipeline:
-        """Initialize the pipeline with a new ctx."""
-        self._ctx = ctx
-        return self
-
-    @property
-    def ctx(self) -> JobCtx:
-        if not self._ctx:
-            raise ValueError('Pipeline has not been initialized yet.')
-        return self._ctx
-
-    @ctx.setter
-    def ctx(self, value: JobCtx) -> None:
-        self._ctx = value
-
-    async def store_original(self) -> UploadPipeline:
+    async def store_original(self, ctx: JobCtx) -> JobCtx:
         """Store original file in S3 and return ctx with original_key set."""
 
         # todo: should we add a base path here?
         saved: ArtifactInfo = await self.store.save_original(
-            file=self.ctx.file,
-            document_id=self.ctx.document_id,
+            file=ctx.file,
+            document_id=ctx.document_id,
         )
-        self.ctx = dc_replace(self.ctx, original_key=(saved.original_key or ''))
-        return self
+        return dc_replace(ctx, original_key=(saved.original_key or ''))
 
-    async def parse_document(self) -> UploadPipeline:
+    async def parse_document(self, ctx: JobCtx) -> JobCtx:
         """Parse document to LangChain Documents using provided parser.
 
         Ensures each parsed Document has required metadata fields:
         - source: S3 original key (used for repository checks and deletes)
         - digest: deterministic document id used for idempotency and grouping
         """
-        result = await self.parser.parse(file=str(self.ctx.file.path))
+        result = await self.parser.parse(file=str(ctx.file.path))
         markdown = await self.parser.to_markdown()
         docs = list(result.documents or [])
         if docs:
             # Attach required metadata for downstream vector and tests
             for d in docs:
                 meta = d.metadata if isinstance(d.metadata, dict) else {}
-                if self.ctx.original_key:
-                    meta['source'] = self.ctx.file.filename
-                meta['digest'] = self.ctx.digest
+                if ctx.original_key:
+                    meta['source'] = ctx.file.filename
+                meta['digest'] = ctx.digest
                 d.metadata = meta
-        self.ctx = dc_replace(self.ctx, docs=docs, markdown_text=markdown)
-        return self
+        return dc_replace(ctx, docs=docs, markdown_text=markdown)
 
-    async def ingest_documents(self, session: AsyncSession) -> UploadPipeline:
+    async def ingest_documents(self, ctx: JobCtx, session: AsyncSession) -> JobCtx:
         """Ingest documents into vector store with idempotency check.
 
         Computes a stable content fingerprint based on parsed docs and checks the
         ingestion version repository. If present, skips embedding; otherwise ingests.
         """
 
-        fp = IngestionVersion.from_settings(collection=self.ctx.collection).fingerprint()
+        fp = IngestionVersion.from_settings(collection=ctx.collection).fingerprint()
 
-        record = await IngestionRepository.find(
-            session, fingerprint=fp, collection=self.ctx.collection, digest=self.ctx.digest
-        )
+        record = await IngestionRepository.find(session, fingerprint=fp, collection=ctx.collection, digest=ctx.digest)
 
         ingestion_id = None
+        skip_embed = False
         if record:
-            logger.info(f'{self.ctx.job_id} IngestionVersion exists; skipping chunk/embed')
+            logger.info(f'{ctx.job_id} IngestionVersion exists; skipping chunk/embed')
             skip_embed = True
-            self.ctx = dc_replace(self.ctx, skip_embed=skip_embed)
             ingestion_id = record.id
-        elif self.ctx.docs:
+        elif ctx.docs:
             skip_embed = False
-            result = await self.ingestor.ingest(session=session, docs=self.ctx.docs, job_id=self.ctx.job_id)
+            result = await self.ingestor.ingest(session=session, docs=ctx.docs, job_id=ctx.job_id)
             ingestion_id = result.ingestion_id
         else:
             skip_embed = False
 
         if ingestion_id:
-            await JobRepository.update(session, job=JobUpdate(id=self.ctx.job_id, ingestion_id=ingestion_id))
+            await JobRepository.update(session, job=JobUpdate(id=ctx.job_id, ingestion_id=ingestion_id))
 
-        self.ctx = dc_replace(self.ctx, skip_embed=skip_embed)
-        return self
+        return dc_replace(ctx, skip_embed=skip_embed)
 
-    async def store_markdown(self) -> UploadPipeline:
+    async def store_markdown(self, ctx: JobCtx) -> JobCtx:
         """Store markdown copy of parsed content.
 
         If markdown_text is present, save via store.save_markdown and return the same ctx.
         Tests do not require updating markdown_key here; exceptions must propagate.
         """
 
-        if not self.ctx.markdown_text:
+        if not ctx.markdown_text:
             logger.warning('No markdown text to store; skipping.')
-            return self
+            return ctx
         # Let any exception from the store propagate to the caller
         saved = await self.store.save_markdown(
-            self.ctx.markdown_text,
-            document_id=self.ctx.document_id,
+            ctx.markdown_text,
+            document_id=ctx.document_id,
         )
         # Return the original immutable ctx instance (no replacement)
-        self.ctx = dc_replace(self.ctx, markdown_key=(saved.markdown_key or ''))
-        return self
+        return dc_replace(ctx, markdown_key=(saved.markdown_key or ''))
 
-    async def enrich_docs_metadata(self) -> UploadPipeline:
+    async def enrich_docs_metadata(self, ctx: JobCtx) -> JobCtx:
         """Ensure required document-level metadata keys are set on each parsed Document.
 
         Attaches strategy-proposed metadata (as a plain dict) onto each Document.metadata
         and records the ProposedMetadata object on the context for later review.
         """
-        if not self.ctx.docs:
-            return self
+        if not ctx.docs:
+            return ctx
 
         # Resolve strategy using the full hints object
-        strategy = Strategy.from_hints(self.ctx.hints)
+        strategy = Strategy.from_hints(ctx.hints)
         pm = strategy.proposed_metadata()
 
         # Apply the proposed metadata dict onto each document
         docs: list[Document] = []
-        for d in self.ctx.docs:
+        for d in ctx.docs:
             d.metadata.update(pm.metadata)
             docs.append(d)
 
         # Merge proposed metadata into the context metadata without mutating in-place
-        base_meta: dict = dict(self.ctx.metadata) if self.ctx.metadata else {}
+        base_meta: dict = dict(ctx.metadata) if ctx.metadata else {}
         if pm.metadata:
             base_meta.update(pm.metadata)
         metadata = base_meta
 
         # Do not persist here; persistence happens in persist_metadata step
-        self.ctx = dc_replace(
-            self.ctx,
+        return dc_replace(
+            ctx,
             docs=docs,
             metadata=metadata,
             needs_review=pm.conflicts != [],
             proposed_metadata=pm,
         )
-        return self
 
-    async def persist_metadata(self, session: AsyncSession, update_embeddings: bool = True) -> UploadPipeline:
+    async def persist_metadata(self, ctx: JobCtx, session: AsyncSession, update_embeddings: bool = True) -> JobCtx:
         """Ensure required metadata keys are set on the DocumentMetadata.
 
         Uses MetadataService.required_fields to determine which keys are required for the
         current collection, and only attaches those keys when values are available.
         """
-        if not self.ctx.metadata:
-            return self
+        if not ctx.metadata:
+            return ctx
 
         if update_embeddings:
             await EmbeddingsRepository.update_metadata(
                 session,
-                digest=self.ctx.digest,
-                collection=self.ctx.collection,
-                metadata=self.ctx.metadata,
+                digest=ctx.digest,
+                collection=ctx.collection,
+                metadata=ctx.metadata,
             )
         await DBDocument.update(
             session,
             document=DocumentUpdate(
-                id=self.ctx.document_id,
-                meta=self.ctx.metadata,
+                id=ctx.document_id,
+                meta=ctx.metadata,
             ),
         )
-        return self
+        return ctx
 
-    async def update_document_uris(self, session: AsyncSession) -> UploadPipeline:
+    async def update_document_uris(self, ctx: JobCtx, session: AsyncSession) -> JobCtx:
         """Update URI fields on the canonical Document via service.
 
         The service converts store keys to fully-qualified URIs using the collection's
@@ -201,10 +177,10 @@ class UploadPipeline:
         try:
             await document_service.update_document_uris(
                 session=session,
-                document_id=self.ctx.document_id,
-                original_key=self.ctx.original_key,
-                markdown_key=self.ctx.markdown_key,
+                document_id=ctx.document_id,
+                original_key=ctx.original_key,
+                markdown_key=ctx.markdown_key,
             )
         except Exception as e:
             raise Exception(f'Failed to update document URIs: {e}')
-        return self
+        return ctx
