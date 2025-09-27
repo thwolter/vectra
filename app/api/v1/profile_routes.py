@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.core.profiles import ProcessingProfileSettings
+from app.profiles.registry import ProcessingProfileSettings
 from app.schemas.documents import ProfilesResponse
 from app.services.factory import get_profiles_service
 from app.services.profiles_service import ProfilesService

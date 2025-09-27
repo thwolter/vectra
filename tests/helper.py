@@ -7,11 +7,10 @@ from typing import Any
 from starlette.testclient import TestClient
 
 from app.main import app
+from app.profiles.registry import register_profile
 from app.schemas.enums import CollectionEnum
 from app.services.factory import get_upload_service as _get_upload_service_dep
-from app.services.profiles_service import register_profile
 from tests.support.profiles import build_test_profile
-from tests.support.fakes import FakeSampleParser
 
 
 def make_files_param(apple_report_first_page):
@@ -32,8 +31,6 @@ class TestClientWithCleanup(TestClient):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-
-
 
 
 def make_client_financial(base_path: Path) -> TestClientWithCleanup:

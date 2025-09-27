@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import access_scoped_session
-from app.core.profiles import ProcessingProfileSettings
+from app.profiles.registry import ProcessingProfileSettings
 from app.protocols.services import UploadServiceProtocol
 from app.schemas.upload import (
     ContinueProcessingInput,

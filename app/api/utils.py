@@ -7,8 +7,8 @@ from loguru import logger
 from pydantic import TypeAdapter, ValidationError
 from starlette import status
 
-from app.core.profiles import ProcessingProfileSettings
 from app.metadata.schemas import NoopHints
+from app.profiles.registry import ProcessingProfileSettings
 from app.schemas.upload import UploadHints
 
 

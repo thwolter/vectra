@@ -1,6 +1,6 @@
 from app.core.config import get_settings
-from app.core.profiles import ProcessingProfileSettings
 from app.parsers.providers import parser_provider
+from app.profiles.registry import ProcessingProfileSettings
 from app.store.providers import default_store_provider
 from app.vector.providers import default_ingestor_provider
 
