@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     git \
     curl \
+    wget \
     libpq-dev \
     libglib2.0-0 \
     libgl1 \
