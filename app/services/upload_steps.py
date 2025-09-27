@@ -88,19 +88,27 @@ class UploadPipeline:
 
         fp = IngestionVersion.from_settings(collection=self.ctx.collection).fingerprint()
 
-        ingestion_exists = await IngestionRepository.exists(
+        record = await IngestionRepository.find(
             session, fingerprint=fp, collection=self.ctx.collection, digest=self.ctx.digest
         )
-        if ingestion_exists:
+
+        ingestion_id = None
+        if record:
             logger.info(f'{self.ctx.job_id} IngestionVersion exists; skipping chunk/embed')
-            self.ctx = dc_replace(self.ctx, skip_embed=True)
-            return self
-
-        if self.ctx.docs:
+            skip_embed = True
+            self.ctx = dc_replace(self.ctx, skip_embed=skip_embed)
+            ingestion_id = record.id
+        elif self.ctx.docs:
+            skip_embed = False
             result = await self.ingestor.ingest(session=session, docs=self.ctx.docs, job_id=self.ctx.job_id)
-            await JobRepository.update(session, job=JobUpdate(id=self.ctx.job_id, ingestion_id=result.ingestion_id))
+            ingestion_id = result.ingestion_id
+        else:
+            skip_embed = False
 
-        self.ctx = dc_replace(self.ctx, skip_embed=False)
+        if ingestion_id:
+            await JobRepository.update(session, job=JobUpdate(id=self.ctx.job_id, ingestion_id=ingestion_id))
+
+        self.ctx = dc_replace(self.ctx, skip_embed=skip_embed)
         return self
 
     async def store_markdown(self) -> UploadPipeline:

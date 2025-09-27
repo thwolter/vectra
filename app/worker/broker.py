@@ -3,7 +3,6 @@ from __future__ import annotations
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
 from dramatiq.brokers.stub import StubBroker
-from dramatiq.middleware import AgeLimit, Retries, TimeLimit
 from loguru import logger
 
 from app.core.config import get_settings
@@ -23,9 +22,6 @@ def _create_broker() -> dramatiq.Broker:
         )
 
     _broker.add_middleware(DramatiqMonitoringMiddleware())
-    _broker.add_middleware(AgeLimit(max_age=24 * 3600 * 1000))  # 24h safety net
-    _broker.add_middleware(TimeLimit(time_limit=settings.dramatiq_time_limit_ms))
-    _broker.add_middleware(Retries(max_retries=settings.dramatiq_max_retries))
     return _broker
 
 

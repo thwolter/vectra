@@ -154,16 +154,12 @@ class DatabaseManager:
             logger.warning(f'Could not ensure pgcrypto/vector extensions: {e}')
 
     async def _ensure_engine(self) -> None:
-        current_loop = asyncio.get_running_loop()
-        if self._engine is not None and self._loop is not current_loop:
-            logger.debug('Recreating DB engine due to event-loop change')
-            await self._dispose_engine_safely()
-
         if self._engine is None:
+            current_loop = asyncio.get_running_loop()
             self._engine = create_async_engine(self._async_dsn(), pool_size=5, max_overflow=5, pool_pre_ping=True)
             self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False, class_=AsyncSession)
             self._loop = current_loop
-            logger.debug('Database async engine initialized')
+            logger.debug(f'Database async engine initialized on loop_id={id(current_loop)}')
 
             # Harden per-connection defaults: enforce RLS, unset tenant GUC, and set UTC
             @event.listens_for(self._engine.sync_engine, 'connect')

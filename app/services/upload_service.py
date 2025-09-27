@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Awaitable, Callable
 from uuid import UUID
+import asyncio
 
 from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -111,6 +112,7 @@ class UploadService:
         and is intended to be scheduled via the Dramatiq task queue.
         """
 
+        logger.debug(f'continue_processing loop_id={id(asyncio.get_running_loop())}')
         init_ctx = build_job_ctx(payload=payload, collection=self.collection)
         pipeline = self.pipeline.init(init_ctx)
         job_id = init_ctx.job_id

@@ -70,7 +70,7 @@ class IngestionRepository:
             return False
 
     @staticmethod
-    async def exists(session: AsyncSession, *, fingerprint: str, collection: str, digest: SHA256B64) -> bool:
+    async def find(session: AsyncSession, *, fingerprint: str, collection: str, digest: SHA256B64) -> IngestionRecord | None:
         statement = (
             select(IngestionRecord)
             .where(
@@ -81,4 +81,9 @@ class IngestionRepository:
             .limit(1)
         )
         result = await session.exec(statement)
-        return result.first() is not None
+        return result.first()
+
+    @staticmethod
+    async def exists(session: AsyncSession, *, fingerprint: str, collection: str, digest: SHA256B64) -> bool:
+        record = await IngestionRepository.find(session, fingerprint=fingerprint, collection=collection, digest=digest)
+        return record is not None

@@ -12,19 +12,24 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.schemas import AccessContext, AuthContext
 from app.core.database import DatabaseManager
 
-# Global database manager instance (singleton within process)
-_db_manager: DatabaseManager | None = None
+# Per-event-loop DatabaseManager registry
+import asyncio
+
+_db_managers_by_loop: dict[int, DatabaseManager] = {}
 
 
 def get_database_manager() -> DatabaseManager:
-    """Get the global DatabaseManager singleton.
+    """Get a DatabaseManager bound to the current event loop.
 
-    Ensures a single DatabaseManager instance is reused across the process.
+    Avoids sharing async engines/sessions across event loops or threads.
     """
-    global _db_manager
-    if _db_manager is None:
-        _db_manager = DatabaseManager()
-    return _db_manager
+    loop = asyncio.get_running_loop()
+    key = id(loop)
+    mgr = _db_managers_by_loop.get(key)
+    if mgr is None:
+        mgr = DatabaseManager()
+        _db_managers_by_loop[key] = mgr
+    return mgr
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
