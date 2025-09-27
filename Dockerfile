@@ -38,9 +38,6 @@ RUN pip install --no-cache-dir .
 # Expose the FastAPI port (Coolify will map this)
 EXPOSE 8000
 
-# Optional healthcheck hitting the FastAPI /health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:${PORT}/health || exit 1
-
 # Copy entrypoint and set as default command
 RUN chmod +x scripts/entrypoint.sh
 
