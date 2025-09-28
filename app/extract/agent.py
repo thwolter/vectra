@@ -13,7 +13,7 @@ from app.vector.factory import get_vectorstore
 from app.vector.models import IngestorSettings
 
 from .graph import build_extract_graph
-
+from loguru import logger
 
 def get_model(config: ExtractConfig):
     settings = get_settings()
@@ -38,6 +38,9 @@ async def extract_metadata(
     llm = get_model(config=extract_config)
     strategy = Strategy.from_hints(hints)
     query = strategy.retrieval_query()
+    if not query:
+        logger.debug(f'No retrieval query generated for strategy {strategy}')
+        return ProposedMetadata()
 
     app = build_extract_graph(vs, llm, strategy)
 

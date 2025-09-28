@@ -6,9 +6,9 @@ This guide documents a reproducible deployment for `vecapi` with **uv**, **Docke
 
 ## 1) Prerequisites
 
-- Python 3.11+ locally (for quick checks)  
-- Docker / container runtime  
-- A Postgres instance (network-reachable from the app)  
+- Python 3.11+ locally (for quick checks)
+- Docker / container runtime
+- A Postgres instance (network-reachable from the app)
 - Grafana Cloud (or Grafana Agent/Tempo/OTLP endpoint) + an **OTLP access token**
 
 ---

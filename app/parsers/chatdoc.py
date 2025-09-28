@@ -22,7 +22,11 @@ class ChatDocParser:
     # ERROR_STATUSES are any status < 0
 
     def __init__(self):
+        if not settings.chatdoc_api_key:
+            raise Exception('ChatDoc API key not set')
+
         self.api_key = settings.chatdoc_api_key.get_secret_value()
+
         self.headers = {
             'Authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json',

@@ -1,5 +1,5 @@
 [project]
-name = "llama-parser"
+name = "finrag-backend"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
@@ -44,6 +44,8 @@ dependencies = [
     "alembic>=1.16.5",
     "opentelemetry-distro>=0.58b0",
     "opentelemetry-exporter-otlp>=1.37.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.37.0",
+    "opentelemetry-instrumentation-fastapi>=0.58b0",
 ]
 
 [tool.pyrefly]

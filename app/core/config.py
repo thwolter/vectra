@@ -54,13 +54,16 @@ class Settings(BaseSettings):
     metrics_endpoint_enabled: bool = True
     alerting_webhook_url: SecretStr | None = None
 
-    # Logging (Loguru) configuration — console only
+    # Logging configuration
     log_level: str = 'WARNING'  # e.g., DEBUG, INFO, WARNING, ERROR
-    log_serialize: bool = True  # JSON lines by default per guidelines
+    # Console should be plain text; OTEL can receive structured JSON
+    log_console_plain: bool = True
     log_enqueue: bool = True
     log_backtrace: bool = True
     log_diagnose: bool = False
     log_remove_default_sink: bool = True
+    # When true and OTEL logs exporter is enabled, forward a JSON payload to std logging
+    log_otel_json: bool = True
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

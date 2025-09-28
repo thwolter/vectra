@@ -3,10 +3,12 @@ from typing import List
 from langchain_core.documents import Document
 
 from app.metadata.base import Strategy
-from app.metadata.schemas import AssessmentResult, ProposedMetadata
+from app.metadata.schemas import AssessmentResult, NoopMetadata, ProposedMetadata
 
 
 class NoopStrategy(Strategy):
+    metadata_model = NoopMetadata
+
     def system_prompt(self) -> str:
         return ''
 

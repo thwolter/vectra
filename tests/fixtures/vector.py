@@ -72,15 +72,3 @@ def vectorstore_factory(session) -> Callable[[str, Embeddings | None], PGVector]
         )
 
     return _make
-
-
-# Backwards-compatible singleton-style fixture; prefer vectorstore_factory
-@pytest.fixture
-def fake_embeddings_vectorstore(session) -> PGVector:
-    tenant_id = session.info['tenant_id']
-    return get_vectorstore(
-        collection='default',
-        tenant_id=tenant_id,
-        embeddings=FakeEmbeddings(),
-        config=IngestorSettings(embedding_provider='test'),
-    )

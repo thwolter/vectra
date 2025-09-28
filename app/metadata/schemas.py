@@ -23,6 +23,12 @@ class ProposedMetadata(BaseModel):
     conflicts: List[str] = Field(default_factory=list, description='Conflicting metadata fields')
 
 
+class NoopMetadata(BaseModel):
+    """Fallback metadata with no specific fields; keeps pipeline moving."""
+
+    pass
+
+
 class NoopHints(BaseModel):
     """Fallback hints with no specific fields; keeps pipeline moving."""
 
