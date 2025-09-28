@@ -42,6 +42,8 @@ dependencies = [
     "prometheus-client>=0.21.0",
     "redis>=5.2.1",
     "alembic>=1.16.5",
+    "opentelemetry-distro>=0.58b0",
+    "opentelemetry-exporter-otlp>=1.37.0",
 ]
 
 [tool.pyrefly]

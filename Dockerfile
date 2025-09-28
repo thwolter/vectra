@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Use official Python 3.12 slim image (matches requires-python >=3.12)
-FROM python:3.12-slim as runtime
+FROM python:3.12-slim AS runtime
 
 # Prevent Python from buffering stdout/stderr and writing .pyc files
 ENV PYTHONUNBUFFERED=1 \
@@ -36,6 +36,11 @@ COPY . /app
 
 # Install project and dependencies from pyproject.toml
 RUN pip install .
+
+# Install OpenTelemetry and discovered instrumentations
+RUN pip install uv && \
+    uv pip install opentelemetry-distro opentelemetry-exporter-otlp && \
+    uv run opentelemetry-bootstrap -a requirements | uv pip install --requirement -
 
 # Expose the FastAPI port (Coolify will map this)
 EXPOSE 8000
