@@ -48,5 +48,5 @@ EXPOSE 8000
 # Copy entrypoint and set as default command
 RUN chmod +x scripts/entrypoint.sh
 
-# Default command: use entrypoint script (web-only by default)
+# Default command: use entrypoint script
 CMD ["bash", "scripts/entrypoint.sh"]

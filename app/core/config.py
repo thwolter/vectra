@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     redis_url: SecretStr
 
     # ChatDoc API configuration
-    chatdoc_api_key: SecretStr
+    chatdoc_api_key: SecretStr | None = None
     chatdoc_api_url: str = 'https://api.chatdoc.com'
 
     # OpenAI API configuration for embeddings
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: SecretStr
     aws_region: str = 'eu-west-1'
     aws_s3_bucket: str = 'vecapi-documents'
-    aws_s3_path: str = 'documents' if env == 'production' else 'documents-dev'
+    aws_s3_path: str = 'documents'
 
     # JWT configuration
     jwt_secret: SecretStr = SecretStr('dev-secret-change-me')
@@ -54,12 +54,8 @@ class Settings(BaseSettings):
     metrics_endpoint_enabled: bool = True
     alerting_webhook_url: SecretStr | None = None
 
-    # Logging (Loguru) configuration
-    log_file_path: str = 'logs/app.log'
-    log_level: str = 'DEBUG'  # e.g., DEBUG, INFO, WARNING, ERROR
-    log_rotation: str = '1 day'  # time-based rotation (requirement)
-    log_retention: str = '14 days'
-    log_compression: str | None = 'zip'
+    # Logging (Loguru) configuration — console only
+    log_level: str = 'WARNING'  # e.g., DEBUG, INFO, WARNING, ERROR
     log_serialize: bool = True  # JSON lines by default per guidelines
     log_enqueue: bool = True
     log_backtrace: bool = True
@@ -78,10 +74,6 @@ class Settings(BaseSettings):
         url = self.postgres_url.get_secret_value()
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
-        if self.env != 'production':
-            # replace the database postgres by test
-            # use hte last occurrence of /postgres
-            url = url.rsplit('/', 1)[0] + '/test'
         return SecretStr(url)
 
 

@@ -123,7 +123,9 @@ def drop_tables(
                 # Also drop LangChain pgvector tables if they exist
                 await conn.execute(text('DROP TABLE IF EXISTS langchain_pg_embedding CASCADE'))
                 await conn.execute(text('DROP TABLE IF EXISTS langchain_pg_collection CASCADE'))
-            typer.echo('All tables (including vectorstore) dropped successfully.')
+                # Ensure Alembic version table is dropped as well
+                await conn.execute(text('DROP TABLE IF EXISTS alembic_version CASCADE'))
+            typer.echo('All tables (including vectorstore and alembic_version) dropped successfully.')
         finally:
             await dbm.close()
 
@@ -205,18 +207,24 @@ def clear_tables(
                         # quote the name to be safe
                         existing_vector_names.append(f'"{tbl}"')
 
-                # Execute TRUNCATE in a single statement when possible
+                # Build list of tables to truncate in one statement
                 parts: list[str] = []
                 if qualified_names:
                     parts.append(', '.join(qualified_names))
                 if existing_vector_names:
                     parts.append(', '.join(existing_vector_names))
 
+                # Include alembic_version table if it exists (clear its content as well)
+                res = await conn.execute(text('SELECT to_regclass(:tbl)'), {'tbl': 'alembic_version'})
+                if res.scalar() is not None:
+                    parts.append('"alembic_version"')
+
                 if parts:
                     stmt = text('TRUNCATE TABLE ' + ', '.join(parts) + ' RESTART IDENTITY CASCADE')
                     await conn.execute(stmt)
                 else:
                     logger.info('No application or vector tables found to clear.')
+
 
             typer.echo('All table data cleared (schema preserved).')
         finally:

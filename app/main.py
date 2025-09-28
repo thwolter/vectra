@@ -10,7 +10,7 @@ from app.core.dependencies import get_database_manager
 from app.core.logging import configure_logging
 
 settings = get_settings()
-# configure_logging()
+configure_logging()
 
 
 @asynccontextmanager
