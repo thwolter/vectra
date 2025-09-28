@@ -137,3 +137,96 @@ def drop_tables(
         import asyncio
 
         asyncio.run(_run())
+
+
+
+@db.command('clear-tables')
+def clear_tables(
+    yes: bool = typer.Option(
+        False,
+        '--yes',
+        '-y',
+        help='Do not prompt for confirmation',
+    ),
+    env: t.Optional[str] = typer.Option(
+        None,
+        '--env',
+        help='Settings profile to use (development|production|testing)',
+    ),
+) -> None:
+    """Clear all data from SQLModel-managed tables without dropping them.
+
+    Uses TRUNCATE ... RESTART IDENTITY CASCADE to avoid RLS and FK issues,
+    preserving the schema but removing all rows and resetting sequences.
+    """
+    if not yes:
+        proceed = typer.confirm('This will DELETE ALL DATA from database tables (schema preserved). Continue?')
+        if not proceed:
+            typer.echo('Aborted.')
+            raise typer.Exit(code=1)
+
+    _set_env_if_provided(env)
+
+    from loguru import logger
+    from sqlalchemy import text
+    from sqlmodel import SQLModel
+
+    from app.core.database import DatabaseManager
+
+    async def _run(*args: object, **kwargs: object) -> None:
+        dbm = DatabaseManager()
+        try:
+            await dbm.initialize()
+            # Ensure models are imported so metadata is populated
+            try:
+                from app.repositories import models as _  # noqa: F401
+            except Exception as e:
+                logger.warning(f'Could not import repositories.models: {e}')
+
+            assert dbm._engine is not None  # noqa: SLF001 - safe within CLI scope
+            async with dbm._engine.begin() as conn:  # noqa: SLF001
+                # Build application table list without triggering SQLAlchemy's sorter
+                tables = list(SQLModel.metadata.tables.values())
+                qualified_names: list[str] = []
+                for t_ in tables:
+                    if t_.schema:
+                        qualified_names.append(f'"{t_.schema}"."{t_.name}"')
+                    else:
+                        qualified_names.append(f'"{t_.name}"')
+
+                # Vectorstore (LangChain pgvector) tables — include only if they exist
+                vector_tables = ['langchain_pg_embedding', 'langchain_pg_collection']
+
+                # Determine which vector tables actually exist
+                existing_vector_names: list[str] = []
+                for tbl in vector_tables:
+                    res = await conn.execute(text('SELECT to_regclass(:tbl)'), {'tbl': tbl})
+                    if res.scalar() is not None:
+                        # quote the name to be safe
+                        existing_vector_names.append(f'"{tbl}"')
+
+                # Execute TRUNCATE in a single statement when possible
+                parts: list[str] = []
+                if qualified_names:
+                    parts.append(', '.join(qualified_names))
+                if existing_vector_names:
+                    parts.append(', '.join(existing_vector_names))
+
+                if parts:
+                    stmt = text('TRUNCATE TABLE ' + ', '.join(parts) + ' RESTART IDENTITY CASCADE')
+                    await conn.execute(stmt)
+                else:
+                    logger.info('No application or vector tables found to clear.')
+
+            typer.echo('All table data cleared (schema preserved).')
+        finally:
+            await dbm.close()
+
+    try:
+        import anyio
+
+        anyio.run(_run, None)
+    except ModuleNotFoundError:
+        import asyncio
+
+        asyncio.run(_run())
