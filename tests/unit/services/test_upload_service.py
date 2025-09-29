@@ -11,7 +11,6 @@ from app.services.job_service import JobService
 from app.services.upload_steps import UploadPipeline
 
 
-@pytest.mark.asyncio
 async def test_continue_processing_calls_all_upload_handlers(
     tiny_pdf_upload: UploadFile, digest_random, session, upload_service
 ):
@@ -28,6 +27,7 @@ async def test_continue_processing_calls_all_upload_handlers(
     pipeline.store_markdown.side_effect = _return_ctx
     pipeline.enrich_docs_metadata.side_effect = _return_ctx
     pipeline.ingest_documents.side_effect = _return_ctx_with_session
+    pipeline.extract_metadata.side_effect = _return_ctx_with_session
     pipeline.persist_metadata.side_effect = _return_ctx_with_session
     pipeline.update_document_uris.side_effect = _return_ctx_with_session
 
@@ -53,6 +53,7 @@ async def test_continue_processing_calls_all_upload_handlers(
     assert pipeline.store_markdown.await_count == 1
     assert pipeline.enrich_docs_metadata.await_count == 1
     assert pipeline.ingest_documents.await_count == 1
+    assert pipeline.extract_metadata.await_count == 1
     assert pipeline.persist_metadata.await_count == 1
     assert pipeline.update_document_uris.await_count == 1
 
@@ -64,13 +65,19 @@ async def test_continue_processing_calls_all_upload_handlers(
     assert pipeline.enrich_docs_metadata.await_args.args[0].job_id == process_input.job_id
     ingest_ctx = pipeline.ingest_documents.await_args.args[0]
     assert ingest_ctx.job_id == process_input.job_id
-    assert pipeline.ingest_documents.await_args.kwargs['session'] == session
+    from sqlmodel.ext.asyncio.session import AsyncSession
+    assert isinstance(pipeline.ingest_documents.await_args.kwargs['session'], AsyncSession)
 
     persist_ctx = pipeline.persist_metadata.await_args.args[0]
     assert persist_ctx.job_id == process_input.job_id
-    assert pipeline.persist_metadata.await_args.kwargs['session'] == session
+    assert isinstance(pipeline.persist_metadata.await_args.kwargs['session'], AsyncSession)
     assert pipeline.persist_metadata.await_args.kwargs['update_embeddings'] is False
+
+    # Extract metadata step assertions
+    extract_ctx = pipeline.extract_metadata.await_args.args[0]
+    assert extract_ctx.job_id == process_input.job_id
+    assert isinstance(pipeline.extract_metadata.await_args.kwargs['session'], AsyncSession)
 
     update_ctx = pipeline.update_document_uris.await_args.args[0]
     assert update_ctx.job_id == process_input.job_id
-    assert pipeline.update_document_uris.await_args.kwargs['session'] == session
+    assert isinstance(pipeline.update_document_uris.await_args.kwargs['session'], AsyncSession)

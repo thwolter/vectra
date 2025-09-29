@@ -49,9 +49,8 @@ def configure_logging() -> None:
     )
 
     # 2) OpenTelemetry bridge — emit JSON to std logging so OTEL picks it up
-    otel_logs_exporter = os.getenv('OTEL_LOGS_EXPORTER', 'otlp').lower()
-    otel_enabled = os.getenv('OTEL_ENABLED', 'true').lower() == 'true'
-    if settings.monitoring_enabled and otel_enabled and otel_logs_exporter != 'none' and settings.log_otel_json:
+    if settings.monitoring_enabled and settings.otel_enabled and settings.otel_logs_exporter != 'none' and settings.log_otel_json:
+        print('Configuring OpenTelemetry JSON sink', file=sys.stderr)
         level_map = {
             'TRACE': logging.DEBUG,
             'DEBUG': logging.DEBUG,

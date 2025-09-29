@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.v1 import ROUTERS
@@ -50,4 +49,3 @@ if settings.monitoring_enabled and settings.metrics_endpoint_enabled and generat
         return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-FastAPIInstrumentor.instrument_app(app)

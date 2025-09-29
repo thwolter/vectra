@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     UVICORN_WORKERS=2 \
     PORT=8000 \
-    START_BOTH=true
+    DEPLOY_START_BOTH=true
 
 # System packages needed for common deps (psycopg2, opencv-headless/easyocr, build tools)
 RUN apt-get update && apt-get install -y --no-install-recommends \

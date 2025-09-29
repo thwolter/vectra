@@ -9,7 +9,7 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
-    env: Literal['development', 'production', 'testing'] = 'development'
+    env: Literal['development', 'production', 'testing'] = 'production'
     app_name: str = 'FastAPI'
     debug: bool = True
     version: str = '0.1.0'
@@ -62,7 +62,10 @@ class Settings(BaseSettings):
     log_backtrace: bool = True
     log_diagnose: bool = False
     log_remove_default_sink: bool = True
+
     # When true and OTEL logs exporter is enabled, forward a JSON payload to std logging
+    otel_enabled: bool = True
+    otel_logs_exporter: str = 'otlp'
     log_otel_json: bool = True
 
     def __init__(self, **data: Any) -> None:

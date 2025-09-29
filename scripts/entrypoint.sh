@@ -9,7 +9,7 @@ export OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=${OTEL_PYTHON_LOGGING_AU
 export OTEL_TRACES_EXPORTER=${OTEL_TRACES_EXPORTER:-otlp}
 export OTEL_METRICS_EXPORTER=${OTEL_METRICS_EXPORTER:-otlp}
 export OTEL_LOGS_EXPORTER=${OTEL_LOGS_EXPORTER:-otlp}
-export OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-https://otlp-gateway-prod-us-west-0.grafana.net/otlp
+export OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-https://otlp-gateway-prod-us-west-0.grafana.net/otlp}
 # -----------------------------------------------------
 
 # Simple entrypoint allowing this container to run:
@@ -20,30 +20,30 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-https://otlp-g
 # Configure via environment variables:
 #   START_WEB=true|false        (default: true)
 #   START_WORKER=true|false     (default: false)
-#   START_BOTH=true|false       (default: false)
+#   DEPLOY_START_BOTH=true|false       (default: false)
 #   UVICORN_WORKERS             (default: 2)
 #   PORT                        (default: 8000)
 #   DRAMATIQ_WORKERS            (default: 1)
 #   DRAMATIQ_THREADS            (default: 8)
 #   DRAMATIQ_QUEUE_NAME         (optional; falls back to settings)
-#   SKIP_MIGRATIONS=true|false  (default: false)
+#   DEPLOY_SKIP_MIGRATIONS=true|false  (default: false)
 #
 # In Coolify you can:
 # - Run two services from the same image: one with START_WEB=true (default), another with START_WORKER=true
-# - Or run a single service with START_BOTH=true
+# - Or run a single service with DEPLOY_START_BOTH=true
 
 START_WEB=${START_WEB:-true}
 START_WORKER=${START_WORKER:-false}
-START_BOTH=${START_BOTH:-false}
+DEPLOY_START_BOTH=${DEPLOY_START_BOTH:-false}
 UVICORN_WORKERS=${UVICORN_WORKERS:-2}
 PORT=${PORT:-8000}
 DRAMATIQ_WORKERS=${DRAMATIQ_WORKERS:-1}
 DRAMATIQ_THREADS=${DRAMATIQ_THREADS:-8}
-SKIP_MIGRATIONS=${SKIP_MIGRATIONS:-false}
+DEPLOY_SKIP_MIGRATIONS=${DEPLOY_SKIP_MIGRATIONS:-false}
 
 run_migrations() {
-  if [[ "${SKIP_MIGRATIONS}" == "true" ]]; then
-    echo "[entrypoint] SKIP_MIGRATIONS=true — skipping alembic upgrade"
+  if [[ "${DEPLOY_SKIP_MIGRATIONS}" == "true" ]]; then
+    echo "[entrypoint] DEPLOY_SKIP_MIGRATIONS=true — skipping alembic upgrade"
     return 0
   fi
 
@@ -71,11 +71,7 @@ start_web() {
   run_migrations
   echo "[entrypoint] Starting uvicorn (workers=${UVICORN_WORKERS}, port=${PORT})"
   if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    exec opentelemetry-instrument \
-      --traces_exporter "${OTEL_TRACES_EXPORTER}" \
-      --metrics_exporter "${OTEL_METRICS_EXPORTER}" \
-      --logs_exporter "${OTEL_LOGS_EXPORTER}" \
-      uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
+    exec opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
   else
     exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
   fi
@@ -87,26 +83,18 @@ start_worker() {
   # Note: dramatiq takes --processes and --threads to control concurrency.
   # The target module must import and register actors and the broker.
   if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    exec opentelemetry-instrument \
-      --traces_exporter "${OTEL_TRACES_EXPORTER}" \
-      --metrics_exporter "${OTEL_METRICS_EXPORTER}" \
-      --logs_exporter "${OTEL_LOGS_EXPORTER}" \
-      dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
+    exec opentelemetry-instrument dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
   else
     exec dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
   fi
 }
 
-start_both() {
+DEPLOY_START_BOTH() {
   run_migrations
   echo "[entrypoint] Starting BOTH: web and worker"
   # Start worker in background, then start web in foreground. Use trap to forward signals.
   if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    opentelemetry-instrument \
-      --traces_exporter "${OTEL_TRACES_EXPORTER}" \
-      --metrics_exporter "${OTEL_METRICS_EXPORTER}" \
-      --logs_exporter "${OTEL_LOGS_EXPORTER}" \
-      dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
+    opentelemetry-instrument dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
   else
     dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
   fi
@@ -118,23 +106,19 @@ start_both() {
 
   # Run web in foreground (PID 1)
   if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    exec opentelemetry-instrument \
-      --traces_exporter "${OTEL_TRACES_EXPORTER}" \
-      --metrics_exporter "${OTEL_METRICS_EXPORTER}" \
-      --logs_exporter "${OTEL_LOGS_EXPORTER}" \
-      uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
+    exec opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
   else
     exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
   fi
 }
 
-if [[ "${START_BOTH}" == "true" ]]; then
-  start_both
+if [[ "${DEPLOY_START_BOTH}" == "true" ]]; then
+  DEPLOY_START_BOTH
 elif [[ "${START_WORKER}" == "true" ]]; then
   start_worker
 elif [[ "${START_WEB}" == "true" ]]; then
   start_web
 else
-  echo "[entrypoint] Nothing to start. Set START_WEB=true or START_WORKER=true or START_BOTH=true"
+  echo "[entrypoint] Nothing to start. Set START_WEB=true or START_WORKER=true or DEPLOY_START_BOTH=true"
   exit 1
 fi

@@ -64,7 +64,7 @@ You can run the web API and the worker using the same image in different service
 
 - Web only (default): no extra env needed; container starts uvicorn.
 - Worker only: set `START_WORKER=true` and `START_WEB=false`.
-- Both in one container: set `START_BOTH=true` (the worker is started in the background; the web server remains PID 1).
+- Both in one container: set `DEPLOY_START_BOTH=true` (the worker is started in the background; the web server remains PID 1).
 
 Optional tuning:
 - `DRAMATIQ_WORKERS` (processes, default 1)
