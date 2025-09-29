@@ -86,3 +86,23 @@ def test_prepare_metadata_model_raises_when_metadata_model_missing():
 
     with pytest.raises(ValueError):
         bad_instance.prepare_metadata_model()
+
+
+def test_required_fields_returns_missing_fields_in_schema_order():
+    # Given only company provided, financial_year and document_type are required
+    hints = FinanceReportHints(company='Acme Inc', financial_year=None, document_type=None)
+    strategy = FinanceReportStrategy(hints=hints)
+
+    # Pass the model_fields mapping as the "metadata" dict for required_fields
+    required = strategy.required_fields(hints)
+
+    assert required == ['financial_year', 'document_type']
+
+
+def test_required_fields_returns_empty_when_all_hints_provided():
+    hints = FinanceReportHints(company='Acme Inc', financial_year=2024, document_type='10-K')
+    strategy = FinanceReportStrategy(hints=hints)
+
+    required = strategy.required_fields(hints)
+
+    assert required == []

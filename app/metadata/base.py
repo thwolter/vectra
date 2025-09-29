@@ -85,7 +85,7 @@ class Strategy(ABC):
         """
 
         mm = self.prepare_metadata_model()
-        fields_to_include = self.required_fields(mm)
+        fields_to_include = self.required_fields()
 
         subset_fields: Dict[str, Any] = {}
         for name in fields_to_include:
@@ -103,7 +103,7 @@ class Strategy(ABC):
         # Build a matching evidence model with Evidence-typed fields
         evidence_fields: Dict[str, Any] = {}
         for name in fields_to_include:
-            # Describe evidence field in the required form
+            # Describe the evidence field in the required form
             human_name = name.replace('_', ' ')
             ev_desc = f'Evidence for the identified {human_name}'
             evidence_fields[name] = (Evidence, Field(..., description=ev_desc))
@@ -119,9 +119,16 @@ class Strategy(ABC):
             evidence=(EvidenceSubset, ...),
         )
 
-    def required_fields(self, mm):
+    def required_fields(self, hints: BaseModel | None = None) -> List[str]:
+        """Return metadata field names that are not provided via hints.
+
+        The order follows the declared order in the metadata_model schema.
+        If hints is None, uses self.hints.
+        """
+        mm = self.prepare_metadata_model()
         all_fields = list(mm.model_fields.keys())
-        provided = set(self.hints.model_dump(exclude_none=True).keys())
+        h = hints or self.hints
+        provided = set(h.model_dump(exclude_none=True).keys())
         return [f for f in all_fields if f not in provided]
 
     def prepare_metadata_model(self) -> type[BaseModel]:

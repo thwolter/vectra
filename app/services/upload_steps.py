@@ -181,8 +181,8 @@ class UploadPipeline:
                 docs.append(d)
 
         # Heuristic: needs_review if any key is missing/null
-        keys = ('company', 'financial_year', 'document_type')
-        needs_review = any(extracted_plain.get(k) in (None, '') for k in keys)
+        required = Strategy.from_hints(ctx.hints).required_fields(ctx.hints)
+        needs_review = required != []
 
         return dc_replace(
             ctx,

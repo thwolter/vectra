@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
+from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import get_settings
@@ -13,7 +14,7 @@ from app.vector.factory import get_vectorstore
 from app.vector.models import IngestorSettings
 
 from .graph import build_extract_graph
-from loguru import logger
+
 
 def get_model(config: ExtractConfig):
     settings = get_settings()
