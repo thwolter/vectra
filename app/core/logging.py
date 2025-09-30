@@ -9,6 +9,21 @@ from app.core.config import get_settings
 _configured = False
 
 
+def _map_loguru_level(level_name: str) -> int:
+    import logging
+
+    mapping = {
+        'TRACE': logging.DEBUG,
+        'DEBUG': logging.DEBUG,
+        'INFO': logging.INFO,
+        'SUCCESS': logging.INFO,
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL,
+    }
+    return mapping.get(level_name.upper(), logging.INFO)
+
+
 def configure_logging() -> None:
     """Configure logging for console and OpenTelemetry Logs.
 
@@ -22,13 +37,15 @@ def configure_logging() -> None:
     from typing import Dict
 
     from opentelemetry.sdk.resources import Resource
+
     try:
         # OTEL Logs SDK (available in opentelemetry-sdk >= 1.21)
-        from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
         from opentelemetry._logs import set_logger_provider
-        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+
         # HTTP/protobuf exporter (honors OTEL_EXPORTER_OTLP_* env vars)
         from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+        from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
     except Exception:
         LoggerProvider = None  # type: ignore
         LoggingHandler = None  # type: ignore
@@ -68,11 +85,13 @@ def configure_logging() -> None:
         and LoggerProvider is not None
     ):
         # Build Resource for logs as well
-        resource = Resource.create({
-            "service.name": settings.service_name_app,
-            "service.namespace": settings.service_namespace,
-            "deployment.environment": settings.deployment_env,
-        })
+        resource = Resource.create(
+            {
+                'service.name': settings.service_name_app,
+                'service.namespace': settings.service_namespace,
+                'deployment.environment': settings.deployment_env,
+            }
+        )
 
         provider = LoggerProvider(resource=resource)  # type: ignore[call-arg]
         exporter = OTLPLogExporter()  # type: ignore[call-arg]
@@ -114,17 +133,3 @@ def configure_logging() -> None:
         )
 
     _configured = True
-
-
-def _map_loguru_level(level_name: str) -> int:
-    import logging
-    mapping = {
-        'TRACE': logging.DEBUG,
-        'DEBUG': logging.DEBUG,
-        'INFO': logging.INFO,
-        'SUCCESS': logging.INFO,
-        'WARNING': logging.WARNING,
-        'ERROR': logging.ERROR,
-        'CRITICAL': logging.CRITICAL,
-    }
-    return mapping.get(level_name.upper(), logging.INFO)

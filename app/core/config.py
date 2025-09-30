@@ -70,10 +70,10 @@ class Settings(BaseSettings):
     otel_enabled: bool = True
     otel_logs_exporter: str = 'otlp'
     log_otel_json: bool = True
-    service_namespace: str = "finrag"
-    deployment_env: str = "development"
-    service_name_app: str = "app"
-    service_name_worker: str = "worker"
+    service_namespace: str = 'finrag'
+    deployment_env: str = 'development'
+    service_name_app: str = 'app'
+    service_name_worker: str = 'worker'
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

@@ -29,7 +29,7 @@ broker = _create_broker()
 
 try:
     from dramatiq.middleware.prometheus import Prometheus as _Prometheus
-except Exception as e:
+except Exception:
     _Prometheus = None
 
 if _Prometheus is not None:

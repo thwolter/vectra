@@ -1,7 +1,6 @@
 import uuid
 from unittest.mock import create_autospec
 
-import pytest
 from fastapi import UploadFile
 
 from app.api.file import TemporaryUploadFile
@@ -66,6 +65,7 @@ async def test_continue_processing_calls_all_upload_handlers(
     ingest_ctx = pipeline.ingest_documents.await_args.args[0]
     assert ingest_ctx.job_id == process_input.job_id
     from sqlmodel.ext.asyncio.session import AsyncSession
+
     assert isinstance(pipeline.ingest_documents.await_args.kwargs['session'], AsyncSession)
 
     persist_ctx = pipeline.persist_metadata.await_args.args[0]

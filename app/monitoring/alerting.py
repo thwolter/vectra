@@ -19,7 +19,7 @@ class AlertManager:
 
     def notify_task_failure(self, *, actor: str, message: Any, exception: Exception) -> None:
         logger.error('Dramatiq task %s failed: %s', actor, exception)
-        ALERTS_TOTAL.add(1, {"actor": actor, "severity": "error"})
+        ALERTS_TOTAL.add(1, {'actor': actor, 'severity': 'error'})
 
         if not self._enabled or not self._webhook_url:
             return

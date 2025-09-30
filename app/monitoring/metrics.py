@@ -11,32 +11,32 @@ meter = metrics.get_meter(__name__)
 # - Use Histogram for duration measurements
 
 TASKS_ENQUEUED_TOTAL = meter.create_counter(
-    name="dramatiq_tasks_enqueued_total",
-    description="Total number of Dramatiq tasks enqueued.",
+    name='dramatiq_tasks_enqueued_total',
+    description='Total number of Dramatiq tasks enqueued.',
 )
 
 TASKS_IN_PROGRESS = meter.create_up_down_counter(
-    name="dramatiq_tasks_in_progress",
-    description="Current number of Dramatiq tasks being processed.",
+    name='dramatiq_tasks_in_progress',
+    description='Current number of Dramatiq tasks being processed.',
 )
 
 TASKS_QUEUE_DEPTH = meter.create_up_down_counter(
-    name="dramatiq_tasks_queue_depth",
-    description="Approximate number of Dramatiq tasks queued.",
+    name='dramatiq_tasks_queue_depth',
+    description='Approximate number of Dramatiq tasks queued.',
 )
 
 TASKS_PROCESSED_TOTAL = meter.create_counter(
-    name="dramatiq_tasks_processed_total",
-    description="Total number of Dramatiq tasks processed.",
+    name='dramatiq_tasks_processed_total',
+    description='Total number of Dramatiq tasks processed.',
 )
 
 TASK_DURATION_SECONDS = meter.create_histogram(
-    name="dramatiq_task_duration_seconds",
-    description="Histogram of Dramatiq task execution duration in seconds.",
-    unit="s",
+    name='dramatiq_task_duration_seconds',
+    description='Histogram of Dramatiq task execution duration in seconds.',
+    unit='s',
 )
 
 ALERTS_TOTAL = meter.create_counter(
-    name="dramatiq_alerts_total",
-    description="Total number of Dramatiq alerts emitted.",
+    name='dramatiq_alerts_total',
+    description='Total number of Dramatiq alerts emitted.',
 )

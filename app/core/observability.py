@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import os
 import socket
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 try:
     # FastAPI instrumentation is optional (not needed for workers)
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # type: ignore
+    from opentelemetry.instrumentation.fastapi import (
+        FastAPIInstrumentor,  # type: ignore
+    )
 except Exception:  # pragma: no cover - optional dependency in some envs
     FastAPIInstrumentor = None  # type: ignore
 
@@ -33,10 +35,10 @@ def _build_resource(
     We add instance id and any extra attributes on top.
     """
     attrs = {
-        "service.name": service_name,
-        "service.namespace": service_namespace or os.getenv("SERVICE_NAMESPACE", "finrag"),
-        "deployment.environment": deployment_environment or os.getenv("DEPLOYMENT_ENV", "development"),
-        "service.instance.id": os.getenv("SERVICE_INSTANCE_ID", f"{socket.gethostname()}:{os.getpid()}")
+        'service.name': service_name,
+        'service.namespace': service_namespace or os.getenv('SERVICE_NAMESPACE', 'finrag'),
+        'deployment.environment': deployment_environment or os.getenv('DEPLOYMENT_ENV', 'development'),
+        'service.instance.id': os.getenv('SERVICE_INSTANCE_ID', f'{socket.gethostname()}:{os.getpid()}'),
     }
     if extra:
         attrs.update(extra)
@@ -62,8 +64,14 @@ def _ensure_provider(resource: Resource) -> TracerProvider:
     return provider
 
 
-def init_otel_fastapi(app, *, service_name: str = "app", service_namespace: Optional[str] = None,
-                      deployment_environment: Optional[str] = None, extra: Optional[Dict[str, str]] = None) -> None:
+def init_otel_fastapi(
+    app,
+    *,
+    service_name: str = 'app',
+    service_namespace: Optional[str] = None,
+    deployment_environment: Optional[str] = None,
+    extra: Optional[Dict[str, str]] = None,
+) -> None:
     """Initialise OpenTelemetry for the FastAPI web app.
 
     - Sets up the global TracerProvider with OTLP HTTP/protobuf exporter (config via env).
@@ -80,14 +88,21 @@ def init_otel_fastapi(app, *, service_name: str = "app", service_namespace: Opti
     if FastAPIInstrumentor is not None:
         # Avoid double instrumentation when auto-instrumentation has been used accidentally.
         try:
-            FastAPIInstrumentor().uninstrument_app(app)
+            if hasattr(FastAPIInstrumentor, 'uninstrument_app'):
+                FastAPIInstrumentor.uninstrument_app(app)  # type: ignore[attr-defined]
         except Exception:
             pass
-        FastAPIInstrumentor.instrument_app(app)
+        if hasattr(FastAPIInstrumentor, 'instrument_app'):
+            FastAPIInstrumentor.instrument_app(app)  # type: ignore[attr-defined]
 
 
-def init_otel_worker(*, service_name: str = "worker", service_namespace: Optional[str] = None,
-                     deployment_environment: Optional[str] = None, extra: Optional[Dict[str, str]] = None) -> None:
+def init_otel_worker(
+    *,
+    service_name: str = 'worker',
+    service_namespace: Optional[str] = None,
+    deployment_environment: Optional[str] = None,
+    extra: Optional[Dict[str, str]] = None,
+) -> None:
     """Initialise OpenTelemetry for background workers (e.g., Dramatiq).
 
     This intentionally does not instrument FastAPI. If you want Dramatiq span context per-message,

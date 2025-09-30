@@ -2,14 +2,6 @@
 
 set -euo pipefail
 
-# --- OpenTelemetry defaults (configurable via env) ---
-OTEL_ENABLED=${OTEL_ENABLED:-true}
-export OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-vecapi}
-export OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=${OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED:-true}
-export OTEL_TRACES_EXPORTER=${OTEL_TRACES_EXPORTER:-otlp}
-export OTEL_METRICS_EXPORTER=${OTEL_METRICS_EXPORTER:-otlp}
-export OTEL_LOGS_EXPORTER=${OTEL_LOGS_EXPORTER:-otlp}
-export OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-https://otlp-gateway-prod-us-west-0.grafana.net/otlp}
 # -----------------------------------------------------
 
 # Simple entrypoint allowing this container to run:
@@ -70,34 +62,19 @@ run_migrations() {
 start_web() {
   run_migrations
   echo "[entrypoint] Starting uvicorn (workers=${UVICORN_WORKERS}, port=${PORT})"
-  if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    exec opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
-  else
-    exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
-  fi
+  exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
 }
 
 start_worker() {
   run_migrations
   echo "[entrypoint] Starting Dramatiq worker (processes=${DRAMATIQ_WORKERS}, threads=${DRAMATIQ_THREADS})"
-  # Note: dramatiq takes --processes and --threads to control concurrency.
-  # The target module must import and register actors and the broker.
-  if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    exec opentelemetry-instrument dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
-  else
-    exec dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
-  fi
+  exec dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
 }
 
 DEPLOY_START_BOTH() {
   run_migrations
   echo "[entrypoint] Starting BOTH: web and worker"
-  # Start worker in background, then start web in foreground. Use trap to forward signals.
-  if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    opentelemetry-instrument dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
-  else
-    dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
-  fi
+  dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
   WORKER_PID=$!
   echo "[entrypoint] Dramatiq worker PID=${WORKER_PID}"
 
@@ -105,11 +82,7 @@ DEPLOY_START_BOTH() {
   trap 'echo "[entrypoint] Received SIGTERM, stopping..."; kill -TERM ${WORKER_PID} 2>/dev/null || true; wait ${WORKER_PID} 2>/dev/null || true; exit 0' TERM INT
 
   # Run web in foreground (PID 1)
-  if [[ "${OTEL_ENABLED}" == "true" ]]; then
-    exec opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
-  else
-    exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
-  fi
+  exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers "${UVICORN_WORKERS}"
 }
 
 if [[ "${DEPLOY_START_BOTH}" == "true" ]]; then

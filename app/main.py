@@ -1,14 +1,13 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from loguru import logger
 
 from app.api.v1 import ROUTERS
 from app.core.config import get_settings
 from app.core.dependencies import get_database_manager
 from app.core.logging import configure_logging
-from app.core.observability import init_otel_fastapi, get_tracer
-from loguru import logger
+from app.core.observability import get_tracer, init_otel_fastapi
 
 settings = get_settings()
 configure_logging()
@@ -27,41 +26,41 @@ async def lifespan(app: FastAPI):
 
     tracer = get_tracer(__name__)
     with tracer.start_as_current_span(
-        "app.startup",
+        'app.startup',
         attributes={
-            "service.name": settings.service_name_app,
-            "service.namespace": settings.service_namespace,
-            "deployment.environment": settings.deployment_env,
-            "app.version": settings.version,
+            'service.name': settings.service_name_app,
+            'service.namespace': settings.service_namespace,
+            'deployment.environment': settings.deployment_env,
+            'app.version': settings.version,
         },
     ) as span:
-        span.add_event("startup.begin")
+        span.add_event('startup.begin')
         logger.bind(
-            component="app",
+            component='app',
             service=settings.service_name_app,
             namespace=settings.service_namespace,
             env=settings.deployment_env,
             version=settings.version,
-        ).info("APP_STARTUP: initialising database and validating schema")
+        ).info('APP_STARTUP: initialising database and validating schema')
 
         await db.initialize()
         await db.ensure_schema()
-        span.add_event("startup.ready")
+        span.add_event('startup.ready')
 
         # Dedicated, searchable startup log entry for Grafana/Loki or stdout
         logger.bind(
-            component="app",
+            component='app',
             service=settings.service_name_app,
             namespace=settings.service_namespace,
             env=settings.deployment_env,
             version=settings.version,
-        ).info("APP_STARTED: application is ready to accept traffic")
+        ).info('APP_STARTED: application is ready to accept traffic')
 
     try:
         yield
     finally:
         await db.close()
-        logger.bind(component="app").info("APP_SHUTDOWN: database connection closed")
+        logger.bind(component='app').info('APP_SHUTDOWN: database connection closed')
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -79,5 +78,3 @@ for router, prefix in ROUTERS:
 @app.get('/health', tags=['health'])
 async def health_check():
     return {'status': 'ok'}
-
-
