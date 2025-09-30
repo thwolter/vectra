@@ -117,7 +117,7 @@ def generate(
                 return _discover_tenant_id()
 
             resolved = anyio.run(_runner)
-        resolved_tenant = resolved or UUID('00000000-0000-0000-0000-000000000000')
+        resolved_tenant = resolved or UUID('ae579baf-91c2-4497-abf5-44867e06c7a1')
     else:
         resolved_tenant = tenant_id
 
