@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     metrics_endpoint_enabled: bool = True
     alerting_webhook_url: SecretStr | None = None
 
+    worker_heartbeat_ttl: int = 30
+    worker_heartbeat_interval: int = 10
+
     # Logging configuration
     log_level: str = 'WARNING'  # e.g., DEBUG, INFO, WARNING, ERROR
     # Console should be plain text; OTEL can receive structured JSON
@@ -63,10 +66,14 @@ class Settings(BaseSettings):
     log_diagnose: bool = False
     log_remove_default_sink: bool = True
 
-    # When true and OTEL logs exporter is enabled, forward a JSON payload to std logging
+    # --- OpenTelemetry / Observability ---
     otel_enabled: bool = True
     otel_logs_exporter: str = 'otlp'
     log_otel_json: bool = True
+    service_namespace: str = "finrag"
+    deployment_env: str = "development"
+    service_name_app: str = "app"
+    service_name_worker: str = "worker"
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

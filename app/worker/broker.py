@@ -26,4 +26,15 @@ def _create_broker() -> dramatiq.Broker:
 
 
 broker = _create_broker()
+
+try:
+    from dramatiq.middleware.prometheus import Prometheus as _Prometheus
+except Exception as e:
+    _Prometheus = None
+
+if _Prometheus is not None:
+    for m in list(broker.middleware):
+        if isinstance(m, _Prometheus):
+            broker.middleware.remove(m)
+
 dramatiq.set_broker(broker)

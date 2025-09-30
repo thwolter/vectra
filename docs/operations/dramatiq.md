@@ -30,7 +30,7 @@ The module `app.worker.actors` auto-configures the broker (Redis + monitoring mi
 
 ## Monitoring
 
-Prometheus metrics are exposed from the FastAPI application at `/metrics` when `monitoring_enabled` and `metrics_endpoint_enabled` are `true`. The middleware publishes the following key series:
+OpenTelemetry metrics are emitted via OTLP and should be collected by an OpenTelemetry Collector. No Prometheus `/metrics` endpoint is exposed by the API. The middleware publishes the following key series (names unchanged):
 
 - `dramatiq_tasks_enqueued_total{actor="process_upload"}` – enqueue rate.
 - `dramatiq_tasks_queue_depth{actor="process_upload"}` – approximate in-flight queue depth.
@@ -39,7 +39,8 @@ Prometheus metrics are exposed from the FastAPI application at `/metrics` when `
 - `dramatiq_task_duration_seconds{actor="process_upload"}` – histogram of task execution latency.
 - `dramatiq_alerts_total{actor="process_upload",severity="error"}` – alert emission counter.
 
-Scrape `/metrics` with Prometheus and export the resulting dashboards to Grafana as needed.
+To run locally without a backend, set `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector (e.g., `http://localhost:4318`) and use `scripts/run-dev.sh`, which starts both the API and worker with `opentelemetry-instrument`.
+
 
 ## Alerting
 
