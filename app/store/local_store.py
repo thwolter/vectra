@@ -93,7 +93,7 @@ class LocalFileStore(StoreKeyHelpers):
         except Exception as e:
             logger.error(
                 'Failed to save original locally',
-                extra={'error': str(e), 'key': key, 'document_id': document_id},
+                extra={'error': str(e), 'key': key, 'document_id': str(document_id)},
             )
             raise
 
@@ -107,7 +107,7 @@ class LocalFileStore(StoreKeyHelpers):
         dest = _resolve_fs_path(key)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(md_text, encoding='utf-8')
-        logger.success('Markdown saved locally', extra={'key': key, 'document_id': document_id})
+        logger.success('Markdown saved locally', extra={'key': key, 'document_id': str(document_id)})
         return ArtifactInfo(
             document_id=document_id,
             collection=self.collection,
@@ -153,7 +153,7 @@ class LocalFileStore(StoreKeyHelpers):
         except Exception as e:
             logger.error(
                 'Failed to delete local artifacts',
-                extra={'error': str(e), 'document_id': document_id},
+                extra={'error': str(e), 'document_id': str(document_id)},
             )
             return False
 

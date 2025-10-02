@@ -81,7 +81,7 @@ class S3Store(StoreKeyHelpers):
 
                     logger.success(
                         'Original uploaded to S3',
-                        extra={'key': key, 'document_id': document_id},
+                        extra={'key': key, 'document_id': str(document_id)},
                     )
                     return ArtifactInfo(
                         document_id=document_id,
@@ -123,7 +123,7 @@ class S3Store(StoreKeyHelpers):
                     extra={
                         'collection': self.collection,
                         'key': key,
-                        'document_id': document_id,
+                        'document_id': str(document_id),
                     },
                 )
                 buf = BytesIO(md_text.encode('utf-8'))
@@ -132,7 +132,7 @@ class S3Store(StoreKeyHelpers):
                 await s3.upload_fileobj(buf, settings.aws_s3_bucket, key, ExtraArgs=extra_args)
                 logger.success(
                     'Markdown uploaded to S3',
-                    extra={'key': key, 'document_id': document_id},
+                    extra={'key': key, 'document_id': str(document_id)},
                 )
                 return ArtifactInfo(
                     document_id=document_id,
@@ -143,7 +143,7 @@ class S3Store(StoreKeyHelpers):
             except Exception as e:
                 logger.error(
                     'Failed to upload markdown to S3',
-                    extra={'error': str(e), 'key': key, 'document_id': document_id},
+                    extra={'error': str(e), 'key': key, 'document_id': str(document_id)},
                 )
                 raise
 
@@ -199,13 +199,13 @@ class S3Store(StoreKeyHelpers):
                 )
                 logger.success(
                     'Deleted S3 artifacts',
-                    extra={'document_id': document_id, 'count': len(to_delete)},
+                    extra={'document_id': str(document_id), 'count': len(to_delete)},
                 )
                 return True
             except Exception as e:
                 logger.error(
                     'Failed to delete S3 artifacts',
-                    extra={'error': str(e), 'document_id': document_id},
+                    extra={'error': str(e), 'document_id': str(document_id)},
                 )
                 return False
 
@@ -306,6 +306,6 @@ class S3Store(StoreKeyHelpers):
             except Exception as e:
                 logger.error(
                     'Failed to get S3 info',
-                    extra={'error': str(e), 'document_id': document_id},
+                    extra={'error': str(e), 'document_id': str(document_id)},
                 )
                 raise
