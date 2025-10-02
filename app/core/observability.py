@@ -4,11 +4,14 @@ import os
 import socket
 from typing import Dict, Optional
 
-from opentelemetry import trace
+from opentelemetry import trace, metrics
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
 try:
     # FastAPI instrumentation is optional (not needed for workers)
@@ -18,8 +21,9 @@ try:
 except Exception:  # pragma: no cover - optional dependency in some envs
     FastAPIInstrumentor = None  # type: ignore
 
-# --- Internal singleton guard to avoid duplicate providers ---
+# --- Internal singleton guards to avoid duplicate providers ---
 _PROVIDER_INITIALISED = False
+_METRICS_INITIALISED = False
 
 
 def _build_resource(
@@ -64,6 +68,18 @@ def _ensure_provider(resource: Resource) -> TracerProvider:
     return provider
 
 
+def _ensure_metrics_provider(resource: Resource) -> MeterProvider:
+    global _METRICS_INITIALISED
+    provider = metrics.get_meter_provider()
+    # If no real MeterProvider is set (defaults to NoOp), set one with OTLP Metric exporter.
+    if not isinstance(provider, MeterProvider) or not _METRICS_INITIALISED:
+        reader = PeriodicExportingMetricReader(OTLPMetricExporter())  # honours OTEL_* env
+        provider = MeterProvider(resource=resource, metric_readers=[reader])
+        metrics.set_meter_provider(provider)
+        _METRICS_INITIALISED = True
+    return provider
+
+
 def init_otel_fastapi(
     app,
     *,
@@ -84,6 +100,7 @@ def init_otel_fastapi(
         extra=extra,
     )
     _ensure_provider(resource)
+    _ensure_metrics_provider(resource)
 
     if FastAPIInstrumentor is not None:
         # Avoid double instrumentation when auto-instrumentation has been used accidentally.
@@ -115,6 +132,7 @@ def init_otel_worker(
         extra=extra,
     )
     _ensure_provider(resource)
+    _ensure_metrics_provider(resource)
 
 
 def get_tracer(name: str):
