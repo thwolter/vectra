@@ -7,8 +7,8 @@ from uuid import UUID
 import pytest
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.testclient import TestClient
+from tenauth.schemas import AuthContext
 
-from app.api.schemas import AuthContext
 from app.core.dependencies import require_auth
 
 # Provided signed JWT (HS256) with claims:

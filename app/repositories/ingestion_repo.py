@@ -6,8 +6,8 @@ from uuid import UUID
 from loguru import logger
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from tenauth.schemas import AccessContext
 
-from app.api.schemas import AccessContext
 from app.utils.types import SHA256B64
 
 from .exceptions import RecordNotFoundError

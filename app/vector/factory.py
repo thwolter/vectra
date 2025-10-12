@@ -6,7 +6,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 
 from app.core.config import get_settings
-from app.core.tenancy import dsn_with_tenant
+from tenauth.tenancy import dsn_with_tenant
 from app.vector.models import IngestorSettings
 
 settings = get_settings()

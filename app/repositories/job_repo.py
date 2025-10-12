@@ -7,8 +7,8 @@ from loguru import logger
 from sqlalchemy import or_
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from tenauth.schemas import AccessContext
 
-from app.api.schemas import AccessContext
 from app.repositories.models import IngestionRecord, JobRecord
 from app.repositories.schemas import JobCreate, JobUpdate
 from app.schemas.upload import JOBS_PENDING

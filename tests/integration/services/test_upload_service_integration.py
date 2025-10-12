@@ -1,7 +1,7 @@
 import pytest
+from tenauth.schemas import AccessContext
 
 from app.api.file import TemporaryUploadFile
-from app.api.schemas import AccessContext
 from app.metadata.schemas import FinanceReportHints
 from app.repositories import EmbeddingsRepository, JobRepository
 from app.schemas.enums import CollectionEnum

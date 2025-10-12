@@ -1,8 +1,8 @@
 import uuid
 
 import pytest
+from tenauth.schemas import AccessContext, AuthContext
 
-from app.api.schemas import AccessContext, AuthContext
 from app.core.dependencies import (
     access_scoped_session,
     require_access_context,

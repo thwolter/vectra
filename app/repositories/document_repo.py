@@ -8,8 +8,8 @@ from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from tenauth.schemas import AccessContext
 
-from app.api.schemas import AccessContext
 from app.core.config import get_settings
 from app.repositories.exceptions import RecordAlreadyExistsError
 from app.utils.types import SHA256B64

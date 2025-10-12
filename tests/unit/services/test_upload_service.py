@@ -2,9 +2,9 @@ import uuid
 from unittest.mock import create_autospec
 
 from fastapi import UploadFile
+from tenauth.schemas import AccessContext
 
 from app.api.file import TemporaryUploadFile
-from app.api.schemas import AccessContext
 from app.schemas.upload import ContinueProcessingInput
 from app.services.job_service import JobService
 from app.services.upload_steps import UploadPipeline

@@ -6,12 +6,10 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Security
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
+import tenauth
+from tenauth import AccessContext, build_access_scoped_session_dependency
 
-from app.api.schemas import AccessContext, AuthContext
 from app.core.database import DatabaseManager
 
 _db_managers_by_loop: dict[int, DatabaseManager] = {}
@@ -31,66 +29,14 @@ def get_database_manager() -> DatabaseManager:
     return mgr
 
 
-bearer_scheme = HTTPBearer(auto_error=False)
-
-
-async def require_auth(
-    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
-) -> AuthContext:
-    """Require Authorization and return AuthContext, else 401.
-
-    We intentionally make the header optional at the framework level to allow
-    returning a 401 (Unauthorized) instead of FastAPI's default 422 when the
-    header is missing, matching API contract and tests.
-    """
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=401, detail='Missing Authorization header')
-    scheme = (credentials.scheme or '').lower()
-    token = credentials.credentials
-    if scheme != 'bearer' or not token:
-        raise HTTPException(status_code=401, detail='Invalid authorization scheme')
-    auth = AuthContext.from_token(token)
-    return auth
-
-
-async def require_access_context(
-    auth: AuthContext = Depends(require_auth),
-) -> AccessContext:
-    """Resolve tenant from a validated JWT."""
-    return AccessContext(tenant_id=auth.tid, user_id=auth.sub)
-
-
-async def verify(session, tenant_id, user_id):
-    # Verify immediately
-    res_user = await session.execute(text("SELECT current_setting('app.user_id', true)"))
-    db_user = res_user.scalar()
-    res_tenant = await session.execute(text("SELECT current_setting('app.tenant_id', true)"))
-    db_tenant = res_tenant.scalar()
-    if not db_user or not db_tenant:
-        raise RuntimeError(f'Failed to bind access context: user_id={db_user!r}, tenant_id={db_tenant!r}')
-    if UUID(db_tenant) != tenant_id:
-        raise RuntimeError(f'Tenant mismatch: {db_tenant} != {tenant_id}')
-    if UUID(db_user) != user_id:
-        raise RuntimeError(f'User mismatch: {db_user} != {user_id}')
+require_auth = tenauth.require_auth
+require_access_context = tenauth.require_access_context
 
 
 async def apply_access_context(session: AsyncSession, *, tenant_id: UUID, user_id: UUID) -> None:
-    """Set Postgres GUCs and role for tenant/user on the current connection.
-
-    - Sets app.tenant_id and app.user_id for RLS policies.
-    - Values persist for the AsyncSession lifetime and are reset on exit by access_scoped_session.
-    """
-    # Persist on the connection (not LOCAL-to-transaction) for the session lifetime
-    await session.execute(text("SELECT set_config('app.tenant_id', :tid, false)"), {'tid': str(tenant_id)})
-    await session.execute(
-        text("SELECT set_config('app.user_id', :uid, false)"),
-        {'uid': str(user_id)},
-    )
-
-    await verify(session, tenant_id, user_id)
-
-    session.info['tenant_id'] = tenant_id
-    session.info['user_id'] = user_id
+    """Compatibility wrapper that delegates to the shared access context applicator."""
+    ctx = AccessContext(tenant_id=tenant_id, user_id=user_id)
+    await tenauth.apply_access_context(session, access_context=ctx)
 
 
 @asynccontextmanager
@@ -102,31 +48,18 @@ async def access_scoped_session_ctx(
     Use this in background tasks and services: `async with access_scoped_session_ctx(ctx) as session:`
     """
     db = get_database_manager()
-    async with db.get_session() as session:
-        await apply_access_context(session, tenant_id=access_context.tenant_id, user_id=access_context.user_id)
-        try:
-            yield session
-        finally:
-            try:
-                await session.execute(text('RESET app.user_id'))
-                await session.execute(text('RESET app.tenant_id'))
-            except Exception:
-                # best-effort; session close will drop connection settings
-                pass
-            session.info.pop('tenant_id', None)
-            session.info.pop('user_id', None)
-
-
-async def access_scoped_session(
-    tenant: AccessContext = Depends(require_access_context),
-) -> AsyncIterator[AsyncSession]:
-    """Yield an AsyncSession with tenant/user context applied for the request.
-
-    Ensures Postgres GUCs are set for the session lifetime and reset afterwards
-    to prevent leaks across pooled connections.
-    """
-    async with access_scoped_session_ctx(tenant) as session:
+    async with tenauth.access_scoped_session_ctx(
+        session_factory=db.get_session,
+        access_context=access_context,
+    ) as session:
         yield session
+
+
+def _session_factory():
+    return get_database_manager().get_session()
+
+
+access_scoped_session = build_access_scoped_session_dependency(_session_factory)
 
 
 __all__ = [

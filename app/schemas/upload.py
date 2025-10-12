@@ -5,9 +5,9 @@ from typing import Annotated, List, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from tenauth.schemas import AccessContext
 
 from app.api.file import TemporaryUploadFile
-from app.api.schemas import AccessContext
 from app.metadata.schemas import FinanceReportHints, NoopHints, ProposedMetadata
 from app.utils.types import SHA256B64
 

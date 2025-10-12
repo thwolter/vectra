@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
+from tenauth.schemas import AccessContext
 
 from app.core.dependencies import access_scoped_session
 from app.profiles.registry import ProcessingProfileSettings
@@ -17,7 +18,6 @@ from app.services.factory import get_profile_settings, get_upload_service
 from app.worker.dispatcher import enqueue_upload_processing
 
 from ..file import TemporaryUploadFile
-from ..schemas import AccessContext
 from ..utils import check_file_type_size, parse_hints_from_any
 
 router = APIRouter(prefix='/v1')
