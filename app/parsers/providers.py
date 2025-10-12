@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Dict
 
 from .docling import DoclingParser, DoclingParserConfig
+from .llama import LlamaParser, LlamaParserConfig
 from .protocols import ParserProtocol
 from .schemas import ParserConfig
 
@@ -37,3 +38,12 @@ def _docling_parser_factory(*, config: ParserConfig) -> ParserProtocol:
 
 
 register_parser_provider('docling', _docling_parser_factory)
+
+
+def _llama_parser_factory(*, config: ParserConfig) -> ParserProtocol:
+    if not isinstance(config, LlamaParserConfig):
+        config = LlamaParserConfig(**config.model_dump())
+    return LlamaParser(config=config)
+
+
+register_parser_provider('llama', _llama_parser_factory)

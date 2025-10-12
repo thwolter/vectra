@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     chatdoc_api_key: SecretStr | None = None
     chatdoc_api_url: str = 'https://api.chatdoc.com'
 
+    # Llama Cloud
+    llama_cloud_api_key: SecretStr | None = None
+
     # OpenAI API configuration for embeddings
     openai_api_key: SecretStr
 
