@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import asyncio
+import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
+from typing import Any, cast
 
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from dotenv import dotenv_values
+from sqlalchemy import engine_from_config, pool, text
 from sqlmodel import SQLModel
 
 from alembic import context
@@ -24,77 +24,64 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import application settings and models to populate target metadata
-from app.core.config import get_settings  # noqa: E402
-from app.repositories import (  # noqa: F401,E402  Ensure models are imported
-    models as _models,
-)
+from app.core.db_schema import APP_SCHEMA  # noqa: E402
+from app.repositories import models as _models  # noqa: F401,E402  Ensure models import for metadata
 
-# Target metadata for autogeneration
 target_metadata = SQLModel.metadata
 
 
-def _get_async_db_url() -> str:
-    """Return asyncpg database URL derived from app settings.
+def _collect_env() -> dict[str, str]:
+    merged: dict[str, str] = {}
+    for candidate in (_PROJECT_ROOT / '.env.migration', _PROJECT_ROOT / '.env'):
+        if candidate.exists():
+            for key, value in dotenv_values(candidate).items():
+                if value is not None:
+                    merged[key] = value
+    return merged
 
-    Settings.pg_vector_url returns a SecretStr like postgresql://.... We need postgresql+asyncpg.
-    """
-    settings = get_settings()
-    url = settings.pg_vector_url.get_secret_value()
+
+def _normalize_sync_url(url: str) -> str:
     if url.startswith('postgres://'):
         url = url.replace('postgres://', 'postgresql://', 1)
-    if url.startswith('postgresql://') and '+asyncpg' not in url:
-        url = url.replace('postgresql://', 'postgresql+asyncpg://', 1)
+    if url.startswith('postgresql+asyncpg://'):
+        url = url.replace('postgresql+asyncpg://', 'postgresql+psycopg2://', 1)
     return url
+
+
+env_values = _collect_env()
+alembic_url = env_values.get('ALEMBIC_DATABASE_URL') or os.getenv('ALEMBIC_DATABASE_URL')
+if alembic_url is None:
+    raise RuntimeError(
+        'ALEMBIC_DATABASE_URL must be defined in .env.migration, .env, or the environment for Alembic migrations.'
+    )
+
+config.set_main_option('sqlalchemy.url', _normalize_sync_url(alembic_url))
 
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = _get_async_db_url()
-    # For offline mode, Alembic prefers a sync driver URL, but modern Alembic can handle literal SQL generation.
-    # We normalize to a sync-style URL for offline rendering.
-    if url.startswith('postgresql+asyncpg://'):
-        url = url.replace('postgresql+asyncpg://', 'postgresql://', 1)
-
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={'paramstyle': 'named'},
-        compare_type=True,
-        compare_server_default=True,
-    )
+    url = config.get_main_option('sqlalchemy.url')
+    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, include_schemas=True,
+                      version_table='alembic_version', version_table_schema=APP_SCHEMA,
+                      dialect_opts={'paramstyle': 'named'}, compare_server_default=True)
 
     with context.begin_transaction():
         context.run_migrations()
-
-
-def do_run_migrations(connection: Connection) -> None:
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-        compare_type=True,
-        compare_server_default=True,
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-async def run_async_migrations() -> None:
-    connectable: AsyncEngine = create_async_engine(
-        _get_async_db_url(),
-        poolclass=pool.NullPool,
-    )
-
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
 
 
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    """Run migrations in 'online' mode."""
+    section = cast(dict[str, Any], config.get_section(config.config_ini_section) or {})
+    connectable = engine_from_config(section, prefix='sqlalchemy.', poolclass=pool.NullPool)
+
+    with connectable.connect() as connection:
+        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{APP_SCHEMA}"'))
+        connection.commit()
+        context.configure(connection=connection, target_metadata=target_metadata, include_schemas=True,
+                          version_table='alembic_version', version_table_schema=APP_SCHEMA, compare_server_default=True)
+
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():

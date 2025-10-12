@@ -10,6 +10,7 @@ from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.db_schema import APP_SCHEMA
 from app.vector.factory import get_vectorstore
 from app.vector.models import IngestorSettings
 
@@ -161,6 +162,7 @@ class DatabaseManager:
                 cur.execute('SET row_security = on')
                 cur.execute('RESET app.tenant_id')
                 cur.execute("SET TIME ZONE 'UTC'")
+                cur.execute(f'SET search_path = {APP_SCHEMA}, public')
                 # Optional safeguard for dev/test; set PG_STATEMENT_TIMEOUT='30s' etc.
                 import os as _os
 
@@ -234,7 +236,10 @@ class DatabaseManager:
         async with self._engine.connect() as conn:
             for tbl in REQUIRED_TABLES:
                 # Table exists?
-                exists = await conn.scalar(text(f"SELECT to_regclass('{tbl}') IS NOT NULL"))
+                exists = await conn.scalar(
+                    text('SELECT to_regclass(:regcls) IS NOT NULL'),
+                    {'regcls': f'{APP_SCHEMA}.{tbl}'},
+                )
                 if not exists:
                     return False
                 # tenant_id column exists?
@@ -244,11 +249,11 @@ class DatabaseManager:
                         SELECT EXISTS (
                           SELECT 1
                           FROM information_schema.columns
-                          WHERE table_schema='public' AND table_name=:tbl AND column_name='tenant_id'
+                          WHERE table_schema=:schema AND table_name=:tbl AND column_name='tenant_id'
                         )
                         """
                     ),
-                    {'tbl': tbl},
+                    {'tbl': tbl, 'schema': APP_SCHEMA},
                 )
                 if not col_exists:
                     return False

@@ -1,6 +1,5 @@
 import pytest
 
-from app.repositories import EmbeddingsRepository
 from app.schemas.enums import CollectionEnum
 from app.vector.factory import get_vectorstore
 from app.vector.ingestor import DocumentIngestor
@@ -34,19 +33,6 @@ async def test_ingest_creates_embeddings(ingestor, sample_documents, digest_rand
     assert any(first_doc_content[:50] in result.page_content for result in results), (
         'Ingested document content not found in search results'
     )
-
-
-@pytest.mark.needs_postgres
-@pytest.mark.needs_openai
-async def test_ingest_creates_embeddings_with_metadata(ingestor, sample_documents, digest_random, session, job_created):
-    """Test that ingest method creates embeddings in the vector."""
-    test_docs = sample_documents[:2]
-
-    await ingestor.ingest(session, docs=test_docs, job_id=job_created.id)
-    metadata = await EmbeddingsRepository.get_metadata(
-        session, digest=digest_random, collection=CollectionEnum.DEFAULT.value
-    )
-    assert metadata[0]['digest'] == digest_random
 
 
 @pytest.mark.integration

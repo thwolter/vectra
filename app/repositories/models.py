@@ -7,6 +7,7 @@ from sqlalchemy import Column, Index, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
+from app.core.db_schema import APP_SCHEMA
 from app.repositories.fields import (
     created_at_field,
     created_by_field,
@@ -34,6 +35,7 @@ class DocumentRecord(BaseSQLModel, table=True):
             'digest',
             name='uq_documents_tenant_collection_digest',
         ),
+        {'schema': APP_SCHEMA},
     )
 
     id: UUID = uuid_pk()
@@ -81,6 +83,7 @@ class JobRecord(BaseSQLModel, table=True):
             unique=True,
             postgresql_where=text("status IN ('queued','processing')"),
         ),
+        {'schema': APP_SCHEMA},
     )
 
     id: UUID = uuid_pk()
@@ -125,6 +128,7 @@ class IngestionRecord(BaseSQLModel, table=True):
             'digest',
             name='uq_ingestion_compound',
         ),
+        {'schema': APP_SCHEMA},
     )
 
     id: UUID = uuid_pk()

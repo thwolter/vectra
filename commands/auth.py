@@ -11,6 +11,8 @@ from uuid import UUID, uuid4
 
 import typer
 
+from app.core.db_schema import APP_SCHEMA
+
 auth = typer.Typer(help='Authentication utilities')
 
 
@@ -53,7 +55,8 @@ async def _discover_tenant_id() -> UUID | None:
                     'langchain_pg_embedding',
                 ):
                     try:
-                        res = await conn.execute(text(f'SELECT tenant_id FROM {table} LIMIT 1'))
+                        qualified = f'"{APP_SCHEMA}"."{table}"'
+                        res = await conn.execute(text(f'SELECT tenant_id FROM {qualified} LIMIT 1'))
                         row = res.fetchone()
                         if row and row[0]:
                             return UUID(str(row[0]))

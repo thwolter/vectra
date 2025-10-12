@@ -12,9 +12,12 @@ from sqlalchemy import text
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.db_schema import APP_SCHEMA
 from app.utils.types import SHA256B64
 
 _metadata = SQLModel.metadata
+_LC_COLLECTION = f'{APP_SCHEMA}.langchain_pg_collection'
+_LC_EMBEDDING = f'{APP_SCHEMA}.langchain_pg_embedding'
 
 
 class EmbeddingsRepository:
@@ -42,9 +45,9 @@ class EmbeddingsRepository:
             set_clause = "cmetadata = COALESCE(e.cmetadata, '{}'::JSONB) || CAST(:metadata AS JSONB)"
 
         sql = (
-            'UPDATE langchain_pg_embedding e '
+            f'UPDATE {_LC_EMBEDDING} e '
             f'SET {set_clause} '
-            'FROM langchain_pg_collection c '
+            f'FROM {_LC_COLLECTION} c '
             'WHERE e.collection_id = c.uuid AND c.name = :collection '
             "AND e.cmetadata->>'digest' = :digest"
         )
@@ -89,8 +92,8 @@ class EmbeddingsRepository:
         sql = f"""
                 SELECT EXISTS (
                     SELECT 1
-                    FROM langchain_pg_embedding e
-                    JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+                    FROM {_LC_EMBEDDING} e
+                    JOIN {_LC_COLLECTION} c ON e.collection_id = c.uuid
                     WHERE c.name = :collection AND {where}
                 )
             """
@@ -107,10 +110,10 @@ class EmbeddingsRepository:
         This is primarily used by tests to assert document-level metadata has been
         applied consistently across all embeddings.
         """
-        sql = """
+        sql = f"""
             SELECT e.cmetadata
-            FROM langchain_pg_embedding e
-            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            FROM {_LC_EMBEDDING} e
+            JOIN {_LC_COLLECTION} c ON e.collection_id = c.uuid
             WHERE c.name = :collection AND e.cmetadata->>'digest' = :digest
             ORDER BY e.id
         """
@@ -141,7 +144,7 @@ class EmbeddingsRepository:
 
         logger.info(f"Deleting embeddings with digest='{digest}'")
 
-        delete_sql = "DELETE FROM langchain_pg_embedding WHERE cmetadata->>'digest' = :digest"
+        delete_sql = f"DELETE FROM {_LC_EMBEDDING} WHERE cmetadata->>'digest' = :digest"
 
         stmt: Any = text(delete_sql)
         await session.exec(stmt, params={'digest': digest})  # type: ignore[arg-type]

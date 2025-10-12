@@ -5,6 +5,8 @@ import typing as t
 
 import typer
 
+from app.core.db_schema import APP_SCHEMA
+
 db = typer.Typer(help='Database management commands')
 
 
@@ -121,8 +123,8 @@ def drop_tables(
                 # Drop application tables managed by SQLModel
                 await conn.run_sync(SQLModel.metadata.drop_all)
                 # Also drop LangChain pgvector tables if they exist
-                await conn.execute(text('DROP TABLE IF EXISTS langchain_pg_embedding CASCADE'))
-                await conn.execute(text('DROP TABLE IF EXISTS langchain_pg_collection CASCADE'))
+                await conn.execute(text(f'DROP TABLE IF EXISTS {APP_SCHEMA}.langchain_pg_embedding CASCADE'))
+                await conn.execute(text(f'DROP TABLE IF EXISTS {APP_SCHEMA}.langchain_pg_collection CASCADE'))
                 # Ensure Alembic version table is dropped as well
                 await conn.execute(text('DROP TABLE IF EXISTS alembic_version CASCADE'))
             typer.echo('All tables (including vectorstore and alembic_version) dropped successfully.')
@@ -196,15 +198,18 @@ def clear_tables(
                         qualified_names.append(f'"{t_.name}"')
 
                 # Vectorstore (LangChain pgvector) tables — include only if they exist
-                vector_tables = ['langchain_pg_embedding', 'langchain_pg_collection']
+                vector_tables = [
+                    f'{APP_SCHEMA}.langchain_pg_embedding',
+                    f'{APP_SCHEMA}.langchain_pg_collection',
+                ]
 
                 # Determine which vector tables actually exist
                 existing_vector_names: list[str] = []
                 for tbl in vector_tables:
                     res = await conn.execute(text('SELECT to_regclass(:tbl)'), {'tbl': tbl})
                     if res.scalar() is not None:
-                        # quote the name to be safe
-                        existing_vector_names.append(f'"{tbl}"')
+                        schema, name = tbl.split('.', 1)
+                        existing_vector_names.append(f'"{schema}"."{name}"')
 
                 # Build list of tables to truncate in one statement
                 parts: list[str] = []
@@ -212,6 +217,9 @@ def clear_tables(
                     parts.append(', '.join(qualified_names))
                 if existing_vector_names:
                     parts.append(', '.join(existing_vector_names))
+
+                if parts:
+                    await conn.execute(text(f'TRUNCATE {", ".join(parts)} RESTART IDENTITY CASCADE'))
 
             typer.echo('All table data cleared (schema preserved).')
         finally:

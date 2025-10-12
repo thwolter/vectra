@@ -16,6 +16,8 @@ down_revision = '20250927_02_init_schema'
 branch_labels = None
 depends_on = None
 
+APP_SCHEMA = 'vecapi'
+
 APP_TENANT_TABLES = (
     'documents',
     'upload_jobs',
@@ -26,11 +28,11 @@ APP_TENANT_TABLES = (
 _DEF_TEMPLATE = """
 DO $$
 BEGIN
-    IF to_regclass('public.{tbl}') IS NOT NULL THEN
-        EXECUTE 'ALTER TABLE public.{tbl} ENABLE ROW LEVEL SECURITY';
-        EXECUTE 'ALTER TABLE public.{tbl} FORCE ROW LEVEL SECURITY';
-        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation ON public.{tbl}';
-        EXECUTE 'CREATE POLICY tenant_isolation ON public.{tbl} USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid)';
+    IF to_regclass('{schema}.{tbl}') IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE {schema}.{tbl} ENABLE ROW LEVEL SECURITY';
+        EXECUTE 'ALTER TABLE {schema}.{tbl} FORCE ROW LEVEL SECURITY';
+        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation ON {schema}.{tbl}';
+        EXECUTE 'CREATE POLICY tenant_isolation ON {schema}.{tbl} USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid)';
     END IF;
 END
 $$;
@@ -39,9 +41,9 @@ $$;
 _UNDO_TEMPLATE = """
 DO $$
 BEGIN
-    IF to_regclass('public.{tbl}') IS NOT NULL THEN
-        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation ON public.{tbl}';
-        EXECUTE 'ALTER TABLE public.{tbl} DISABLE ROW LEVEL SECURITY';
+    IF to_regclass('{schema}.{tbl}') IS NOT NULL THEN
+        EXECUTE 'DROP POLICY IF EXISTS tenant_isolation ON {schema}.{tbl}';
+        EXECUTE 'ALTER TABLE {schema}.{tbl} DISABLE ROW LEVEL SECURITY';
     END IF;
 END
 $$;
@@ -51,10 +53,10 @@ $$;
 def upgrade() -> None:
     # Enable and enforce RLS and create tenant isolation policy on app tables
     for tbl in APP_TENANT_TABLES:
-        op.execute(_DEF_TEMPLATE.format(tbl=tbl))
+        op.execute(_DEF_TEMPLATE.format(schema=APP_SCHEMA, tbl=tbl))
 
 
 def downgrade() -> None:
     # Drop policy and disable RLS (optional) on app tables
     for tbl in APP_TENANT_TABLES:
-        op.execute(_UNDO_TEMPLATE.format(tbl=tbl))
+        op.execute(_UNDO_TEMPLATE.format(schema=APP_SCHEMA, tbl=tbl))

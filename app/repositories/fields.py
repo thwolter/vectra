@@ -6,6 +6,8 @@ from sqlalchemy import Column, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlmodel import Field
 
+from app.core.db_schema import APP_SCHEMA
+
 
 def uuid_pk() -> Any:
     """Primary key UUID field using SQLModel Field with underlying PG UUID column."""
@@ -18,7 +20,7 @@ def document_fk(nullable: bool = False) -> Any:
         default=None,
         sa_column=Column(
             PGUUID(as_uuid=True),
-            ForeignKey('documents.id', ondelete='CASCADE'),
+            ForeignKey(f'{APP_SCHEMA}.documents.id', ondelete='CASCADE'),
             nullable=nullable,
             index=True,
         ),
@@ -31,7 +33,7 @@ def job_fk(nullable: bool = False) -> Any:
         default=None,
         sa_column=Column(
             PGUUID(as_uuid=True),
-            ForeignKey('upload_jobs.id', ondelete='SET NULL', name='fk_ingestions_job_id'),
+            ForeignKey(f'{APP_SCHEMA}.upload_jobs.id', ondelete='SET NULL', name='fk_ingestions_job_id'),
             nullable=nullable,
         ),
     )
@@ -43,7 +45,7 @@ def ingestion_fk(nullable: bool = False) -> Any:
         default=None,
         sa_column=Column(
             PGUUID(as_uuid=True),
-            ForeignKey('ingestion_versions.id', ondelete='SET NULL', name='fk_jobs_ingestion_id'),
+            ForeignKey(f'{APP_SCHEMA}.ingestion_versions.id', ondelete='SET NULL', name='fk_jobs_ingestion_id'),
             nullable=nullable,
             index=True,
         ),

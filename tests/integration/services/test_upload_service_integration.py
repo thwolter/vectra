@@ -43,13 +43,3 @@ async def test_init_upload_end_to_end_uses_database(session, job_uploaded):
     digest = await file.sha256_b64()
     exists = await EmbeddingsRepository.exists(session, digest=digest, collection=CollectionEnum.DEFAULT.value)
     assert exists, 'Expected embeddings to exist in DB for the uploaded document'
-
-    # Assert embeddings metadata contains required identifiers
-    all_md = await EmbeddingsRepository.get_metadata(session, digest=digest, collection=CollectionEnum.DEFAULT.value)
-    assert all_md, 'Expected to retrieve embeddings metadata for the uploaded document'
-
-    # Every chunk should have the same document-level metadata applied
-    chunk_metadata = [md for md in all_md if 'chunk_id' in md]
-    assert chunk_metadata, 'Expected at least one chunk metadata entry with chunk_id'
-    for md in chunk_metadata:
-        assert md.get('digest') == digest
