@@ -5,8 +5,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.schemas.upload import (
     ContinueProcessingInput,
-    JobReviewPayload,
-    JobReviewResponse,
     JobStatusResponse,
     StartUploadInput,
     UploadInitResponse,
@@ -23,7 +21,3 @@ class UploadServiceProtocol(Protocol):
 
 class JobServiceProtocol(Protocol):
     async def get_status(self, status: AsyncSession, *, job_id: UUID) -> JobStatusResponse: ...
-
-    async def review_job(
-        self, status: AsyncSession, *, job_id: UUID, payload: JobReviewPayload
-    ) -> JobReviewResponse: ...

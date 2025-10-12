@@ -1,5 +1,5 @@
 # Ensure the project 'app' directory is on sys.path so absolute imports like
-# 'utils', 'extract', 'metadata', etc., resolve when running tests.
+# 'utils' and other modules resolve when running tests.
 # This is a minimal, test-friendly adjustment and does not affect production
 # packaging where proper module configuration should be used.
 

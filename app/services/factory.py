@@ -30,7 +30,7 @@ def get_upload_pipeline(profile: ProcessingProfileSettings) -> UploadPipeline:
     store = default_store_provider(collection=profile.collection)
     ingestor = default_ingestor_provider(collection=profile.collection, config=profile.ingestor_config)
 
-    return UploadPipeline(store=store, ingestor=ingestor, parser=parser, extract_config=profile.extract_config)
+    return UploadPipeline(store=store, ingestor=ingestor, parser=parser)
 
 
 def get_upload_service(profile_name: str | None = None) -> UploadService:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 from tenauth.schemas import AccessContext
 
@@ -18,7 +18,7 @@ from app.services.factory import get_profile_settings, get_upload_service
 from app.worker.dispatcher import enqueue_upload_processing
 
 from ..file import TemporaryUploadFile
-from ..utils import check_file_type_size, parse_hints_from_any
+from ..utils import check_file_type_size
 
 router = APIRouter(prefix='/v1')
 
@@ -35,7 +35,6 @@ router = APIRouter(prefix='/v1')
 )
 async def upload_document(
     file: Annotated[UploadFile, File(description='Document to upload (PDF, DOCX, etc.)')],
-    hints: Annotated[str | None, Form(description='Optional hints for document parsing')] = None,
     upload_service: UploadServiceProtocol = Depends(get_upload_service),
     config: ProcessingProfileSettings = Depends(get_profile_settings),
     session: AsyncSession = Depends(access_scoped_session),
@@ -49,30 +48,25 @@ async def upload_document(
     Request format:
     - multipart/form-data with two parts:
       - `file`: the document (PDF, DOCX, etc.)
-      - `hints` (optional): JSON part with Content-Type `application/json` matching `UploadHints`
-        - Discriminator field: `strategy` → `finance_report` or `noop`
 
     Size limits:
     - Files larger than 50 MB are rejected with HTTP 413
+    - Optional `hints` form field is accepted for backwards compatibility but ignored
     """
 
     await check_file_type_size(file, config=config)
 
-    hints_model = parse_hints_from_any(hints)
     tmp_file = TemporaryUploadFile.from_upload(file)
 
-    upload_input = StartUploadInput(
-        file=tmp_file,
-        hints=hints_model,
-    )
+    upload_input = StartUploadInput(file=tmp_file)
     response = await upload_service.initiate_document_intake(session, payload=upload_input)
 
     job_kwargs = {
-        **upload_input.model_dump(),
+        'file': upload_input.file,
         'job_id': response.job_id,
         'document_id': response.document_id,
         'digest': response.digest,
-        'access_context': AccessContext.from_session(session).model_dump(),
+        'access_context': AccessContext.from_session(session),
     }
 
     job_input = ContinueProcessingInput(**job_kwargs)

@@ -4,7 +4,6 @@ from typing import Dict
 
 from pydantic import BaseModel
 
-from app.metadata.config import ExtractConfig
 from app.parsers.docling import DoclingParserConfig
 from app.parsers.schemas import ParserConfig
 from app.vector.models import IngestorSettings
@@ -27,8 +26,6 @@ class ProcessingProfileSettings(BaseModel):
 
     parser: str = 'docling'
     parser_config: ParserConfig = DoclingParserConfig()
-
-    extract_config: ExtractConfig = ExtractConfig()
 
 
 PROFILE_REGISTRY: Dict[str, ProcessingProfileSettings] = {}

@@ -1,46 +1,36 @@
-from __future__ import annotations
-
-import json
+import io
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
 
-from app.api.utils import parse_hints_from_any
-from app.metadata.schemas import FinanceReportHints, NoopHints
+from app.api.utils import check_file_type_size
+from app.profiles.registry import ProcessingProfileSettings
 
 
-def test_parse_hints_empty_string_returns_noop():
-    hints = parse_hints_from_any('')
-    assert isinstance(hints, NoopHints)
+@pytest.mark.asyncio
+async def test_check_file_type_size_allows_supported_type():
+    config = ProcessingProfileSettings()
+    file = SimpleNamespace(content_type='application/pdf', file=io.BytesIO(b'abc'))
+
+    await check_file_type_size(file, config=config)
 
 
-def test_parse_hints_json_string_finance():
-    raw = {
-        'strategy': 'finance_report',
-        'company': 'Globex',
-        'document_type': '10-Q',
-        'financial_year': 2023,
-    }
-    hints = parse_hints_from_any(json.dumps(raw))
-    assert isinstance(hints, FinanceReportHints)
-    assert hints.company == 'Globex'
-    assert hints.document_type == '10-Q'
-    assert hints.financial_year == 2023
+@pytest.mark.asyncio
+async def test_check_file_type_size_rejects_unsupported_type():
+    config = ProcessingProfileSettings()
+    file = SimpleNamespace(content_type='image/png', file=io.BytesIO(b'abc'))
 
-
-def test_parse_hints_unknown_strategy_raises_422():
-    raw = {'strategy': 'unknown'}
     with pytest.raises(HTTPException) as exc:
-        parse_hints_from_any(json.dumps(raw))
-    err = exc.value
-    assert err.status_code == 422
-    assert 'Invalid hints' in str(err.detail)
+        await check_file_type_size(file, config=config)
+    assert exc.value.status_code == 415
 
 
-def test_parse_hints_malformed_json_raises_422():
-    bad_json = '{this is not: valid json]'
+@pytest.mark.asyncio
+async def test_check_file_type_size_rejects_large_files():
+    config = ProcessingProfileSettings(max_upload_size=2)
+    file = SimpleNamespace(content_type='application/pdf', file=io.BytesIO(b'abcde'))
+
     with pytest.raises(HTTPException) as exc:
-        parse_hints_from_any(bad_json)
-    err = exc.value
-    assert err.status_code == 422
-    assert 'Invalid hints' in str(err.detail)
+        await check_file_type_size(file, config=config)
+    assert exc.value.status_code == 413

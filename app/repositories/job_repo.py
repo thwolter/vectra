@@ -25,15 +25,12 @@ class JobRepository:
             raise RecordNotFoundError(f'Document {job.document_id} not found')
 
         access_ctx = AccessContext.from_session(session)
-        proposed_metadata = job.proposed_metadata.model_dump(mode='json') if job.proposed_metadata else None
-
         record = JobRecord(
             created_by=access_ctx.user_id,
             tenant_id=access_ctx.tenant_id,
             status=job.status.value,
             percent=job.percent,
             step=job.step,
-            proposed_metadata=proposed_metadata,
             document_id=job.document_id,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),

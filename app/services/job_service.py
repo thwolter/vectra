@@ -6,21 +6,13 @@ from uuid import UUID
 from asyncpg import UniqueViolationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.metadata.schemas import ProposedMetadata
-from app.metadata.utils import merge_metadata
-from app.repositories import EmbeddingsRepository, JobRepository
+from app.repositories import JobRepository
 from app.repositories.exceptions import RecordNotFoundError
 from app.repositories.models import IngestionRecord, JobRecord
 from app.repositories.schemas import JobCreate, JobUpdate
-from app.schemas.upload import (
-    JobProgress,
-    JobReviewPayload,
-    JobReviewResponse,
-    JobStatus,
-    JobStatusResponse,
-)
+from app.schemas.upload import JobProgress, JobStatus, JobStatusResponse
 
-from .utils import assert_job_needs_review, normalise_progress
+from .utils import normalise_progress
 
 
 class JobService:
@@ -31,7 +23,7 @@ class JobService:
     - Progress clamping and monotonicity
     - Valid status transitions
     - Failure recording helper
-    - Typed get_status with ProposedMetadata rehydration
+    - Typed get_status
     """
 
     # Status transitions
@@ -56,7 +48,6 @@ class JobService:
             percent=0,
             step='hash',
             document_id=job.document_id,
-            proposed_metadata=job.proposed_metadata,
         )
         return await self.repo.create(session, job=create)
 
@@ -85,7 +76,6 @@ class JobService:
         *,
         job_id: UUID,
         status: JobStatus,
-        proposed_metadata: ProposedMetadata | None = None,
         percent: int | None = None,
         step: str | None = None,
     ) -> None:
@@ -102,7 +92,6 @@ class JobService:
             status=status,
             percent=norm_percent,
             step=norm_step,
-            proposed_metadata=proposed_metadata,
         )
         await self.repo.update(session, job=data)
 
@@ -130,16 +119,11 @@ class JobService:
         except RecordNotFoundError:
             return JobStatusResponse.job_not_found(job_id=job_id)
 
-        assert job.proposed_metadata is not None, 'proposed_metadata must be set on job'
-
-        metadata = ProposedMetadata.model_validate(job.proposed_metadata)
-
         return JobStatusResponse(
             job_id=job.id,
             status=JobStatus(job.status),
             progress=JobProgress(percent=job.percent, step=job.step),
             original_filename=job.document.original_filename,
-            proposed_metadata=metadata,
             warnings=list(job.warnings or []),
             errors=list(job.errors or []),
         )
@@ -153,7 +137,6 @@ class JobService:
         session: AsyncSession,
         *,
         document_id: UUID,
-        proposed_metadata: ProposedMetadata,
     ) -> Tuple[JobRecord, bool]:
         if job := await self.get_pending_job(session, document_id=document_id):
             return job, False
@@ -162,7 +145,6 @@ class JobService:
                 session,
                 job=JobCreate(
                     document_id=document_id,
-                    proposed_metadata=proposed_metadata,
                 ),
             )
             return job, True
@@ -172,28 +154,6 @@ class JobService:
                 return job, False
             else:
                 raise ValueError(f'No active job found for document {document_id}')
-
-    async def review_job(self, session: AsyncSession, *, job_id: UUID, payload: JobReviewPayload) -> JobReviewResponse:
-        # Only allow review when the job is awaiting human review
-        job = await self.repo.get(session, job_id=job_id)
-        await assert_job_needs_review(job)
-        if not job.ingestion:
-            raise ValueError('Job must have an associated ingestion record')
-
-        status = JobStatus.COMPLETED if payload.confirm else JobStatus(job.status)
-
-        if payload.corrections:
-            metadata = merge_metadata(current=job.proposed_metadata, adjustments=payload.corrections)
-            await EmbeddingsRepository.update_metadata(
-                session,
-                digest=job.ingestion.digest,
-                collection=job.ingestion.collection,
-                metadata=metadata.model_dump(exclude_unset=True),
-            )
-            await self.update_status(session, job_id=job_id, status=status, proposed_metadata=metadata)
-        else:
-            await self.update_status(session, job_id=job_id, status=status)
-        return JobReviewResponse(job_id=job_id, status=status)
 
     async def delete_job(self, session: AsyncSession, *, job_id: UUID) -> bool:
         """Delete a job by job_id."""

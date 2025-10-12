@@ -10,8 +10,8 @@ from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import access_scoped_session_ctx
-from app.metadata.base import Strategy
-from app.repositories.schemas import DocumentCreate, JobCreate
+from app.repositories import IngestionRepository, JobRepository
+from app.repositories.schemas import DocumentCreate, IngestionVersion, JobCreate
 from app.schemas.jobs import JobCtx
 from app.schemas.upload import (
     ContinueProcessingInput,
@@ -62,27 +62,41 @@ class UploadService:
             ),
         )
 
-        # Prepare proposed metadata once (used only when creating a fresh job)
-        strategy: Strategy = Strategy.from_hints(payload.hints)
-        proposed_metadata = strategy.proposed_metadata()
-
         if created:
             # New document -> always create a new job
             job = await self.job_service.init_job(
                 session,
                 job=JobCreate(
                     document_id=document.id,
-                    proposed_metadata=proposed_metadata,
                 ),
             )
         else:
-            # Existing document: try to reuse a still-active job (enforced by partial unique index)
-            job, created = await self.job_service.get_pending_or_create(
-                session,
-                document_id=document.id,
-                proposed_metadata=proposed_metadata,
-            )
-            already_running = created
+            job = await self.job_service.get_pending_job(session, document_id=document.id)
+            already_running = job is not None
+
+            if not job:
+                fingerprint = IngestionVersion.from_settings(collection=self.collection).fingerprint()
+                ingestion = await IngestionRepository.find(
+                    session,
+                    fingerprint=fingerprint,
+                    collection=self.collection,
+                    digest=digest,
+                )
+
+                if ingestion:
+                    already_running = True
+                    if ingestion.job_id:
+                        try:
+                            job = await JobRepository.get(session, job_id=ingestion.job_id)
+                        except Exception:
+                            job = None
+                if not job:
+                    job = await self.job_service.init_job(
+                        session,
+                        job=JobCreate(
+                            document_id=document.id,
+                        ),
+                    )
 
         return UploadInitResponse(
             job_id=job.id,
@@ -120,21 +134,10 @@ class UploadService:
         async with access_scoped_session_ctx(payload.access_context) as session:
             steps: list[_Step] = [
                 _Step(10, 'store_original', pipeline.store_original),
-                _Step(20, 'parse', pipeline.parse_document),
+                _Step(30, 'parse', pipeline.parse_document),
                 _Step(50, 'store_markdown', pipeline.store_markdown),
-                _Step(60, 'prepare_metadata', pipeline.enrich_docs_metadata),
                 _Step(70, 'ingest', partial(pipeline.ingest_documents, session=session)),
-                _Step(80, 'extract_metadata', partial(pipeline.extract_metadata, session=session)),
-                _Step(
-                    90,
-                    'ensure_metadata',
-                    partial(pipeline.persist_metadata, session=session, update_embeddings=False),
-                ),
-                _Step(
-                    95,
-                    'update_s3_uris',
-                    partial(pipeline.update_document_uris, session=session),
-                ),
+                _Step(90, 'update_s3_uris', partial(pipeline.update_document_uris, session=session)),
             ]
 
             for s in steps:
@@ -143,11 +146,9 @@ class UploadService:
                     return
                 ctx = result
 
-            job_status = JobStatus.NEEDS_REVIEW if ctx.needs_review else JobStatus.COMPLETED
             await self.job_service.update_status(
                 session,
                 job_id=job_id,
-                status=job_status,
-                proposed_metadata=ctx.proposed_metadata,
+                status=JobStatus.COMPLETED,
             )
             logger.success(f'Finalized job {job_id}')

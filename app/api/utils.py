@@ -1,26 +1,10 @@
 from __future__ import annotations
 
-import json
-
 from fastapi import HTTPException
 from loguru import logger
-from pydantic import TypeAdapter, ValidationError
 from starlette import status
 
-from app.metadata.schemas import NoopHints
 from app.profiles.registry import ProcessingProfileSettings
-from app.schemas.upload import UploadHints
-
-
-def parse_hints_from_any(hints_raw: str | None) -> UploadHints:
-    if hints_raw is None or hints_raw == '':
-        return NoopHints()
-    try:
-        hints_dict = json.loads(hints_raw)
-        upload_hints_adapter = TypeAdapter(UploadHints)
-        return upload_hints_adapter.validate_python(hints_dict)
-    except (ValueError, ValidationError) as e:
-        raise HTTPException(status_code=422, detail=f'Invalid hints: {e}')
 
 
 async def check_file_type_size(file, *, config: ProcessingProfileSettings):

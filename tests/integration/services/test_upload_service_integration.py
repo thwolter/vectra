@@ -2,11 +2,12 @@ import pytest
 from tenauth.schemas import AccessContext
 
 from app.api.file import TemporaryUploadFile
-from app.metadata.schemas import FinanceReportHints
 from app.repositories import EmbeddingsRepository, JobRepository
 from app.schemas.enums import CollectionEnum
 from app.schemas.upload import ContinueProcessingInput, JobStatus, StartUploadInput
 from app.services.factory import get_job_service
+
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
@@ -14,16 +15,14 @@ async def job_uploaded(session, apple_report_first_page_upload, upload_service):
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
     service = upload_service
 
-    hints = FinanceReportHints(company='Acme Corp', document_type='10-K', financial_year=2024)
-    init = await service.initiate_document_intake(session, payload=StartUploadInput(file=file, hints=hints))
+    init = await service.initiate_document_intake(session, payload=StartUploadInput(file=file))
     await service.continue_processing(
         payload=ContinueProcessingInput(
-            hints=hints,
             job_id=init.job_id,
             document_id=init.document_id,
             digest=init.digest,
             file=file,
-            access_context=AccessContext.from_session(session).model_dump(),
+            access_context=AccessContext.from_session(session),
         ),
     )
     yield init, file
@@ -45,13 +44,12 @@ async def test_init_upload_end_to_end_uses_database(session, job_uploaded):
     exists = await EmbeddingsRepository.exists(session, digest=digest, collection=CollectionEnum.DEFAULT.value)
     assert exists, 'Expected embeddings to exist in DB for the uploaded document'
 
-    # Assert embeddings metadata contains the enriched finance report fields
+    # Assert embeddings metadata contains required identifiers
     all_md = await EmbeddingsRepository.get_metadata(session, digest=digest, collection=CollectionEnum.DEFAULT.value)
     assert all_md, 'Expected to retrieve embeddings metadata for the uploaded document'
 
     # Every chunk should have the same document-level metadata applied
-    for md in all_md:
+    chunk_metadata = [md for md in all_md if 'chunk_id' in md]
+    assert chunk_metadata, 'Expected at least one chunk metadata entry with chunk_id'
+    for md in chunk_metadata:
         assert md.get('digest') == digest
-        assert md.get('company') == 'Acme Corp'
-        assert md.get('document_type') == '10-K'
-        assert md.get('financial_year') == 2024

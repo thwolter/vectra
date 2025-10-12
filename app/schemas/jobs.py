@@ -6,7 +6,6 @@ from uuid import UUID
 from langchain_core.documents import Document
 
 from app.api.file import TemporaryUploadFile
-from app.metadata.schemas import FinanceReportHints, NoopHints, ProposedMetadata
 from app.utils.types import SHA256B64
 
 
@@ -22,7 +21,6 @@ class JobCtx:
     job_id: UUID
     collection: str
     file: TemporaryUploadFile
-    hints: FinanceReportHints | NoopHints
 
     # Hashes/identifiers
     document_id: UUID
@@ -34,7 +32,3 @@ class JobCtx:
     docs: list[Document] = field(default_factory=list)
     markdown_text: str | None = None
     skip_embed: bool | None = None
-
-    metadata: dict | None = None
-    proposed_metadata: ProposedMetadata | None = None
-    needs_review: bool | None = False

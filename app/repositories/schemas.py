@@ -7,7 +7,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.metadata.schemas import ProposedMetadata
 from app.schemas.upload import JobStatus
 from app.utils.types import SHA256B64
 from app.vector.models import IngestorSettings
@@ -38,7 +37,6 @@ class JobCreate(BaseModel):
     percent: int = Field(default=0)
     step: str | None = Field(default=None)
     document_id: UUID
-    proposed_metadata: ProposedMetadata | None = None
 
 
 class JobUpdate(BaseModel):
@@ -49,7 +47,6 @@ class JobUpdate(BaseModel):
     status: JobStatus | None = None
     percent: int | None = None
     step: str | None = None
-    proposed_metadata: ProposedMetadata | None = None
 
 
 class IngestionVersion(BaseModel):

@@ -22,17 +22,7 @@ async def test_job_service_lifecycle_persists_in_db(digest_random, session, job_
     st2 = await service.get_status(session=session, job_id=job_id)
     assert st2.progress.percent >= 50
 
-    # Valid transitions: processing -> needs_review -> completed
-    await service.update_status(
-        session,
-        job_id=job_id,
-        status=JobStatus.NEEDS_REVIEW,
-        percent=80,
-        step='extract-meta',
-    )
-    st3 = await service.get_status(session=session, job_id=job_id)
-    assert st3.status == JobStatus.NEEDS_REVIEW
-
+    # Valid transitions: processing -> completed
     await service.update_status(session, job_id=job_id, status=JobStatus.COMPLETED, percent=100, step='finalize')
     st4 = await service.get_status(session=session, job_id=job_id)
     assert st4.status == JobStatus.COMPLETED
