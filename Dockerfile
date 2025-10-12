@@ -14,7 +14,7 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 # Only runtime libs here
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      libpq5 ca-certificates git \
+      libpq5 ca-certificates git curl wget \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
