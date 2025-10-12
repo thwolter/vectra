@@ -1,10 +1,8 @@
-import pickle
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import pytest
-from langchain_core.documents import Document
 from pydantic import SecretStr
 
 from app.core.config import get_settings
@@ -14,7 +12,6 @@ from tests.support.profiles import TestProcessingProfile, ensure_test_profile
 pytest_plugins = [
     'tests.fixtures.session',
     'tests.fixtures.client',
-    'tests.fixtures.vector',
     'tests.fixtures.jobs',
     'tests.fixtures.digest',
     'tests.fixtures.data',
@@ -79,14 +76,6 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if 'integration' in item.keywords:
                 item.add_marker(skip_integration)
-
-
-@pytest.fixture
-def sample_documents() -> List[Document]:
-    """Load sample documents from pickle file."""
-    sample_path = Path(__file__).parents[0] / 'data' / 'sample_docs.pkl'
-    with open(sample_path, 'rb') as f:
-        return pickle.load(f)
 
 
 def pytest_runtest_setup(item: pytest.Item):

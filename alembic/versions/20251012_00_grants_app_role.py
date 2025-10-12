@@ -15,12 +15,12 @@ from typing import Final
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: Final[str] = "20251012_00_grants_app_role"
-down_revision: Final[str] = "20250929_01_vec_tenant_rls"
+revision: Final[str] = '20251012_00_grants_app_role'
+down_revision: Final[str] = '20250929_01_vec_tenant_rls'
 branch_labels = None
 depends_on = None
 
-APP_SCHEMA: Final[str] = "vecapi"
+APP_SCHEMA: Final[str] = 'vecapi'
 
 
 def _derive_app_role() -> str:
@@ -31,17 +31,17 @@ def _derive_app_role() -> str:
     2) Username parsed from POSTGRES_URL env var
     3) Fallback to 'vecapi_app'
     """
-    explicit = os.getenv("APP_DB_USER")
+    explicit = os.getenv('APP_DB_USER')
     if explicit:
         return explicit
 
-    pg_url = os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL")
+    pg_url = os.getenv('POSTGRES_URL') or os.getenv('DATABASE_URL')
     if pg_url:
         # crude parse: scheme://user:pass@host/db
-        m = re.match(r"^[a-z+]+://([^:@/]+)", pg_url)
+        m = re.match(r'^[a-z+]+://([^:@/]+)', pg_url)
         if m:
             return m.group(1)
-    return "vecapi_app"
+    return 'vecapi_app'
 
 
 def upgrade() -> None:
@@ -50,23 +50,21 @@ def upgrade() -> None:
     quoted_role = '"' + role.replace('"', '""') + '"'
 
     # Ensure schema exists (no-op if already created by prior migration)
-    op.execute(f"CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA}")
+    op.execute(f'CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA}')
 
     # Grant schema usage
-    op.execute(f"GRANT USAGE ON SCHEMA {APP_SCHEMA} TO {quoted_role}")
+    op.execute(f'GRANT USAGE ON SCHEMA {APP_SCHEMA} TO {quoted_role}')
 
     # Grant DML on all existing tables in schema and default privileges for future tables
+    op.execute(f'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {APP_SCHEMA} TO {quoted_role}')
     op.execute(
-        f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {APP_SCHEMA} TO {quoted_role}"
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA {APP_SCHEMA} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {quoted_role}"
+        f'ALTER DEFAULT PRIVILEGES IN SCHEMA {APP_SCHEMA} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {quoted_role}'
     )
 
     # Grant sequence usage if any
-    op.execute(f"GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA {APP_SCHEMA} TO {quoted_role}")
+    op.execute(f'GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA {APP_SCHEMA} TO {quoted_role}')
     op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA {APP_SCHEMA} GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {quoted_role}"
+        f'ALTER DEFAULT PRIVILEGES IN SCHEMA {APP_SCHEMA} GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {quoted_role}'
     )
 
 

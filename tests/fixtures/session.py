@@ -3,12 +3,16 @@ import uuid
 from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from dotenv import dotenv_values
 from tenauth.schemas import AccessContext, AuthContext
 
-from app.core.dependencies import access_scoped_session, require_access_context, require_auth
+from alembic import command
+from alembic.config import Config
+from app.core.dependencies import (
+    access_scoped_session,
+    require_access_context,
+    require_auth,
+)
 from app.main import app
 
 # --- test helpers ------------------------------------------------------------
@@ -77,8 +81,9 @@ async def _init_db_schema():
         command.upgrade(alembic_cfg, 'head')
     else:
         # Followers wait until schema is ready
-        from app.core.database import DatabaseManager as _DB
         import asyncio as _asyncio
+
+        from app.core.database import DatabaseManager as _DB
 
         _db_wait = _DB()
         for _ in range(120):  # up to ~60s
