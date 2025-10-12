@@ -4816,8 +4816,8 @@ wheels = [
 
 [[package]]
 name = "tenauth"
-version = "0.1.0"
-source = { git = "https://github.com/thwolter/fde-tenauth.git?rev=main#365649b02921656e213dfc407af4ba4e075e47bc" }
+version = "0.1.2"
+source = { git = "https://github.com/thwolter/fde-tenauth.git?rev=main#a55ff3086516a0c61151dfe3ab5e1471007c1670" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },

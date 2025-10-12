@@ -13,6 +13,7 @@ from tests.helper import make_client_financial, make_files_param
 
 def _poll_job(client: TestClient, job_id: str, *, timeout: float = 90.0, interval: float = 0.5) -> str:
     deadline = time.time() + timeout
+    status: str = 'unknown'
     while time.time() < deadline:
         rs = client.get(f'/api/v1/jobs/{job_id}')
         rs.raise_for_status()

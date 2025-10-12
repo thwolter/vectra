@@ -22,11 +22,11 @@ from app.utils.types import SHA256B64
 
 
 class BaseSQLModel(SQLModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, from_attributes=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, from_attributes=True)  # type: ignore[bad-override]
 
 
 class DocumentRecord(BaseSQLModel, table=True):
-    __tablename__ = 'documents'
+    __tablename__ = 'documents'  # type: ignore[bad-argument-type]
     __table_args__ = (
         UniqueConstraint(
             'tenant_id',
@@ -72,7 +72,7 @@ class DocumentRecord(BaseSQLModel, table=True):
 
 
 class JobRecord(BaseSQLModel, table=True):
-    __tablename__ = 'upload_jobs'
+    __tablename__ = 'upload_jobs'  # type: ignore[bad-argument-type]
     __table_args__ = (
         Index(
             'uq_active_job_per_doc',
@@ -116,7 +116,7 @@ class JobRecord(BaseSQLModel, table=True):
 
 
 class IngestionRecord(BaseSQLModel, table=True):
-    __tablename__ = 'ingestion_versions'
+    __tablename__ = 'ingestion_versions'  # type: ignore[bad-argument-type]
     __table_args__ = (
         UniqueConstraint(
             'tenant_id',

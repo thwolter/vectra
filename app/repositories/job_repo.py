@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any, cast
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy import or_
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from tenauth.schemas import AccessContext
@@ -92,7 +92,7 @@ class JobRepository:
     async def get_for_fingerprint(session: AsyncSession, *, document_id: UUID, fingerprint: str) -> JobRecord | None:
         stmt = (
             select(JobRecord)
-            .join(IngestionRecord, onclause=JobRecord.id == IngestionRecord.job_id)
+            .join(IngestionRecord, IngestionRecord.job_id == JobRecord.id)  # type: ignore[bad-argument-type]
             .where(
                 JobRecord.document_id == document_id,
                 IngestionRecord.fingerprint == fingerprint,
@@ -112,10 +112,7 @@ class JobRepository:
         statuses = [s.value for s in JOBS_PENDING]
         stmt = select(JobRecord).where(
             JobRecord.document_id == document_id,
-            or_(
-                JobRecord.status == statuses[0],
-                JobRecord.status == statuses[1],
-            ),
+            cast(Any, JobRecord.status).in_(tuple(statuses)),
         )
         res = await session.exec(stmt)
         return res.first()

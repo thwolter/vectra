@@ -6,6 +6,7 @@ from typing import List, Optional, TypedDict
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda
 from langchain_core.vectorstores import VectorStore
 from langgraph.graph import END, StateGraph
 
@@ -45,7 +46,7 @@ def _search_params(attempt: int) -> dict:
     }[str(attempt)]
 
 
-def make_retrieve_node(vs: VectorStore):
+def make_retrieve_node(vs: VectorStore) -> RunnableLambda:
     async def _retrieve(state: ExtractState) -> ExtractState:
         # If we are coming back from a RETRY route, bump the attempt counter
         if state.get('route') == RouteEnum.RETRY:
@@ -59,10 +60,10 @@ def make_retrieve_node(vs: VectorStore):
         )
         return state
 
-    return _retrieve
+    return RunnableLambda(_retrieve)
 
 
-def make_extract_node(llm: BaseChatModel, strategy: Strategy):
+def make_extract_node(llm: BaseChatModel, strategy: Strategy) -> RunnableLambda:
     async def _extract(state: ExtractState) -> ExtractState:
         if not state.get('docs'):
             # Ensure callers always see a structured payload with the expected keys
@@ -87,10 +88,10 @@ def make_extract_node(llm: BaseChatModel, strategy: Strategy):
         state['metadata'] = ProposedMetadata(metadata=llm_result.model_dump())
         return state
 
-    return _extract
+    return RunnableLambda(_extract)
 
 
-def make_assess_node(strategy: Strategy):
+def make_assess_node(strategy: Strategy) -> RunnableLambda:
     async def _assess(state: ExtractState) -> ExtractState:
         result = strategy.assess_quality(metadata=state['metadata'], docs=state['docs'])
         state['score'] = result.score
@@ -104,7 +105,7 @@ def make_assess_node(strategy: Strategy):
             )
         return state
 
-    return _assess
+    return RunnableLambda(_assess)
 
 
 # Router edge selector (LangGraph "routing" pattern).  [oai_citation:6‡LangChain AI](https://langchain-ai.github.io/langgraph/tutorials/workflows/?utm_source=chatgpt.com)
@@ -112,7 +113,7 @@ def route_fn(state: ExtractState) -> RouteEnum:
     return state.get('route', RouteEnum.FAIL)
 
 
-def build_extract_graph(vs: VectorStore, llm: BaseChatModel, strategy):
+def build_extract_graph(vs: VectorStore, llm: BaseChatModel, strategy: Strategy):
     g = StateGraph(ExtractState)
 
     g.add_node('retrieve', make_retrieve_node(vs))
