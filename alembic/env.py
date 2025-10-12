@@ -34,11 +34,11 @@ target_metadata = SQLModel.metadata
 
 def _collect_env() -> dict[str, str]:
     merged: dict[str, str] = {}
-    for candidate in (_PROJECT_ROOT / '.env.migration', _PROJECT_ROOT / '.env'):
-        if candidate.exists():
-            for key, value in dotenv_values(candidate).items():
-                if value is not None:
-                    merged[key] = value
+    candidate = _PROJECT_ROOT / '.env'
+    if candidate.exists():
+        for key, value in dotenv_values(candidate).items():
+            if value is not None:
+                merged[key] = value
     return merged
 
 
@@ -51,10 +51,11 @@ def _normalize_sync_url(url: str) -> str:
 
 
 env_values = _collect_env()
+
 alembic_url = env_values.get('ALEMBIC_DATABASE_URL') or os.getenv('ALEMBIC_DATABASE_URL')
 if alembic_url is None:
     raise RuntimeError(
-        'ALEMBIC_DATABASE_URL must be defined in .env.migration, .env, or the environment for Alembic migrations.'
+        'ALEMBIC_DATABASE_URL must be defined in .env, or the environment for Alembic migrations.'
     )
 
 config.set_main_option('sqlalchemy.url', _normalize_sync_url(alembic_url))

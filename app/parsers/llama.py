@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any, List, Protocol
 
 from langchain_core.documents import Document
@@ -20,10 +21,16 @@ class LlamaParserConfig(ParserConfig):
         Output format produced by LlamaParse. Common values: 'markdown', 'text'.
     use_ocr: bool
         Whether to enable OCR for scanned PDFs.
+    heading_chunking_enabled: bool
+        If True, split markdown output into semantic chunks by section headings.
+    min_heading_level: int
+        Minimum markdown heading level to split on (e.g., 2 splits on '##' and deeper).
     """
 
     result_type: str = 'markdown'
     use_ocr: bool = True
+    heading_chunking_enabled: bool = True
+    min_heading_level: int = 2
 
 
 class LoaderProtocol(Protocol):
@@ -96,6 +103,55 @@ class LlamaParser:
 
             self.loader = _factory
 
+    @staticmethod
+    def _split_markdown_by_headings(text: str, min_level: int = 2) -> list[tuple[int, str, str]]:
+        """Split markdown text into sections by headings.
+
+        Returns a list of tuples: (heading_level, heading_title, section_text)
+        where section_text includes the heading line followed by its content until
+        the next heading of same or higher level.
+        """
+        if not text:
+            return []
+
+        # Find all headings
+        pattern = re.compile(r"^(#{1,6})[ \t]+(.+)$", re.MULTILINE)
+        # Only split on the specified heading level (e.g., H2) so deeper subsections stay within their parent
+        matches = [m for m in pattern.finditer(text) if len(m.group(1)) == min_level]
+        if not matches:
+            return []
+
+        sections: list[tuple[int, str, str]] = []
+        for idx, m in enumerate(matches):
+            level = len(m.group(1))
+            title = m.group(2).strip()
+            start = m.start()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            section_text = text[start:end].rstrip()
+            sections.append((level, title, section_text))
+        return sections
+
+    def _chunk_documents_by_headings(self, docs: List[Document]) -> List[Document]:
+        new_docs: List[Document] = []
+        section_count = 0
+        for doc in docs:
+            text = doc.page_content or ""
+            parts = self._split_markdown_by_headings(text, self.config.min_heading_level)
+            if not parts:
+                new_docs.append(doc)
+                continue
+            for i, (level, title, content) in enumerate(parts):
+                md = dict(doc.metadata)
+                md.update({
+                    'parser': 'LlamaParser',
+                    'section_index': section_count,
+                    'section_title': title,
+                    'section_level': level,
+                })
+                new_docs.append(Document(page_content=content, metadata=md))
+                section_count += 1
+        return new_docs
+
     async def parse(self, file: str) -> ParseResult:
         if not Path(file).exists():
             raise ValueError(f'File not found: {file}')
@@ -110,6 +166,19 @@ class LlamaParser:
                 for doc in docs:
                     # Ensure parser metadata is set in case custom loader omitted it
                     doc.metadata.update({'parser': 'LlamaParser'})
+
+            # Apply semantic chunking by headings for markdown outputs
+            if self.config.heading_chunking_enabled and self.config.result_type.lower() == 'markdown':
+                try:
+                    chunked = self._chunk_documents_by_headings(docs)
+                    if len(chunked) != len(docs):
+                        logger.debug(
+                            'LlamaParser: heading chunking split %d -> %d chunks',
+                            len(docs), len(chunked),
+                        )
+                    docs = chunked
+                except Exception as e:
+                    logger.warning(f'LlamaParser: heading chunking skipped due to error: {e}')
 
             self._parsed_docs = docs
             return ParseResult(documents=docs)

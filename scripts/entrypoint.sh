@@ -16,6 +16,7 @@ run_migrations() {
     return 0
   fi
 
+
   echo "[entrypoint] Running database migrations (alembic upgrade head)"
   local max_retries=10
   local attempt=1
