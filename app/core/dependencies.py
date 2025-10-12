@@ -6,9 +6,10 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 from uuid import UUID
 
+import tenauth.fastapi
+import tenauth.session
 from sqlmodel.ext.asyncio.session import AsyncSession
-import tenauth
-from tenauth import AccessContext, build_access_scoped_session_dependency
+from tenauth.schemas import AccessContext
 
 from app.core.database import DatabaseManager
 
@@ -29,14 +30,10 @@ def get_database_manager() -> DatabaseManager:
     return mgr
 
 
-require_auth = tenauth.require_auth
-require_access_context = tenauth.require_access_context
-
-
 async def apply_access_context(session: AsyncSession, *, tenant_id: UUID, user_id: UUID) -> None:
     """Compatibility wrapper that delegates to the shared access context applicator."""
     ctx = AccessContext(tenant_id=tenant_id, user_id=user_id)
-    await tenauth.apply_access_context(session, access_context=ctx)
+    await tenauth.session.apply_access_context(session, access_context=ctx)
 
 
 @asynccontextmanager
@@ -48,7 +45,7 @@ async def access_scoped_session_ctx(
     Use this in background tasks and services: `async with access_scoped_session_ctx(ctx) as session:`
     """
     db = get_database_manager()
-    async with tenauth.access_scoped_session_ctx(
+    async with tenauth.session.access_scoped_session_ctx(
         session_factory=db.get_session,
         access_context=access_context,
     ) as session:
@@ -59,7 +56,11 @@ def _session_factory():
     return get_database_manager().get_session()
 
 
-access_scoped_session = build_access_scoped_session_dependency(_session_factory)
+require_auth = tenauth.fastapi.require_auth
+require_access_context = tenauth.fastapi.require_access_context
+
+
+access_scoped_session = tenauth.fastapi.build_access_scoped_session_dependency(_session_factory)
 
 
 __all__ = [

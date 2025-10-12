@@ -4,9 +4,9 @@ from uuid import UUID
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
+from tenauth.tenancy import dsn_with_tenant
 
 from app.core.config import get_settings
-from tenauth.tenancy import dsn_with_tenant
 from app.vector.models import IngestorSettings
 
 settings = get_settings()
