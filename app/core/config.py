@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     admin_email: str = 'support@riskary.de'
 
     default_profile: str = 'default'
+    default_parser: Literal['docling', 'llama', 'test'] = 'docling'
 
     postgres_url: SecretStr
     redis_url: SecretStr

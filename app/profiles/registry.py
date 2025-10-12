@@ -4,7 +4,7 @@ from typing import Dict
 
 from pydantic import BaseModel
 
-from app.parsers.docling import DoclingParserConfig
+from app.core.config import get_settings
 from app.parsers.schemas import ParserConfig
 from app.vector.models import IngestorSettings
 
@@ -25,7 +25,7 @@ class ProcessingProfileSettings(BaseModel):
     ingestor_config: IngestorSettings = IngestorSettings()
 
     parser: str = 'docling'
-    parser_config: ParserConfig = DoclingParserConfig()
+    parser_config: ParserConfig = ParserConfig()
 
 
 PROFILE_REGISTRY: Dict[str, ProcessingProfileSettings] = {}
@@ -55,7 +55,8 @@ def iter_profiles() -> list[ProcessingProfileSettings]:
 register_profile(
     ProcessingProfileSettings(
         name=DEFAULT_PROFILE_NAME,
+        parser=get_settings().default_parser,
         ingestor_config=IngestorSettings(),
-        parser_config=DoclingParserConfig(),
+        parser_config=ParserConfig(),
     )
 )

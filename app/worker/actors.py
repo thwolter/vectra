@@ -77,4 +77,5 @@ def _run_pipeline(payload: dict) -> None:
 )
 def process_upload(payload: dict) -> None:
     """Execute the asynchronous upload pipeline inside a Dramatiq worker."""
+    logger.bind(component='worker').info('WORKER_MESSAGE: received upload job {}', payload['job_id'])
     _run_pipeline(payload)

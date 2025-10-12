@@ -27,7 +27,7 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
    parser = parser_provider(name="llama", config=ParserConfig())
    # or to use custom options for Llama:
    from app.parsers.llama import LlamaParserConfig
-   parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown", use_ocr=True))
+   parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown"))
    ```
 
 4. To make Llama the default across the app, set a profile or configuration in your composition root where the parser provider is selected (e.g., service factory). If your project exposes an environment toggle, use it to choose `llama`. If not, replace `"docling"` with `"llama"` in the parser selection code.
@@ -39,3 +39,18 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
 
 - Llama parser normalizes outputs to LangChain `Document` objects and adds `metadata.parser = "LlamaParser"` for traceability.
 - Docling remains available and can be selected with `name="docling"`.
+
+
+## Switch parser via environment
+
+To switch the default parser globally without code changes, set the environment variable in your `.env`:
+
+```bash
+# Use Docling (default)
+DEFAULT_PARSER=docling
+
+# Or switch to Llama
+DEFAULT_PARSER=llama
+```
+
+The profile registry reads `DEFAULT_PARSER` at startup to register the in-process default profile accordingly. You can still override the parser per-profile by setting the `parser` field in a custom profile configuration.

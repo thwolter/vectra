@@ -27,11 +27,12 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser, follow
 
    ```python
    from app.parsers.llama import LlamaParserConfig
-   parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown", use_ocr=True))
+   parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown"))
    ```
 
 3. Profiles: If your deployment relies on processing profiles, set the profile's `parser` field to `"llama"` (see `app/profiles/registry.py`). The upload pipeline will then instantiate the Llama parser by default.
 
 Notes:
+- You can switch the default parser via environment: set `DEFAULT_PARSER=llama` (or `docling`) in your `.env`. The profile registry reads this at startup when registering the default profile.
 - The app reads `LLAMA_CLOUD_API_KEY` via `settings.llama_cloud_api_key`.
 - The Llama parser normalizes outputs to LangChain `Document` objects and sets `metadata["parser"] = "LlamaParser"`.

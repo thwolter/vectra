@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from functools import partial
 from pathlib import Path
-from typing import List, Protocol, Any
+from typing import Any, List, Protocol
 
 from langchain_core.documents import Document
 from loguru import logger
 
 from app.core.config import get_settings
+
 from .schemas import ParserConfig, ParseResult
 
 
@@ -52,21 +52,20 @@ class LlamaParser:
                 try:
                     from llama_parse import LlamaParse  # type: ignore
                 except Exception as e:  # pragma: no cover - only hit when optional dep missing
-                    raise ImportError(
-                        'llama-parse is not installed. Install with `pip install llama-parse`'
-                    ) from e
+                    raise ImportError('llama-parse is not installed. Install with `pip install llama-parse`') from e
 
                 settings = get_settings()
-                api_key = (
-                    settings.llama_cloud_api_key.get_secret_value()
-                    if settings.llama_cloud_api_key
-                    else None
-                )
+                api_key = settings.llama_cloud_api_key.get_secret_value() if settings.llama_cloud_api_key else None
 
                 parser = LlamaParse(
                     api_key=api_key,
-                    result_type=self.config.result_type,
-                    use_ocr=self.config.use_ocr,
+                    parse_mode="parse_page_with_agent",  # The parsing mode
+                    model="openai-gpt-5-mini",  # The model to use
+                    high_res_ocr=True,  # Whether to use high resolution OCR (slower but more precise)
+                    adaptive_long_table=True,
+                    # Adaptive long table. LlamaParse will try to detect long table and adapt the output
+                    outlined_table_extraction=True,  # Whether to try to extract outlined tables
+                    output_tables_as_HTML=True,  # Whether to output tables as HTML in the markdown output
                 )
 
                 class _AsyncLoader:

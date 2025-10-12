@@ -1,9 +1,7 @@
-from unittest.mock import AsyncMock, create_autospec
-
 import pytest
 from langchain_core.documents import Document
 
-from app.parsers.llama import LlamaParser, LlamaParserConfig, LoaderProtocol
+from app.parsers.llama import LlamaParser, LlamaParserConfig
 from app.parsers.schemas import ParseResult
 
 
