@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from app.core.dependencies import require_access_context, require_auth
 from app.profiles.registry import ProcessingProfileSettings
 from app.schemas.documents import ProfilesResponse
 from app.services.factory import get_profiles_service
 from app.services.profiles_service import ProfilesService
 
-router = APIRouter(prefix='/v1/profiles')
+router = APIRouter(
+    prefix='/v1/profiles',
+    dependencies=[Depends(require_auth), Depends(require_access_context)],
+)
 
 
 @router.get('/', response_model=ProfilesResponse, tags=['profiles'])

@@ -5,12 +5,20 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.dependencies import access_scoped_session
+from app.core.dependencies import (
+    access_scoped_session,
+    require_access_context,
+    require_auth,
+)
 from app.protocols.services import JobServiceProtocol
 from app.schemas.upload import JobStatusResponse
 from app.services.factory import get_job_service
 
-router = APIRouter(prefix='/v1', tags=['jobs'])
+router = APIRouter(
+    prefix='/v1',
+    tags=['jobs'],
+    dependencies=[Depends(require_auth), Depends(require_access_context)],
+)
 
 
 @router.get('/jobs/{job_id}', response_model=JobStatusResponse)

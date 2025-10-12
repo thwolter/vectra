@@ -6,10 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.responses import StreamingResponse
 
+from app.core.dependencies import require_access_context, require_auth
 from app.services.document_service import DocumentService
 from app.services.factory import get_document_service
 
-streaming_router = APIRouter(prefix='/v1/documents')
+streaming_router = APIRouter(
+    prefix='/v1/documents',
+    dependencies=[Depends(require_auth), Depends(require_access_context)],
+)
 
 
 # OpenAPI: declare binary streaming so Swagger UI doesn't try to show JSON

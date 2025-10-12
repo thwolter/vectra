@@ -6,12 +6,19 @@ from fastapi import APIRouter, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.responses import Response
 
-from app.core.dependencies import access_scoped_session
+from app.core.dependencies import (
+    access_scoped_session,
+    require_access_context,
+    require_auth,
+)
 from app.schemas.documents import DocumentListResponse, DocumentResponse
 from app.services.document_service import DocumentService
 from app.services.factory import get_document_service
 
-router = APIRouter(prefix='/v1/documents')
+router = APIRouter(
+    prefix='/v1/documents',
+    dependencies=[Depends(require_auth), Depends(require_access_context)],
+)
 
 
 @router.get('/{document_id}', response_model=DocumentResponse, tags=['documents'])

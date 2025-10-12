@@ -75,6 +75,16 @@ for router, prefix in ROUTERS:
     app.include_router(router, prefix=prefix)
 
 
-@app.get('/health', tags=['health'])
+@app.get('/health', tags=['health'], deprecated=True)
 async def health_check():
     return {'status': 'ok'}
+
+
+@app.get('/healthz', tags=['health'])
+async def healthz():
+    return {'status': 'ok'}
+
+
+@app.get('/readyz', tags=['health'])
+async def readyz():
+    return {'status': 'ready'}

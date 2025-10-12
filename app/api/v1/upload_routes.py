@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 from tenauth.schemas import AccessContext
 
-from app.core.dependencies import access_scoped_session
+from app.core.dependencies import (
+    access_scoped_session,
+    require_access_context,
+    require_auth,
+)
 from app.profiles.registry import ProcessingProfileSettings
 from app.protocols.services import UploadServiceProtocol
 from app.schemas.upload import (
@@ -20,7 +24,10 @@ from app.worker.dispatcher import enqueue_upload_processing
 from ..file import TemporaryUploadFile
 from ..utils import check_file_type_size
 
-router = APIRouter(prefix='/v1')
+router = APIRouter(
+    prefix='/v1',
+    dependencies=[Depends(require_auth), Depends(require_access_context)],
+)
 
 
 @router.post(
