@@ -87,8 +87,10 @@ class Settings(BaseSettings):
         """
         Returns the PostgreSQL database URL for PGVector.
         Converts 'postgres://' to 'postgresql://' if needed.
+        Also trims accidental surrounding whitespace that could lead to
+        invalid database names like "test ".
         """
-        url = self.postgres_url.get_secret_value()
+        url = self.postgres_url.get_secret_value().strip()
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
         return SecretStr(url)

@@ -43,6 +43,8 @@ def _collect_env() -> dict[str, str]:
 
 
 def _normalize_sync_url(url: str) -> str:
+    # Trim accidental whitespace that can produce invalid DB names like "test "
+    url = url.strip()
     if url.startswith('postgres://'):
         url = url.replace('postgres://', 'postgresql://', 1)
     if url.startswith('postgresql+asyncpg://'):
@@ -54,9 +56,7 @@ env_values = _collect_env()
 
 alembic_url = env_values.get('ALEMBIC_DATABASE_URL') or os.getenv('ALEMBIC_DATABASE_URL')
 if alembic_url is None:
-    raise RuntimeError(
-        'ALEMBIC_DATABASE_URL must be defined in .env, or the environment for Alembic migrations.'
-    )
+    raise RuntimeError('ALEMBIC_DATABASE_URL must be defined in .env, or the environment for Alembic migrations.')
 
 config.set_main_option('sqlalchemy.url', _normalize_sync_url(alembic_url))
 

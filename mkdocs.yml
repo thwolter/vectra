@@ -19,13 +19,16 @@ nav:
   - Vectorstore: vector.md
   - RAG Agent: rag.md
   - Dev Guide: dev_guide.md
+  - Observability:
+      - OpenTelemetry: opentelemetry.md
+      - Dramatiq Worker: operations/dramatiq.md
   - Reference:
-    - UploadJobService: upload_job_service.md
-    - Protocols: protocols.md
-    - S3DocumentStore: s3_document_store.md
-    - DocumentIngestor: document_ingestor.md
-    - IngestionService: ingestion_service.md
-    - MetadataRepository: metadata_repository.md
+    - UploadService: reference/upload_service.md
+    - JobService: reference/job_service.md
+    - DocumentService: reference/document_service.md
+    - DocumentIngestor: reference/document_ingestor.md
+    - IngestionRepository: reference/ingestion_repository.md
+    - S3Store: reference/s3_store.md
 markdown_extensions:
   - admonition
   - tables

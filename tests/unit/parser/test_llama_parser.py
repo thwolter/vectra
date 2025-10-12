@@ -44,14 +44,14 @@ async def test_heading_chunking_splits_sections(tiny_pdf):
     """Llama parser should split markdown into chunks by section headings (## and deeper)."""
 
     md = (
-        "# Document Title\n\n"
-        "Intro text that should remain with the first section or be ignored if no H2 exists.\n\n"
-        "## Section One\n"
-        "Content A line 1.\n\n"
-        "### Sub A\n"
-        "Details under sub A.\n\n"
-        "## Section Two\n"
-        "Content B line 1.\n"
+        '# Document Title\n\n'
+        'Intro text that should remain with the first section or be ignored if no H2 exists.\n\n'
+        '## Section One\n'
+        'Content A line 1.\n\n'
+        '### Sub A\n'
+        'Details under sub A.\n\n'
+        '## Section Two\n'
+        'Content B line 1.\n'
     )
 
     loader = _DummyLoader([Document(page_content=md, metadata={'source': 'unit://doc/llama/2'})])

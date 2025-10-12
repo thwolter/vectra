@@ -37,6 +37,8 @@ def _derive_app_role() -> str:
 
     pg_url = os.getenv('POSTGRES_URL') or os.getenv('DATABASE_URL')
     if pg_url:
+        # Trim whitespace to avoid issues like trailing spaces in DB names
+        pg_url = pg_url.strip()
         # crude parse: scheme://user:pass@host/db
         m = re.match(r'^[a-z+]+://([^:@/]+)', pg_url)
         if m:

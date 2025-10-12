@@ -17,9 +17,11 @@ if os.path.isdir(APP_DIR) and APP_DIR not in sys.path:
 # Suppress noisy Pydantic warnings originating from third‑party libraries
 try:
     import warnings
+
     try:  # pydantic v2 exposes specific warning classes
         from pydantic.warnings import UnsupportedFieldAttributeWarning  # type: ignore
     except Exception:  # pragma: no cover - fallback if pydantic internals change
+
         class UnsupportedFieldAttributeWarning(Warning):  # type: ignore
             pass
 

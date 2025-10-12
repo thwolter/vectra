@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Any, List, Protocol
 
 from langchain_core.documents import Document
@@ -66,8 +66,8 @@ class LlamaParser:
 
                 parser = LlamaParse(
                     api_key=api_key,
-                    parse_mode="parse_page_with_agent",  # The parsing mode
-                    model="openai-gpt-5-mini",  # The model to use
+                    parse_mode='parse_page_with_agent',  # The parsing mode
+                    model='openai-gpt-5-mini',  # The model to use
                     high_res_ocr=True,  # Whether to use high resolution OCR (slower but more precise)
                     adaptive_long_table=True,
                     # Adaptive long table. LlamaParse will try to detect long table and adapt the output
@@ -115,7 +115,7 @@ class LlamaParser:
             return []
 
         # Find all headings
-        pattern = re.compile(r"^(#{1,6})[ \t]+(.+)$", re.MULTILINE)
+        pattern = re.compile(r'^(#{1,6})[ \t]+(.+)$', re.MULTILINE)
         # Only split on the specified heading level (e.g., H2) so deeper subsections stay within their parent
         matches = [m for m in pattern.finditer(text) if len(m.group(1)) == min_level]
         if not matches:
@@ -135,19 +135,21 @@ class LlamaParser:
         new_docs: List[Document] = []
         section_count = 0
         for doc in docs:
-            text = doc.page_content or ""
+            text = doc.page_content or ''
             parts = self._split_markdown_by_headings(text, self.config.min_heading_level)
             if not parts:
                 new_docs.append(doc)
                 continue
             for i, (level, title, content) in enumerate(parts):
                 md = dict(doc.metadata)
-                md.update({
-                    'parser': 'LlamaParser',
-                    'section_index': section_count,
-                    'section_title': title,
-                    'section_level': level,
-                })
+                md.update(
+                    {
+                        'parser': 'LlamaParser',
+                        'section_index': section_count,
+                        'section_title': title,
+                        'section_level': level,
+                    }
+                )
                 new_docs.append(Document(page_content=content, metadata=md))
                 section_count += 1
         return new_docs
@@ -174,7 +176,8 @@ class LlamaParser:
                     if len(chunked) != len(docs):
                         logger.debug(
                             'LlamaParser: heading chunking split %d -> %d chunks',
-                            len(docs), len(chunked),
+                            len(docs),
+                            len(chunked),
                         )
                     docs = chunked
                 except Exception as e:

@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-START_WEB=${START_WEB:-false}
-START_WORKER=${START_WORKER:-false}
-start_both=${start_both:-true}
+# Sensible defaults: start web unless explicitly disabled
+START_WEB=${START_WEB:-true}
+START_WORKER=${START_WORKER:-true}
 PORT=${PORT:-8000}
 DRAMATIQ_WORKERS=${DRAMATIQ_WORKERS:-1}
 DRAMATIQ_THREADS=${DRAMATIQ_THREADS:-8}

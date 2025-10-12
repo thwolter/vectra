@@ -1,18 +1,61 @@
-# Developer guide
+# Developer Guide
 
-This guide explains how to configure and run the ingestion pipeline components relevant to parsers.
+This guide covers the development workflow for VecAPI: environment setup, code style, testing, and parser configuration.
 
-## Set the default parser
+## Environment Setup
+
+!!! note
+    Database URL whitespace: Environment variables are trimmed defensively in the app and Alembic. If a DB URL accidentally has trailing spaces (e.g., ends with "/test "), connections may fail with errors like `database "test " does not exist`. Ensure there are no stray spaces in `.env`.
+
+1. Install system dependencies (Python 3.12, libpq, Redis if running workers locally).
+2. Sync the project environment:
+
+   ```bash
+   uv sync
+   ```
+
+3. Copy `.env.example` to `.env` and populate secrets such as database URLs, Redis, AWS credentials, and parser API keys.
+4. Start the local stack:
+
+   ```bash
+   scripts/run-dev.sh
+   ```
+
+   The script launches both `uvicorn app.main:app --reload` and the Dramatiq worker with OpenTelemetry wiring.
+
+## Coding Standards
+
+- Format code with `ruff fmt` and sort imports via `isort --profile=black` (enforced by pre-commit).
+- Target 120-character line length, four-space indentation, and snake_case naming for functions/modules.
+- Run the full suite of hooks before pushing:
+
+  ```bash
+  uv run pre-commit run --all-files
+  ```
+
+## Testing
+
+- Unit tests: `uv run pytest -m "unit"`
+- Full suite: `uv run pytest`
+- Markers `integration`, `e2e`, and `slow` remain opt-in; provision external services (Postgres, AWS) before running them.
+
+## Debugging Workers
+
+- Dramatiq workers log heartbeats to Redis when `REDIS_URL` is set; check keys `worker:<hostname>:<pid>`.
+- OpenTelemetry traces emitted by the worker use the service name `vecapi-worker`.
+- To replay an upload payload locally, serialize a `ContinueProcessingInput` and call `UploadService.continue_processing`.
+
+## Parser Configuration
 
 To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
 
-1. Ensure you have a Llama Cloud API key available as an environment variable. In your `.env` file:
+1. Add the API key to `.env`:
 
    ```bash
    LLAMA_CLOUD_API_KEY=llx-...your-key...
    ```
 
-2. The application reads this via settings as `settings.llama_cloud_api_key`. No additional wiring is needed.
+2. The application reads this via `settings.llama_cloud_api_key`. No additional wiring is needed.
 
 3. Choose the parser provider by name wherever a parser is requested via the providers registry. The built-in providers are:
    - `docling` (default)
@@ -30,18 +73,12 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
    parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown"))
    ```
 
-4. To make Llama the default across the app, set a profile or configuration in your composition root where the parser provider is selected (e.g., service factory). If your project exposes an environment toggle, use it to choose `llama`. If not, replace `"docling"` with `"llama"` in the parser selection code.
+4. To make Llama the default across the app, update the processing profile or override the environment variable below.
 
 !!! warning
     Always set `LLAMA_CLOUD_API_KEY` before running ingestion when using the Llama parser, otherwise parsing will fail at runtime.
 
-## Notes
-
-- Llama parser normalizes outputs to LangChain `Document` objects and adds `metadata.parser = "LlamaParser"` for traceability.
-- Docling remains available and can be selected with `name="docling"`.
-
-
-## Switch parser via environment
+## Switch Parser via Environment
 
 To switch the default parser globally without code changes, set the environment variable in your `.env`:
 
