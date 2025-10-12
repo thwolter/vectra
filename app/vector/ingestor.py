@@ -5,7 +5,12 @@ from langchain_core.documents import Document
 from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.repositories import EmbeddingsRepository, IngestionRepository, JobRepository
+from app.repositories import (
+    IngestionRepository,
+    JobRepository,
+    ingestion_repository,
+    job_repository,
+)
 from app.repositories.models import JobRecord
 from app.repositories.schemas import IngestionCreate, IngestionResult, IngestionVersion
 from app.utils.types import SHA256B64
@@ -29,14 +34,15 @@ class DocumentIngestor(IngestorProtocol):
         collection: str,
         *,
         config: IngestorSettings,
+        ingestion_repo: IngestionRepository | None = None,
+        job_repo: JobRepository | None = None,
     ) -> None:
         """Initialize the ingestor with a collection and optional settings."""
         self.collection = collection
         self.config = config
         self.batcher = BatchBuilder(self.config)
-        self._ingestion_repo = IngestionRepository()
-        self._embedding_repo = EmbeddingsRepository()
-        self._job_repo = JobRepository()
+        self._ingestion_repo = ingestion_repo or ingestion_repository
+        self._job_repo = job_repo or job_repository
 
     async def ingest(self, session: AsyncSession, *, docs: List[Document], job_id: UUID) -> IngestionResult:
         """

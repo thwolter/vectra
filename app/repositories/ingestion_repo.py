@@ -16,8 +16,12 @@ from .schemas import IngestionCreate
 
 
 class IngestionRepository:
-    @staticmethod
-    async def create(session: AsyncSession, *, data: IngestionCreate) -> IngestionRecord:
+    """Persistence helpers for ingestion records."""
+
+    def __init__(self) -> None:
+        pass
+
+    async def create(self, session: AsyncSession, *, data: IngestionCreate) -> IngestionRecord:
         access_ctx = AccessContext.from_session(session)
         record = IngestionRecord(
             created_by=access_ctx.user_id,
@@ -46,8 +50,7 @@ class IngestionRepository:
             raise Exception(f'Failed to create ingestion: {e}')
         return record
 
-    @staticmethod
-    async def get(session: AsyncSession, *, ingestion_id: UUID) -> IngestionRecord:
+    async def get(self, session: AsyncSession, *, ingestion_id: UUID) -> IngestionRecord:
         ingestion: IngestionRecord | None = await session.get(IngestionRecord, ingestion_id)
         if ingestion is None:
             raise RecordNotFoundError(f'Ingestion {ingestion_id} not found')
@@ -55,10 +58,9 @@ class IngestionRepository:
         await session.refresh(ingestion, attribute_names=['document', 'job'])
         return ingestion
 
-    @staticmethod
-    async def delete(session: AsyncSession, *, ingestion_id: UUID) -> bool:
+    async def delete(self, session: AsyncSession, *, ingestion_id: UUID) -> bool:
         try:
-            rec = await IngestionRepository.get(session, ingestion_id=ingestion_id)
+            rec = await self.get(session, ingestion_id=ingestion_id)
             if rec is None:
                 return False
             await session.delete(rec)
@@ -69,9 +71,13 @@ class IngestionRepository:
             logger.error(f'Failed to delete ingestion version {ingestion_id}: {e}')
             return False
 
-    @staticmethod
     async def find(
-        session: AsyncSession, *, fingerprint: str, collection: str, digest: SHA256B64
+        self,
+        session: AsyncSession,
+        *,
+        fingerprint: str,
+        collection: str,
+        digest: SHA256B64,
     ) -> IngestionRecord | None:
         statement = (
             select(IngestionRecord)
@@ -85,7 +91,16 @@ class IngestionRepository:
         result = await session.exec(statement)
         return result.first()
 
-    @staticmethod
-    async def exists(session: AsyncSession, *, fingerprint: str, collection: str, digest: SHA256B64) -> bool:
-        record = await IngestionRepository.find(session, fingerprint=fingerprint, collection=collection, digest=digest)
+    async def exists(
+        self,
+        session: AsyncSession,
+        *,
+        fingerprint: str,
+        collection: str,
+        digest: SHA256B64,
+    ) -> bool:
+        record = await self.find(session, fingerprint=fingerprint, collection=collection, digest=digest)
         return record is not None
+
+
+ingestion_repository = IngestionRepository()

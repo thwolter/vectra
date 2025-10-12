@@ -2,7 +2,7 @@ from typing import AsyncGenerator
 
 import pytest
 
-from app.repositories import JobRepository
+from app.repositories import job_repository
 from app.repositories.models import JobRecord
 from app.repositories.schemas import JobCreate
 from app.schemas.upload import JobStatus
@@ -17,7 +17,7 @@ async def job_created(session, document_created) -> AsyncGenerator[JobRecord, No
         step='init',
     )
 
-    job = await JobRepository.create(session, job=job_create)
+    job = await job_repository.create(session, job=job_create)
     job_id = job.id
     yield job
-    await JobRepository.delete(session, job_id=job_id)
+    await job_repository.delete(session, job_id=job_id)

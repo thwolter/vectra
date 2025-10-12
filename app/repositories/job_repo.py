@@ -13,15 +13,19 @@ from app.repositories.models import IngestionRecord, JobRecord
 from app.repositories.schemas import JobCreate, JobUpdate
 from app.schemas.upload import JOBS_PENDING
 
-from .document_repo import DocumentRepository
+from .document_repo import DocumentRepository, document_repository
 from .exceptions import RecordNotFoundError
 from .utils import update_record
 
 
 class JobRepository:
-    @staticmethod
-    async def create(session: AsyncSession, *, job: JobCreate) -> JobRecord:
-        if not await DocumentRepository.exists(session, document_id=job.document_id):
+    """Persistence helpers for job records."""
+
+    def __init__(self, document_repo: DocumentRepository | None = None) -> None:
+        self._documents = document_repo or document_repository
+
+    async def create(self, session: AsyncSession, *, job: JobCreate) -> JobRecord:
+        if not await self._documents.exists(session, document_id=job.document_id):
             raise RecordNotFoundError(f'Document {job.document_id} not found')
 
         access_ctx = AccessContext.from_session(session)
@@ -44,8 +48,7 @@ class JobRepository:
             raise Exception(f'Failed to create job: {e}')
         return record
 
-    @staticmethod
-    async def get(session: AsyncSession, *, job_id: UUID, refresh: bool = False) -> JobRecord:
+    async def get(self, session: AsyncSession, *, job_id: UUID, refresh: bool = False) -> JobRecord:
         """Fetch a job by ID and eagerly load related entities (document, ingestion) without type issues."""
         stmt = select(JobRecord).where(JobRecord.id == job_id).execution_options(populate_existing=refresh)
         result = await session.exec(stmt)
@@ -57,9 +60,8 @@ class JobRepository:
         await session.refresh(job, attribute_names=['document', 'ingestion'])
         return job
 
-    @staticmethod
-    async def update(session: AsyncSession, *, job: JobUpdate) -> JobRecord:
-        record = await JobRepository.get(session, job_id=job.id)
+    async def update(self, session: AsyncSession, *, job: JobUpdate) -> JobRecord:
+        record = await self.get(session, job_id=job.id)
         record = await update_record(record, data=job)
 
         try:
@@ -70,8 +72,7 @@ class JobRepository:
             logger.error(f'Failed to update progress for job {job.id}: {e}')
         return record
 
-    @staticmethod
-    async def delete(session: AsyncSession, *, job_id: UUID) -> bool:
+    async def delete(self, session: AsyncSession, *, job_id: UUID) -> bool:
         # todo: also delete embeddings
         try:
             rec = await session.get(JobRecord, job_id)
@@ -85,8 +86,13 @@ class JobRepository:
             logger.error(f'Failed to delete job {job_id}: {e}')
             return False
 
-    @staticmethod
-    async def get_for_fingerprint(session: AsyncSession, *, document_id: UUID, fingerprint: str) -> JobRecord | None:
+    async def get_for_fingerprint(
+        self,
+        session: AsyncSession,
+        *,
+        document_id: UUID,
+        fingerprint: str,
+    ) -> JobRecord | None:
         stmt = (
             select(JobRecord)
             .join(IngestionRecord, IngestionRecord.job_id == JobRecord.id)  # type: ignore[bad-argument-type]
@@ -104,8 +110,7 @@ class JobRepository:
             raise ValueError('Multiple JobRecords found for document and ingestion key; expected at most one.')
         return rows[0]
 
-    @staticmethod
-    async def get_active_for_document(session: AsyncSession, *, document_id: UUID) -> JobRecord | None:
+    async def get_active_for_document(self, session: AsyncSession, *, document_id: UUID) -> JobRecord | None:
         statuses = [s.value for s in JOBS_PENDING]
         stmt = select(JobRecord).where(
             JobRecord.document_id == document_id,
@@ -114,9 +119,11 @@ class JobRepository:
         res = await session.exec(stmt)
         return res.first()
 
-    @staticmethod
-    async def exists(session: AsyncSession, *, job_id: UUID) -> bool:
+    async def exists(self, session: AsyncSession, *, job_id: UUID) -> bool:
         try:
             return await session.get(JobRecord, job_id) is not None
         except RecordNotFoundError:
             return False
+
+
+job_repository = JobRepository()

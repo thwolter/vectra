@@ -6,7 +6,7 @@ from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.parsers.protocols import ParserProtocol
-from app.repositories import IngestionRepository, JobRepository
+from app.repositories import ingestion_repository, job_repository
 from app.repositories.schemas import IngestionVersion, JobUpdate
 from app.schemas.jobs import JobCtx
 from app.services.document_service import DocumentService
@@ -84,7 +84,7 @@ class UploadPipeline:
 
         fp = IngestionVersion.from_settings(collection=ctx.collection).fingerprint()
 
-        record = await IngestionRepository.find(session, fingerprint=fp, collection=ctx.collection, digest=ctx.digest)
+        record = await ingestion_repository.find(session, fingerprint=fp, collection=ctx.collection, digest=ctx.digest)
 
         ingestion_id = None
         skip_embed = False
@@ -100,7 +100,7 @@ class UploadPipeline:
             skip_embed = False
 
         if ingestion_id:
-            await JobRepository.update(session, job=JobUpdate(id=ctx.job_id, ingestion_id=ingestion_id))
+            await job_repository.update(session, job=JobUpdate(id=ctx.job_id, ingestion_id=ingestion_id))
 
         return dc_replace(ctx, skip_embed=skip_embed)
 

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.repositories import DocumentRepository
+from app.repositories import DocumentRepository, document_repository
 from app.repositories.models import DocumentRecord
 from app.repositories.schemas import DocumentCreate, DocumentUpdate
 from app.schemas.documents import DocumentListResponse, DocumentResponse
@@ -20,11 +20,11 @@ class DocumentService:
     def __init__(
         self,
         *,
-        repo=DocumentRepository,
+        repo: DocumentRepository | None = None,
     ) -> None:
         self.store = default_store_provider('default')
         assert isinstance(self.store, StoreProtocol)
-        self.repo = repo
+        self.repo = repo or document_repository
 
     async def ensure_canonical_document(self, session, *, data: DocumentCreate) -> Tuple[DocumentRecord, bool]:
         return await self.repo.get_or_create(session, data=data)

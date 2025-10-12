@@ -2,7 +2,7 @@ import io
 
 import pytest
 
-from app.repositories import EmbeddingsRepository
+from app.repositories import embeddings_repository
 from tests.support.profiles import TestProcessingProfile
 
 
@@ -31,7 +31,7 @@ async def test_upload_then_continue_processing_and_status_completed(
     assert status_payload['job_id'] == init['job_id']
 
     # Step 4: verify embeddings exist for the document by digest via metadata repo
-    exists = await EmbeddingsRepository.exists(
+    exists = await embeddings_repository.exists(
         session,
         digest=init['digest'],
         collection=TestProcessingProfile.collection,

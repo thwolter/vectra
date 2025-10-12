@@ -2,7 +2,7 @@ from typing import AsyncGenerator
 
 import pytest
 
-from app.repositories import DocumentRepository
+from app.repositories import document_repository
 from app.repositories.models import DocumentRecord
 from app.repositories.schemas import DocumentCreate
 
@@ -17,6 +17,6 @@ async def document_created(session, digest_random) -> AsyncGenerator[DocumentRec
         size_bytes=1024,
         meta={'company': 'ACME Inc.'},
     )
-    record = await DocumentRepository.create(session, data=document_create)
+    record = await document_repository.create(session, data=document_create)
     yield record
     await session.delete(record)

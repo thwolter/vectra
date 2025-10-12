@@ -7,6 +7,7 @@ from asyncpg import UniqueViolationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.repositories import JobRepository
+from app.repositories import job_repository as default_job_repository
 from app.repositories.exceptions import RecordNotFoundError
 from app.repositories.models import IngestionRecord, JobRecord
 from app.repositories.schemas import JobCreate, JobUpdate
@@ -39,8 +40,8 @@ class JobService:
         JobStatus.FAILED: {JobStatus.FAILED, JobStatus.COMPLETED},
     }
 
-    def __init__(self, job_repository=JobRepository) -> None:
-        self.repo = job_repository
+    def __init__(self, job_repository: JobRepository | None = None) -> None:
+        self.repo = job_repository or default_job_repository
 
     async def init_job(self, session: AsyncSession, *, job: JobCreate) -> JobRecord:
         create = JobCreate(

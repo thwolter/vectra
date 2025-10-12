@@ -10,7 +10,8 @@ from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import access_scoped_session_ctx
-from app.repositories import IngestionRepository, JobRepository
+from app.repositories import ingestion_repository, job_repository
+from app.repositories.models import DocumentRecord, JobRecord
 from app.repositories.schemas import DocumentCreate, IngestionVersion, JobCreate
 from app.schemas.jobs import JobCtx
 from app.schemas.upload import (
@@ -36,22 +37,25 @@ class _Step:
 class UploadService:
     """Ingestion service orchestrating upload → parse → store → embed."""
 
-    def __init__(self, *, collection: str, pipeline: UploadPipeline) -> None:
+    def __init__(
+        self,
+        *,
+        collection: str,
+        pipeline: UploadPipeline,
+        document_service: DocumentService | None = None,
+        job_service: JobService | None = None,
+    ) -> None:
         self.collection = collection
         self.pipeline = pipeline
-        self.job_service = JobService()
+        self.job_service = job_service or JobService()
+        self.document_service = document_service or DocumentService()
+        self.ingestion_repo = ingestion_repository
+        self.job_repo = job_repository
 
-    async def initiate_document_intake(self, session: AsyncSession, *, payload: StartUploadInput) -> UploadInitResponse:
-        """Initialize a job and immediately return UploadInitResponse.
-
-        Heavy processing continues asynchronously in the background.
-        """
-
-        digest = await payload.file.sha256_b64()
-        document_service = DocumentService()
-        already_running = False
-
-        document, created = await document_service.ensure_canonical_document(
+    async def _ensure_document(
+        self, session: AsyncSession, *, payload: StartUploadInput, digest: str
+    ) -> tuple[DocumentRecord, bool]:
+        return await self.document_service.ensure_canonical_document(
             session,
             data=DocumentCreate(
                 collection=self.collection,
@@ -62,41 +66,74 @@ class UploadService:
             ),
         )
 
+    async def _create_job(self, session: AsyncSession, *, document_id: UUID) -> JobRecord:
+        return await self.job_service.init_job(
+            session,
+            job=JobCreate(
+                document_id=document_id,
+            ),
+        )
+
+    def _ingestion_fingerprint(self) -> str:
+        return IngestionVersion.from_settings(collection=self.collection).fingerprint()
+
+    async def _find_existing_ingestion(self, session: AsyncSession, *, digest: str):
+        fingerprint = self._ingestion_fingerprint()
+        return await self.ingestion_repo.find(
+            session,
+            fingerprint=fingerprint,
+            collection=self.collection,
+            digest=digest,
+        )
+
+    async def _fetch_job_by_id(self, session: AsyncSession, *, job_id: UUID | None) -> JobRecord | None:
+        if not job_id:
+            return None
+        try:
+            return await self.job_repo.get(session, job_id=job_id)
+        except Exception:
+            return None
+
+    async def _resolve_existing_job(
+        self,
+        session: AsyncSession,
+        *,
+        document_id: UUID,
+        digest: str,
+    ) -> tuple[JobRecord | None, bool]:
+        job = await self.job_service.get_pending_job(session, document_id=document_id)
+        already_running = job is not None
+
+        if job:
+            return job, already_running
+
+        ingestion = await self._find_existing_ingestion(session, digest=digest)
+        if ingestion:
+            already_running = True
+            job = await self._fetch_job_by_id(session, job_id=ingestion.job_id)
+
+        return job, already_running
+
+    async def initiate_document_intake(self, session: AsyncSession, *, payload: StartUploadInput) -> UploadInitResponse:
+        """Initialize a job and immediately return UploadInitResponse.
+
+        Heavy processing continues asynchronously in the background.
+        """
+
+        digest = await payload.file.sha256_b64()
+        document, created = await self._ensure_document(session, payload=payload, digest=digest)
+
         if created:
-            # New document -> always create a new job
-            job = await self.job_service.init_job(
-                session,
-                job=JobCreate(
-                    document_id=document.id,
-                ),
-            )
+            job = await self._create_job(session, document_id=document.id)
+            already_running = False
         else:
-            job = await self.job_service.get_pending_job(session, document_id=document.id)
-            already_running = job is not None
-
+            job, already_running = await self._resolve_existing_job(
+                session,
+                document_id=document.id,
+                digest=digest,
+            )
             if not job:
-                fingerprint = IngestionVersion.from_settings(collection=self.collection).fingerprint()
-                ingestion = await IngestionRepository.find(
-                    session,
-                    fingerprint=fingerprint,
-                    collection=self.collection,
-                    digest=digest,
-                )
-
-                if ingestion:
-                    already_running = True
-                    if ingestion.job_id:
-                        try:
-                            job = await JobRepository.get(session, job_id=ingestion.job_id)
-                        except Exception:
-                            job = None
-                if not job:
-                    job = await self.job_service.init_job(
-                        session,
-                        job=JobCreate(
-                            document_id=document.id,
-                        ),
-                    )
+                job = await self._create_job(session, document_id=document.id)
 
         return UploadInitResponse(
             job_id=job.id,

@@ -3,7 +3,7 @@ import uuid
 import pytest
 from langchain_core.documents import Document
 
-from app.repositories import EmbeddingsRepository
+from app.repositories import embeddings_repository
 from app.schemas.enums import CollectionEnum
 from app.vector.factory import get_vectorstore
 from app.vector.ingestor import IngestorSettings
@@ -29,13 +29,18 @@ async def test_check_documents_exists_scoped_by_collection(
         ]
     )
 
-    assert await EmbeddingsRepository.exists(session, digest=digest, collection=CollectionEnum.DEFAULT.value) is True
-    assert await EmbeddingsRepository.exists(session, digest=digest, collection=CollectionEnum.FINANCIAL.value) is False
-    assert await EmbeddingsRepository.exists(session, digest='123', collection=CollectionEnum.FINANCIAL.value) is False
-
-    assert await EmbeddingsRepository.exists(session, source='key.pdf', collection=CollectionEnum.DEFAULT.value) is True
+    assert await embeddings_repository.exists(session, digest=digest, collection=CollectionEnum.DEFAULT.value) is True
     assert (
-        await EmbeddingsRepository.exists(session, source='key.pdf', collection=CollectionEnum.FINANCIAL.value) is False
+        await embeddings_repository.exists(session, digest=digest, collection=CollectionEnum.FINANCIAL.value) is False
+    )
+    assert await embeddings_repository.exists(session, digest='123', collection=CollectionEnum.FINANCIAL.value) is False
+
+    assert (
+        await embeddings_repository.exists(session, source='key.pdf', collection=CollectionEnum.DEFAULT.value) is True
+    )
+    assert (
+        await embeddings_repository.exists(session, source='key.pdf', collection=CollectionEnum.FINANCIAL.value)
+        is False
     )
 
-    await EmbeddingsRepository.delete(session, digest=digest)
+    await embeddings_repository.delete(session, digest=digest)
