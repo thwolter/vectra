@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from loguru import logger
+from starlette.middleware.cors import CORSMiddleware
 
 from app.api.v1 import ROUTERS
 from app.core.config import get_settings
@@ -11,6 +12,11 @@ from app.core.observability import get_tracer, init_otel_fastapi
 
 settings = get_settings()
 configure_logging()
+
+origins = [
+    'http://localhost',
+    'http://localhost:3000',
+]
 
 
 @asynccontextmanager
@@ -69,6 +75,14 @@ init_otel_fastapi(
     service_name=settings.service_name_app,
     service_namespace=settings.service_namespace,
     deployment_environment=settings.deployment_env,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
 for router, prefix in ROUTERS:
