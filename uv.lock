@@ -4888,12 +4888,18 @@ wheels = [
 [[package]]
 name = "tenauth"
 version = "0.1.2"
-source = { git = "https://github.com/thwolter/fde-tenauth.git?rev=main#a55ff3086516a0c61151dfe3ab5e1471007c1670" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
     { name = "pydantic" },
     { name = "sqlmodel" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6c/ba/fdd086326d10ff9fff02c5abc8bbd4c6cba5ee5101be3c5d1b1a6c43e263/tenauth-0.1.2.tar.gz", hash = "sha256:71f4cbd8d5622679fab8da0c309f18e27a32202e2c9917c38b3cd3980afa31d5", size = 6919, upload-time = "2025-10-13T13:34:32.701Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2e/d9/833b2ba2cd65b42e210914cb82e94d466a7da8e9628a7479f415a8a12aea/tenauth-0.1.2-py3-none-any.whl", hash = "sha256:a5a19afbb4b5d7f211521b6db3772e3c7f99ad0d30c820d9f408b706bda9397b", size = 5088, upload-time = "2025-10-13T13:34:31.506Z" },
 ]
 
 [[package]]
@@ -5419,7 +5425,7 @@ requires-dist = [
     { name = "redis", specifier = ">=5.2.1" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "sqlmodel", specifier = ">=0.0.24" },
-    { name = "tenauth", git = "https://github.com/thwolter/fde-tenauth.git?rev=main" },
+    { name = "tenauth", specifier = ">=0.1.2" },
     { name = "torch", specifier = ">=2.8.0" },
     { name = "torchvision", specifier = ">=0.23.0" },
     { name = "typer", specifier = ">=0.12.5" },

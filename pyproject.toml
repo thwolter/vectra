@@ -45,8 +45,8 @@ dependencies = [
     "opentelemetry-exporter-otlp>=1.37.0",
     "opentelemetry-exporter-otlp-proto-grpc>=1.37.0",
     "opentelemetry-instrumentation-fastapi>=0.58b0",
-    "tenauth @ git+https://github.com/thwolter/fde-tenauth.git@main",
     "llama-parse>=0.6.73",
+    "tenauth>=0.1.2",
 ]
 
 [tool.pyrefly]
