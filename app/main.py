@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from loguru import logger
+from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.v1 import ROUTERS
@@ -16,6 +17,16 @@ configure_logging()
 origins = [
     'http://localhost',
     'http://localhost:3000',
+]
+
+middleware = [
+    Middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=['*'],
+        allow_headers=['*'],
+    ),
 ]
 
 
@@ -69,7 +80,8 @@ async def lifespan(app: FastAPI):
         logger.bind(component='app').info('APP_SHUTDOWN: database connection closed')
 
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(title=settings.app_name, lifespan=lifespan, middleware=middleware)
+
 init_otel_fastapi(
     app,
     service_name=settings.service_name_app,
@@ -77,13 +89,6 @@ init_otel_fastapi(
     deployment_environment=settings.deployment_env,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=['*'],
-    allow_headers=['*'],
-)
 
 for router, prefix in ROUTERS:
     app.include_router(router, prefix=prefix)
