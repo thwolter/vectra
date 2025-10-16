@@ -36,3 +36,7 @@ Notes:
 - You can switch the default parser via environment: set `DEFAULT_PARSER=llama` (or `docling`) in your `.env`. The profile registry reads this at startup when registering the default profile.
 - The app reads `LLAMA_CLOUD_API_KEY` via `settings.llama_cloud_api_key`.
 - The Llama parser normalizes outputs to LangChain `Document` objects and sets `metadata["parser"] = "LlamaParser"`.
+
+## Database access & RLS
+
+The API enforces row-level security (RLS) during startup. If you connect with a superuser (or any role that has `rolsuper`/`rolbypassrls`), the application aborts with `RlsNotEnforcedError`.
