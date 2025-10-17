@@ -35,13 +35,13 @@ CREATE SCHEMA IF NOT EXISTS vectra AUTHORIZATION ddl_owner;
 -- Baseline + default privileges so future objects are usable without Alembic issuing GRANTs
 GRANT USAGE ON SCHEMA vectra TO vectra_rw, vectra_ro;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE ddl_owner IN SCHEMA vectra
+ALTER DEFAULT PRIVILEGES FOR ROLE vectra_alembic_user IN SCHEMA vectra
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO vectra_rw;
-ALTER DEFAULT PRIVILEGES FOR ROLE ddl_owner IN SCHEMA vectra
+ALTER DEFAULT PRIVILEGES FOR ROLE vectra_alembic_user IN SCHEMA vectra
   GRANT SELECT ON TABLES TO vectra_ro;
-ALTER DEFAULT PRIVILEGES FOR ROLE ddl_owner IN SCHEMA vectra
+ALTER DEFAULT PRIVILEGES FOR ROLE vectra_alembic_user IN SCHEMA vectra
   GRANT USAGE, SELECT ON SEQUENCES TO vectra_rw, vectra_ro;
-ALTER DEFAULT PRIVILEGES FOR ROLE ddl_owner IN SCHEMA vectra
+ALTER DEFAULT PRIVILEGES FOR ROLE vectra_alembic_user IN SCHEMA vectra
   GRANT EXECUTE ON FUNCTIONS TO vectra_rw, vectra_ro;
 
 -- Optional: enable pgcrypto for gen_random_uuid()
