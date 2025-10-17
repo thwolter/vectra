@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from alembic import op
 
-APP_SCHEMA = 'vecapi'
+from app.core.db_schema import APP_SCHEMA
 
 # revision identifiers, used by Alembic.
 revision = '20250929_00_lc_pg_tables'
@@ -56,7 +56,6 @@ $$;
 
 def upgrade() -> None:
     # Ensure tables exist before applying tenant columns/RLS in subsequent migration
-    op.execute(f'CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA}')
     op.execute(_CREATE_COLLECTION.format(schema=APP_SCHEMA))
     op.execute(_CREATE_EMBEDDING.format(schema=APP_SCHEMA))
     op.execute(_CREATE_GIN_INDEX.format(schema=APP_SCHEMA))

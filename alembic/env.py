@@ -85,7 +85,6 @@ def run_migrations_online() -> None:
     connectable = engine_from_config(section, prefix='sqlalchemy.', poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
-        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{APP_SCHEMA}"'))
         connection.commit()
         context.configure(
             connection=connection,

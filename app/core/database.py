@@ -212,18 +212,7 @@ class DatabaseManager:
                 # Assert RLS settings at session level
                 await assert_rls_enforced(conn)
 
-                # Alembic presence check
-                exists = await conn.scalar(text("SELECT to_regclass('alembic_version') IS NOT NULL"))
-                if not exists:
-                    raise RuntimeError(
-                        'Database schema not initialized: alembic_version table missing. Run migrations.'
-                    )
-                count = await conn.scalar(text('SELECT COUNT(*) FROM alembic_version'))
-                if not count:
-                    raise RuntimeError('Database schema not initialized: alembic_version has no rows. Run migrations.')
-
             self._schema_ready = True
-            logger.info('Database schema validated (managed by Alembic)')
 
     async def tables_exist_and_have_tenant_id(self):
         """Quick readiness check for required tables and tenant_id column.

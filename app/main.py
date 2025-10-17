@@ -17,6 +17,8 @@ configure_logging()
 origins = [
     'http://localhost',
     'http://localhost:3000',
+    'https://localhost',
+    'https://localhost:3000',
 ]
 
 middleware = [

@@ -1,3 +1,3 @@
 """Shared database schema constants."""
 
-APP_SCHEMA = 'vecapi'
+APP_SCHEMA = 'vectra'

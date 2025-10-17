@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
+from app.core.db_schema import APP_SCHEMA
 
-APP_SCHEMA = 'vecapi'
 
 # revision identifiers, used by Alembic.
 revision = '20250927_02_init_schema'
@@ -23,7 +23,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(f'CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA}')
 
     # documents
     op.create_table(

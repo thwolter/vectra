@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from alembic import op
 
-APP_SCHEMA = 'vecapi'
+from app.core.db_schema import APP_SCHEMA
 
 # revision identifiers, used by Alembic.
 revision = '20250929_01_vec_tenant_rls'

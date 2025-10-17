@@ -1,0 +1,94 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./docker/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    healthcheck:
+      test: [ "CMD", "/otelcol", "validate", "--config=/etc/otelcol/config.yaml" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "4318:4318"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --requirepass
+      - redispassword
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'redispassword', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis-data:/data
+
+  vectra-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vectra
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d vectra']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - '5434:5432'
+    volumes:
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
+      - vectra-db-data:/var/lib/postgresql/data
+
+
+  vectra:
+    build:
+      context: ./
+    depends_on:
+      redis:
+        condition: service_healthy
+      vectra-db:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: postgresql://vectra_app_user:app-user-password@vectra-db:5432/vectra
+      ALEMBIC_DATABASE_URL: postgresql://vectra_alembic_user:alembic-user-password@vectra-db:5432/vectra
+      REDIS_URL: redis://:redispassword@redis:6379/0
+      DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
+      OPENAI_API_KEY: sk-your-openai-key
+      CHATDOC_API_KEY: ak-your-chatdoc-key
+      LLAMA_CLOUD_API_KEY: llx-your-llama-key
+      AWS_ACCESS_KEY_ID: your-aws-access-key
+      AWS_SECRET_ACCESS_KEY: your-aws-secret-key
+      AWS_S3_BUCKET: vectra-local
+      AWS_REGION: eu-west-1
+      DOCUMENT_STORE: local
+      LOCAL_FILE_PATH: /app/data/documents
+      JWT_SECRET: changeme-vectra-jwt
+      INTERNAL_AUTH_TOKEN: dev-internal-token
+      PORT: 8000
+      START_WEB: 'true'
+      START_WORKER: 'true'
+      DEPLOY_SKIP_MIGRATIONS: 'false'
+      LOG_LEVEL: INFO
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+    ports:
+      - '8002:8000'
+    volumes:
+      - vectra-documents:/app/data/documents
+
+volumes:
+  redis-data:
+  vectra-db-data:
+  vectra-documents:

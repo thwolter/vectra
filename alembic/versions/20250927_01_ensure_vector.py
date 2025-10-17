@@ -18,7 +18,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute('CREATE EXTENSION IF NOT EXISTS vector;')
+    pass
 
 
 def downgrade() -> None:
