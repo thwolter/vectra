@@ -25,9 +25,11 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Build-time deps only
+# libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 is only required for docling
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential gcc libpq-dev ca-certificates git \
+      libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

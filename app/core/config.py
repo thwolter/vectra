@@ -1,8 +1,9 @@
+import json
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, Iterable, Literal, Annotated
 
 from dotenv import load_dotenv
-from pydantic import SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings
 
 load_dotenv()
@@ -32,7 +33,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr
 
     document_store: Literal['local', 's3'] = 's3'
-    local_file_path: str = 'documents'
+    local_file_path: str = '/documents'
 
     # AWS S3 configuration
     aws_access_key_id: SecretStr
@@ -78,6 +79,45 @@ class Settings(BaseSettings):
     deployment_env: str = 'development'
     service_name_app: str = 'app'
     service_name_worker: str = 'worker'
+    cors_allow_origins: tuple[str] = []
+
+    @field_validator('cors_allow_origins', mode='before')
+    @classmethod
+    def normalize_cors_origins(cls, value: Any) -> tuple[str, ...]:
+        """Normalize configured origins so they match browser preflight requests."""
+        if not value:
+            return ()
+
+        raw_value: Any = value
+        if isinstance(raw_value, str):
+            raw_value = raw_value.strip()
+            if not raw_value:
+                return ()
+            try:
+                parsed = json.loads(raw_value)
+            except json.JSONDecodeError:
+                parsed = [part.strip() for part in raw_value.split(',') if part.strip()]
+            else:
+                match parsed:
+                    case str() as single:
+                        parsed = [single]
+                    case list() | tuple() | set():
+                        parsed = list(parsed)
+                    case _:
+                        parsed = [str(parsed)]
+            raw_value = parsed
+        elif isinstance(raw_value, (set, tuple)):
+            raw_value = list(raw_value)
+        elif not isinstance(raw_value, list):
+            raw_value = [str(raw_value)]
+
+        normalized: list[str] = []
+        for origin in raw_value:
+            origin_str = str(origin).strip()
+            if not origin_str:
+                continue
+            normalized.append(origin_str.rstrip('/'))
+        return tuple(normalized)
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)

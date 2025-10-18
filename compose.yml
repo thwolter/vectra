@@ -63,30 +63,30 @@ services:
       ALEMBIC_DATABASE_URL: postgresql://vectra_alembic_user:alembic-user-password@vectra-db:5432/vectra
       REDIS_URL: redis://:redispassword@redis:6379/0
       DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
-      OPENAI_API_KEY: sk-your-openai-key
-      CHATDOC_API_KEY: ak-your-chatdoc-key
-      LLAMA_CLOUD_API_KEY: llx-your-llama-key
-      AWS_ACCESS_KEY_ID: your-aws-access-key
-      AWS_SECRET_ACCESS_KEY: your-aws-secret-key
-      AWS_S3_BUCKET: vectra-local
-      AWS_REGION: eu-west-1
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CHATDOC_API_KEY: ${CHATDOC_API_KEY}
+      LLAMA_CLOUD_API_KEY: ${LLAMA_CLOUD_API_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS_REGION: ${AWS_REGION}
       DOCUMENT_STORE: local
-      LOCAL_FILE_PATH: /app/data/documents
-      JWT_SECRET: changeme-vectra-jwt
+      LOCAL_FILE_PATH: /tmp/vectra/documents
+      JWT_SECRET: ${JWT_SECRET}
       INTERNAL_AUTH_TOKEN: dev-internal-token
       PORT: 8000
       START_WEB: 'true'
       START_WORKER: 'true'
       DEPLOY_SKIP_MIGRATIONS: 'false'
       LOG_LEVEL: INFO
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_METRICS_EXPORTER: otlp
-      OTEL_LOGS_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-otlp}
+      OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
     ports:
       - '8002:8000'
     volumes:
-      - vectra-documents:/app/data/documents
+      - vectra-documents:/tmp/vectra/documents
 
 volumes:
   redis-data:
