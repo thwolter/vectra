@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.7
 
 ARG PYTHON_VERSION=3.12
 
@@ -37,9 +37,10 @@ WORKDIR /app
 COPY pyproject.toml ./
 
 # Create venv and install deps into it (pip installs into /opt/venv)
-RUN python -m venv "${VIRTUAL_ENV}" \
- && "${VIRTUAL_ENV}/bin/pip" install --upgrade pip setuptools wheel \
- && "${VIRTUAL_ENV}/bin/pip" install .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m venv "${VIRTUAL_ENV}" \
+    && "${VIRTUAL_ENV}/bin/pip" install --upgrade pip setuptools wheel \
+    && "${VIRTUAL_ENV}/bin/pip" install .
 
 # ---------- Final runtime image ----------
 FROM base AS runtime

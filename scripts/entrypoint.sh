@@ -6,9 +6,25 @@ set -euo pipefail
 START_WEB=${START_WEB:-true}
 START_WORKER=${START_WORKER:-true}
 PORT=${PORT:-8000}
+UVICORN_RELOAD=${UVICORN_RELOAD:-false}
 DRAMATIQ_WORKERS=${DRAMATIQ_WORKERS:-1}
 DRAMATIQ_THREADS=${DRAMATIQ_THREADS:-8}
 DEPLOY_SKIP_MIGRATIONS=${DEPLOY_SKIP_MIGRATIONS:-false}
+
+UVICORN_CMD=(uvicorn app.main:app --host 0.0.0.0 --port "${PORT}")
+if [[ "${UVICORN_RELOAD}" == "true" ]]; then
+  echo "[entrypoint] Uvicorn live reload enabled"
+  UVICORN_CMD+=(--reload)
+  if [[ -n "${UVICORN_RELOAD_DIRS:-}" ]]; then
+    IFS=':' read -ra __uvicorn_reload_dirs <<< "${UVICORN_RELOAD_DIRS}"
+    for dir in "${__uvicorn_reload_dirs[@]}"; do
+      if [[ -n "${dir}" ]]; then
+        UVICORN_CMD+=(--reload-dir "${dir}")
+      fi
+    done
+    unset __uvicorn_reload_dirs
+  fi
+fi
 
 run_migrations() {
   if [[ "${DEPLOY_SKIP_MIGRATIONS}" == "true" ]]; then
@@ -39,8 +55,8 @@ run_migrations() {
 }
 
 start_web() {
-  echo "[entrypoint] Starting uvicorn (single worker, port=${PORT})"
-  exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
+  echo "[entrypoint] Starting uvicorn (single worker, port=${PORT}, reload=${UVICORN_RELOAD})"
+  exec "${UVICORN_CMD[@]}"
 }
 
 start_worker() {
@@ -49,7 +65,7 @@ start_worker() {
 }
 
 start_both() {
-  echo "[entrypoint] Starting BOTH: web and worker"
+  echo "[entrypoint] Starting BOTH: web and worker (reload=${UVICORN_RELOAD})"
   dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
   WORKER_PID=$!
   echo "[entrypoint] Dramatiq worker PID=${WORKER_PID}"
@@ -58,7 +74,7 @@ start_both() {
   trap 'echo "[entrypoint] Received SIGTERM, stopping..."; kill -TERM ${WORKER_PID} 2>/dev/null || true; wait ${WORKER_PID} 2>/dev/null || true; exit 0' TERM INT
 
   # Run web in foreground (PID 1)
-  exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
+  exec "${UVICORN_CMD[@]}"
 }
 
 run_migrations
