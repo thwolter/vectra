@@ -11,7 +11,11 @@ from app.core.dependencies import (
     require_access_context,
     require_auth,
 )
-from app.schemas.documents import DocumentListResponse, DocumentResponse
+from app.schemas.documents import (
+    DocumentListFilters,
+    DocumentListResponse,
+    DocumentResponse,
+)
 from app.services.document_service import DocumentService
 from app.services.factory import get_document_service
 
@@ -33,7 +37,7 @@ async def get_document(
 
 @router.get('/', response_model=DocumentListResponse, tags=['documents'])
 async def list_documents(
-    filters: dict,
+    filters: DocumentListFilters = Depends(DocumentListFilters),
     document_service: DocumentService = Depends(get_document_service),
     session: AsyncSession = Depends(access_scoped_session),
 ) -> DocumentListResponse:

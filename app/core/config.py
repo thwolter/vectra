@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     deployment_env: str = 'development'
     service_name_app: str = 'app'
     service_name_worker: str = 'worker'
-    cors_allow_origins: tuple[str] = []
+    cors_allow_origins: tuple[str, ...] = ()
 
     @field_validator('cors_allow_origins', mode='before')
     @classmethod
@@ -101,9 +101,6 @@ class Settings(BaseSettings):
         return SecretStr(url)
 
 
-settings = Settings()
-
-
 @lru_cache
 def get_settings() -> Settings:
-    return settings
+    return Settings()  # type: ignore[missing-argument]

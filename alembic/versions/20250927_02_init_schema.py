@@ -14,7 +14,6 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 from app.core.db_schema import APP_SCHEMA
 
-
 # revision identifiers, used by Alembic.
 revision = '20250927_02_init_schema'
 down_revision = '20250927_01_ensure_vector'
@@ -23,7 +22,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-
     # documents
     op.create_table(
         'documents',

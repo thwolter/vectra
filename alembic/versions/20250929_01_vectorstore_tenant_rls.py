@@ -9,7 +9,6 @@ Create Date: 2025-09-29 10:46:00
 from __future__ import annotations
 
 from alembic import op
-
 from app.core.db_schema import APP_SCHEMA
 
 # revision identifiers, used by Alembic.

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, ClassVar, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.embedding import DocumentChunk, DocumentContent
 from app.utils.types import SHA256B64
@@ -19,6 +19,54 @@ class DocumentResponse(BaseModel):
     created_at: datetime
     created_by: UUID
     updated_at: datetime
+
+
+class DocumentListFilters(BaseModel):
+    """Query parameters accepted by the document listing endpoint."""
+
+    model_config = ConfigDict(populate_by_name=True, extra='forbid')
+
+    query: str | None = Field(default=None)
+    kind: str | None = Field(default=None)
+    limit: int | None = Field(default=None, ge=1, le=100)
+    offset: int | None = Field(default=None, ge=0)
+    next_page_token: str | None = Field(default=None, alias='nextPageToken')
+    profile_name: str | None = Field(default=None, alias='profileName')
+
+    DEFAULT_LIMIT: ClassVar[int] = 20
+
+    @model_validator(mode='after')
+    def _validate_pagination(self) -> 'DocumentListFilters':
+        if self.next_page_token is not None:
+            try:
+                int(self.next_page_token)
+            except ValueError as exc:  # pragma: no cover - defensive branch
+                raise ValueError('nextPageToken must be an integer string') from exc
+        return self
+
+    @property
+    def effective_limit(self) -> int:
+        """Return a sanitized limit with a sensible default."""
+        return self.limit or self.DEFAULT_LIMIT
+
+    @property
+    def effective_offset(self) -> int:
+        """Resolve the offset, preferring the token when provided."""
+        if self.next_page_token is not None:
+            return int(self.next_page_token)
+        return self.offset or 0
+
+    def to_repo_filters(self, *, collection: str | None = None) -> dict[str, Any]:
+        """Render filters suitable for repository queries."""
+        repo_filters: dict[str, Any] = {
+            'query': self.query,
+            'kind': self.kind,
+            'limit': self.effective_limit,
+            'offset': self.effective_offset,
+        }
+        if collection:
+            repo_filters['collection'] = collection
+        return repo_filters
 
 
 class DocumentListResponse(BaseModel):

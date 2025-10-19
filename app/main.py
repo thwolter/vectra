@@ -11,7 +11,6 @@ from app.core.dependencies import get_database_manager
 from app.core.logging import configure_logging
 from app.core.observability import get_tracer, init_otel_fastapi
 
-
 settings = get_settings()
 configure_logging()
 
@@ -26,6 +25,7 @@ middleware = [
 ]
 
 logger.info(f'CORS origins: {settings.cors_allow_origins}')
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

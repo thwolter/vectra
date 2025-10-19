@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Tuple
+from typing import Any, Tuple
 from uuid import UUID
 
 from loguru import logger
@@ -108,8 +108,36 @@ class DocumentRepository:
         rec: DocumentRecord | None = await session.get(DocumentRecord, document_id)
         return rec is not None
 
-    async def get_many(self, session: AsyncSession, *, filters: dict) -> list[DocumentRecord]:
-        raise NotImplementedError
+    async def get_many(self, session: AsyncSession, *, filters: dict) -> dict[str, Any]:
+        access_ctx = AccessContext.from_session(session)
+        offset = int(filters.get('offset', 0) or 0)
+        limit = int(filters.get('limit', 20) or 20)
+        query = filters.get('query')
+        collection = filters.get('collection')
+        columns = DocumentRecord.__table__.columns  # type: ignore[missing-attribute]
+
+        stmt = (
+            select(DocumentRecord)
+            .where(DocumentRecord.tenant_id == access_ctx.tenant_id)
+            .order_by(columns.created_at.desc())
+        )
+
+        if collection:
+            stmt = stmt.where(DocumentRecord.collection == collection)
+
+        if query:
+            stmt = stmt.where(columns.original_filename.ilike(f'%{query}%'))
+
+        result = await session.exec(stmt.offset(offset).limit(limit + 1))
+        rows = result.all()
+        has_more = len(rows) > limit
+        items = rows[:limit]
+        next_token = str(offset + limit) if has_more else None
+
+        return {
+            'items': items,
+            'next_page_token': next_token,
+        }
 
     async def delete(self, session: AsyncSession, *, document_id: UUID) -> bool:
         try:

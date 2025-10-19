@@ -5,10 +5,15 @@ from uuid import UUID
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.profiles.registry import get_profile
 from app.repositories import DocumentRepository, document_repository
 from app.repositories.models import DocumentRecord
 from app.repositories.schemas import DocumentCreate, DocumentUpdate
-from app.schemas.documents import DocumentListResponse, DocumentResponse
+from app.schemas.documents import (
+    DocumentListFilters,
+    DocumentListResponse,
+    DocumentResponse,
+)
 from app.store.local_store import make_uri
 from app.store.protocols import StoreProtocol
 from app.store.providers import default_store_provider
@@ -101,9 +106,17 @@ class DocumentService:
         self,
         session: AsyncSession,
         *,
-        filters: dict,
+        filters: DocumentListFilters,
     ) -> DocumentListResponse:
-        docs = self.repo.get_many(session, filters=filters)
+        collection = None
+        if filters.profile_name:
+            try:
+                collection = get_profile(filters.profile_name).collection
+            except KeyError:
+                collection = None
+
+        repo_filters = filters.to_repo_filters(collection=collection)
+        docs = await self.repo.get_many(session, filters=repo_filters)
         return DocumentListResponse.model_validate(docs)
 
     async def delete(self, session: AsyncSession, *, document_id: UUID) -> None:
