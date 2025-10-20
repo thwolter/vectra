@@ -15,6 +15,12 @@ class DocumentResponse(BaseModel):
 
     id: UUID
     digest: SHA256B64
+    collection: str
+    original_filename: str | None = None
+    content_type: str | None = None
+    size_bytes: int | None = None
+    original_uri: str | None = None
+    markdown_uri: str | None = None
     metadata: dict = Field(default={}, alias='meta')
     created_at: datetime
     created_by: UUID

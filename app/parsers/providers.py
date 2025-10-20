@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Dict
+from typing import TYPE_CHECKING, Dict
 
-from .docling import DoclingParser, DoclingParserConfig
 from .llama import LlamaParser, LlamaParserConfig
 from .protocols import ParserProtocol
 from .schemas import ParserConfig
+
+if TYPE_CHECKING:
+    from .docling import DoclingParser, DoclingParserConfig
 
 ParserFactory = Callable[..., ParserProtocol]
 PARSER_PROVIDERS: Dict[str, ParserFactory] = {}
@@ -31,6 +33,13 @@ def parser_provider(*, name: str, config: ParserConfig) -> ParserProtocol:
 
 
 def _docling_parser_factory(*, config: ParserConfig) -> ParserProtocol:
+    try:
+        from .docling import DoclingParser, DoclingParserConfig  # noqa: WPS433
+    except ImportError as exc:  # pragma: no cover - exercised when optional deps missing
+        raise ImportError(
+            'Docling parser extras are not installed. Install with "uv add .[docling]" or "pip install vectra[docling]".',
+        ) from exc
+
     if not isinstance(config, DoclingParserConfig):
         # Allow plain ParserConfig instances by coercing into DoclingParserConfig
         config = DoclingParserConfig(**config.model_dump())

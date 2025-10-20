@@ -2,10 +2,15 @@ from unittest.mock import AsyncMock, create_autospec
 
 import pytest
 from langchain_core.documents import Document
-from langchain_docling import DoclingLoader
+
+langchain_docling = pytest.importorskip('langchain_docling')
+pytest.importorskip('docling_core.transforms.chunker.hybrid_chunker')
+pytest.importorskip('tiktoken')
 
 from app.parsers.docling import DoclingParser, DoclingParserConfig
 from app.parsers.schemas import ParseResult
+
+DoclingLoader = langchain_docling.DoclingLoader
 
 
 @pytest.mark.asyncio

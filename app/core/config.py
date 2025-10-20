@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     admin_email: str = 'support@riskary.de'
 
     default_profile: str = 'default'
-    default_parser: Literal['docling', 'llama', 'test'] = 'docling'
+    default_parser: Literal['docling', 'llama', 'test'] = 'llama'
 
     postgres_url: SecretStr
     redis_url: SecretStr
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr
 
     document_store: Literal['local', 's3'] = 's3'
-    local_file_path: str = '/documents'
+    local_file_path: str = '../documents'
 
     # AWS S3 configuration
     aws_access_key_id: SecretStr

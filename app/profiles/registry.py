@@ -24,7 +24,7 @@ class ProcessingProfileSettings(BaseModel):
 
     ingestor_config: IngestorSettings = IngestorSettings()
 
-    parser: str = 'docling'
+    parser: str = 'llama'
     parser_config: ParserConfig = ParserConfig()
 
 

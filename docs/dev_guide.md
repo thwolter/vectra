@@ -58,8 +58,8 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
 2. The application reads this via `settings.llama_cloud_api_key`. No additional wiring is needed.
 
 3. Choose the parser provider by name wherever a parser is requested via the providers registry. The built-in providers are:
-   - `docling` (default)
-   - `llama`
+   - `llama` (default)
+   - `docling` (install extras via `uv sync --extra docling` before enabling)
 
    Example (Python):
 
@@ -83,11 +83,11 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
 To switch the default parser globally without code changes, set the environment variable in your `.env`:
 
 ```bash
-# Use Docling (default)
-DEFAULT_PARSER=docling
-
-# Or switch to Llama
+# Use Llama (default, lightweight install)
 DEFAULT_PARSER=llama
+
+# Opt into Docling (requires extras)
+DEFAULT_PARSER=docling
 ```
 
 The profile registry reads `DEFAULT_PARSER` at startup to register the in-process default profile accordingly. You can still override the parser per-profile by setting the `parser` field in a custom profile configuration.

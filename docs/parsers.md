@@ -11,15 +11,15 @@ Parsers convert uploaded files into structured content that downstream component
 
 ```python
 from app.parsers.providers import parser_provider
-parser = parser_provider(name="docling", config=ParserConfig())
+parser = parser_provider(name="llama", config=ParserConfig())
 ```
 
 The registry ships with these providers:
 
 | Name | Implementation | Highlights |
 | --- | --- | --- |
-| `docling` | `DoclingParser` | Default parser; produces Markdown and LangChain `Document` chunks. |
-| `llama` | `LlamaParser` | Integrates with LlamaParse/Llama Cloud; requires `LLAMA_CLOUD_API_KEY`. |
+| `docling` | `DoclingParser` | Install extras via `pip install .[docling]`; OCR + Markdown chunks. |
+| `llama` | `LlamaParser` | Default parser; integrates with LlamaParse/Llama Cloud (`LLAMA_CLOUD_API_KEY`). |
 | `chatdoc` | `ChatDocParser` | Cloud-based fallback for complex PDFs; polls ChatDoc API until extraction completes. |
 
 Provider factories coerce generic `ParserConfig` instances into the concrete configuration class expected by each parser.

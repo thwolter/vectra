@@ -27,7 +27,7 @@ The default constructor wires the `default_store_provider('default')` and the sh
 | `ensure_canonical_document(session, data)` | Fetches or creates a document row, returning `(record, created_bool)`. |
 | `update_document_uris(session, document_id, original_key, markdown_key)` | Converts store keys to URIs (`store.local_store.make_uri`) and persists them. |
 | `stream_file(document_id, which)` | Resolves the appropriate artifact, fetches metadata, and returns `(streamer, FileInfo, key)`. |
-| `get_document(session, document_id)` | Returns a Pydantic `DocumentResponse` with normalized fields for JSON responses. |
+| `get_document(session, document_id)` | Returns a `DocumentResponse` including collection, original filename, content type, size bytes, and artifact URIs. |
 | `list_documents(session, filters)` | Streams results from the repository and coerces them into `DocumentListResponse`. |
 | `delete(session, document_id)` | Deletes the document row; upstream callers should also handle artifact cleanup if needed. |
 
