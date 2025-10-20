@@ -38,6 +38,7 @@ class JobService:
         JobStatus.NEEDS_REVIEW: {JobStatus.COMPLETED, JobStatus.FAILED},
         JobStatus.COMPLETED: {JobStatus.COMPLETED},
         JobStatus.FAILED: {JobStatus.FAILED, JobStatus.COMPLETED},
+        JobStatus.DUPLICATED: {JobStatus.DUPLICATED},
     }
 
     def __init__(self, job_repository: JobRepository | None = None) -> None:

@@ -17,6 +17,7 @@ def build_job_ctx(
 
     return JobCtx(
         job_id=payload.job_id,
+        tenant_id=payload.access_context.tenant_id,
         collection=collection,
         file=payload.file,
         digest=payload.digest,

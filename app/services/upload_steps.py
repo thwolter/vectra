@@ -34,6 +34,8 @@ class UploadPipeline:
         saved: ArtifactInfo = await self.store.save_original(
             file=ctx.file,
             document_id=ctx.document_id,
+            digest=ctx.digest,
+            tenant_id=ctx.tenant_id,
         )
         return dc_replace(ctx, original_key=(saved.original_key or ''))
 
@@ -71,6 +73,8 @@ class UploadPipeline:
         saved = await self.store.save_markdown(
             ctx.markdown_text,
             document_id=ctx.document_id,
+            digest=ctx.digest,
+            tenant_id=ctx.tenant_id,
         )
         # Return the original immutable ctx instance (no replacement)
         return dc_replace(ctx, markdown_key=(saved.markdown_key or ''))

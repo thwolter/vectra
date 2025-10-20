@@ -4,9 +4,15 @@ from typing import Any, Dict, Literal, Set
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.responses import StreamingResponse
 
-from app.core.dependencies import require_access_context, require_auth
+from app.core.dependencies import (
+    access_scoped_session,
+    require_access_context,
+    require_auth,
+)
+from app.repositories.exceptions import RecordNotFoundError
 from app.services.document_service import DocumentService
 from app.services.factory import get_document_service
 
@@ -47,9 +53,16 @@ async def _stream_document_file_impl(
     disposition: str,
     filename: str | None,
     document_service: DocumentService,
+    session: AsyncSession,
 ):
     try:
-        streamer, meta, key = await document_service.stream_file(document_id, which)
+        streamer, meta, key = await document_service.stream_file(
+            session,
+            document_id=document_id,
+            which=which,
+        )
+    except RecordNotFoundError:
+        raise HTTPException(status_code=404, detail='Document not found')
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except FileNotFoundError:
@@ -90,6 +103,7 @@ async def stream_original_file(
     disposition: str = Query('inline', pattern='^(inline|attachment)$'),
     filename: str | None = Query(None, description='Optional filename for attachment'),
     document_service: DocumentService = Depends(get_document_service),
+    session: AsyncSession = Depends(access_scoped_session),
 ):
     """Stream the original uploaded file for a document."""
     return await _stream_document_file_impl(
@@ -98,6 +112,7 @@ async def stream_original_file(
         disposition=disposition,
         filename=filename,
         document_service=document_service,
+        session=session,
     )
 
 
@@ -112,6 +127,7 @@ async def stream_markdown_file(
     disposition: str = Query('inline', pattern='^(inline|attachment)$'),
     filename: str | None = Query(None, description='Optional filename for attachment'),
     document_service: DocumentService = Depends(get_document_service),
+    session: AsyncSession = Depends(access_scoped_session),
 ):
     """Stream the normalized Markdown copy for a document."""
     return await _stream_document_file_impl(
@@ -120,4 +136,5 @@ async def stream_markdown_file(
         disposition=disposition,
         filename=filename,
         document_service=document_service,
+        session=session,
     )

@@ -15,6 +15,7 @@ from app.profiles.registry import ProcessingProfileSettings
 from app.protocols.services import UploadServiceProtocol
 from app.schemas.upload import (
     ContinueProcessingInput,
+    JobStatus,
     StartUploadInput,
     UploadInitResponse,
 )
@@ -68,15 +69,18 @@ async def upload_document(
     upload_input = StartUploadInput(file=tmp_file)
     response = await upload_service.initiate_document_intake(session, payload=upload_input)
 
-    job_kwargs = {
-        'file': upload_input.file,
-        'job_id': response.job_id,
-        'document_id': response.document_id,
-        'digest': response.digest,
-        'access_context': AccessContext.from_session(session),
-    }
+    if response.status != JobStatus.DUPLICATED:
+        job_kwargs = {
+            'file': upload_input.file,
+            'job_id': response.job_id,
+            'document_id': response.document_id,
+            'digest': response.digest,
+            'access_context': AccessContext.from_session(session),
+        }
 
-    job_input = ContinueProcessingInput(**job_kwargs)
+        job_input = ContinueProcessingInput(**job_kwargs)
 
-    await enqueue_upload_processing(job_input)
+        await enqueue_upload_processing(job_input)
+    else:
+        upload_input.file.close()
     return response

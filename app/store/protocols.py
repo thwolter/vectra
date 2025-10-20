@@ -14,6 +14,8 @@ class StoreProtocol(Protocol):
         file: TemporaryUploadFile,
         *,
         document_id: UUID,
+        digest: str,
+        tenant_id: UUID,
         compress: bool | None = None,
     ) -> ArtifactInfo: ...
 
@@ -22,12 +24,16 @@ class StoreProtocol(Protocol):
         md_text: str,
         *,
         document_id: UUID,
+        digest: str,
+        tenant_id: UUID,
     ) -> ArtifactInfo: ...
 
     async def delete(
         self,
         document_id: UUID,
         *,
+        digest: str,
+        tenant_id: UUID,
         delete_original: bool = True,
         delete_markdown: bool = True,
     ) -> bool: ...
@@ -36,4 +42,6 @@ class StoreProtocol(Protocol):
 
     async def head(self, key: str) -> FileInfo: ...
 
-    async def info(self, document_id: UUID) -> StoredFiles: ...
+    async def info(self, *, document_id: UUID, digest: str, tenant_id: UUID) -> StoredFiles: ...
+
+    def make_uri(self, key: str) -> str: ...

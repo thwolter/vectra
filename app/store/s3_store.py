@@ -38,13 +38,20 @@ class S3Store(StoreKeyHelpers):
         file: TemporaryUploadFile,
         *,
         document_id: UUID,
+        digest: str,
+        tenant_id: UUID,
         compress: bool | None = None,
     ) -> ArtifactInfo:
         ext = (Path(file.filename).suffix or '').lower()
         is_pdf = ext == '.pdf'
         gzip_enabled = bool(compress) and is_pdf
 
-        key = self._original_key(document_id, ext, gzip_enabled=gzip_enabled)
+        key = self._original_key(
+            tenant_id=tenant_id,
+            digest=digest,
+            ext=ext,
+            gzip_enabled=gzip_enabled,
+        )
 
         async with self.client_factory() as s3:
             with open(file.path, 'rb') as f:
@@ -98,6 +105,8 @@ class S3Store(StoreKeyHelpers):
         md_text: str,
         *,
         document_id: UUID,
+        digest: str,
+        tenant_id: UUID,
     ) -> ArtifactInfo:
         """Save a markdown copy to S3 for a given document_id.
 
@@ -115,7 +124,7 @@ class S3Store(StoreKeyHelpers):
         Raises:
             Exception: Propagates underlying aioboto3/botocore exceptions.
         """
-        key = self._markdown_key(document_id)
+        key = self._markdown_key(tenant_id=tenant_id, digest=digest)
         async with self.client_factory() as s3:
             try:
                 logger.debug(
@@ -151,6 +160,8 @@ class S3Store(StoreKeyHelpers):
         self,
         document_id: UUID,
         *,
+        digest: str,
+        tenant_id: UUID,
         delete_original: bool = True,
         delete_markdown: bool = True,
     ) -> bool:
@@ -172,25 +183,25 @@ class S3Store(StoreKeyHelpers):
             - Non-fatal errors log and return False rather than raising.
             - Original key detection is prefix-based and covers both `.ext` and `.ext.gz` variants.
         """
-        prefix = self._prefix(document_id)
-        targets: list[str] = []
-        if delete_original:
-            # We don't know extension or gzip beforehand; list and pick the original
-            # Any key starting with prefix + 'original'
-            targets.append('original')
-        if delete_markdown:
-            targets.append('document.md')
+        prefix = self._prefix(tenant_id=tenant_id, digest=digest)
 
         async with self.client_factory() as s3:
             try:
                 # List objects under prefix
                 resp = await s3.list_objects_v2(Bucket=settings.aws_s3_bucket, Prefix=prefix)
                 contents = resp.get('Contents', [])
-                keys = [o['Key'] for o in contents]
+                if not contents:
+                    return True
                 to_delete = []
-                for k in keys:
-                    if any(k.startswith(prefix + t) for t in targets):
-                        to_delete.append({'Key': k})
+                for obj in contents:
+                    key = obj['Key']
+                    if key.endswith('document.md') and not delete_markdown:
+                        continue
+                    if key.startswith(f'{prefix}original') and not delete_original:
+                        continue
+                    if not key.startswith(prefix):
+                        continue
+                    to_delete.append({'Key': key})
                 if not to_delete:
                     return True
                 await s3.delete_objects(
@@ -266,12 +277,12 @@ class S3Store(StoreKeyHelpers):
 
         return _gen()
 
-    async def info(self, document_id: UUID) -> StoredFiles:
+    async def info(self, *, document_id: UUID, digest: str, tenant_id: UUID) -> StoredFiles:
         """Return information about stored files for a document_id as StoredFiles.
 
         This lists objects under the document prefix and builds FileInfo entries using head().
         """
-        prefix = self._prefix(document_id)
+        prefix = self._prefix(tenant_id=tenant_id, digest=digest)
         async with self.client_factory() as s3:
             try:
                 resp = await s3.list_objects_v2(Bucket=settings.aws_s3_bucket, Prefix=prefix)

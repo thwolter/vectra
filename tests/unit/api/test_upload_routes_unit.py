@@ -76,6 +76,28 @@ def test_upload_document_triggers_pipeline(api_client: TestClient):
     api_client.enqueue_mock.assert_awaited_once()  # type: ignore[attr-defined]
 
 
+def test_upload_document_duplicate_skips_pipeline(api_client: TestClient, digest_random):
+    duplicate_response = UploadInitResponse(
+        job_id=JOB_ID,
+        document_id=DOCUMENT_ID,
+        status=JobStatus.DUPLICATED,
+        digest=digest_random,
+        original_filename='tiny.pdf',
+        already_running=False,
+    )
+    api_client.upload_mock.initiate_document_intake.return_value = duplicate_response  # type: ignore[attr-defined]
+
+    file_bytes = b'%PDF-1.4\n%\xe2\xe3\xcf\xd3'
+    files = {'file': ('tiny.pdf', io.BytesIO(file_bytes), 'application/pdf')}
+
+    response = api_client.post('/api/v1/uploads', files=files)
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body['status'] == JobStatus.DUPLICATED.value
+
+    api_client.enqueue_mock.assert_not_awaited()  # type: ignore[attr-defined]
+
+
 def test_get_job_status_returns_payload(api_client: TestClient):
     response = api_client.get(f'/api/v1/jobs/{JOB_ID}')
     assert response.status_code == 200

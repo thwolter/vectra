@@ -15,6 +15,7 @@ async def test_ingest_documents_skips_when_already_exists(session, upload_pipeli
     doc = Document(page_content='hello world', metadata={})
     ctx = JobCtx(
         job_id=job_created.id,
+        tenant_id=job_created.tenant_id,
         collection=collection,
         file=file,
         document_id=job_created.document_id,

@@ -1,3 +1,4 @@
+import base64
 import uuid
 from pathlib import Path
 
@@ -5,7 +6,7 @@ import pytest
 
 from app.api.file import TemporaryUploadFile
 from app.schemas.enums import CollectionEnum
-from app.store.local_store import LocalFileStore, make_uri
+from app.store.local_store import LocalFileStore
 from app.store.protocols import StoreProtocol
 
 # Helpers to make tests resilient whether info() returns dicts or Pydantic models
@@ -30,6 +31,16 @@ def base_prefix(tmp_path) -> Path:
     return tmp_path / 'local-tests'
 
 
+@pytest.fixture
+def tenant_id() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+@pytest.fixture
+def document_digest() -> str:
+    return base64.b64encode(uuid.uuid4().bytes).decode('ascii')
+
+
 def test_local_store_conforms_runtime(tmp_path):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=tmp_path)
     assert isinstance(store, StoreProtocol)
@@ -40,33 +51,49 @@ def test_local_store_conforms_runtime(tmp_path):
 async def test_save_original_and_delete_success(
     base_prefix,
     apple_report_first_page_upload,
+    tenant_id,
+    document_digest,
 ):
     document_id = uuid.uuid4()
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
 
-    saved = await store.save_original(file, document_id=document_id)
+    saved = await store.save_original(
+        file,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
     assert saved.original_key is not None
     key = saved.original_key
 
     assert Path(key).exists()
 
-    info = await store.info(saved.document_id)
+    info = await store.info(document_id=document_id, digest=document_digest, tenant_id=tenant_id)
     files = _files_from_info(info)
     assert any((_key_of(f) or '').endswith('.pdf') or (_key_of(f) or '').endswith('.pdf.gz') for f in files)
 
-    ok = await store.delete(saved.document_id)
+    ok = await store.delete(
+        saved.document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
     assert ok is True
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_save_markdown_then_load_and_delete_success(base_prefix):
+async def test_save_markdown_then_load_and_delete_success(base_prefix, tenant_id, document_digest):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=str(base_prefix))
 
     document_id = uuid.uuid4()
     content = '# Title\nHello world'
-    saved_md = await store.save_markdown(content, document_id=document_id)
+    saved_md = await store.save_markdown(
+        content,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
     assert saved_md.markdown_key is not None
 
     # Load back markdown and compare content
@@ -74,35 +101,63 @@ async def test_save_markdown_then_load_and_delete_success(base_prefix):
     assert data.decode('utf-8') == content
 
     # Info should include markdown file with content type
-    info = await store.info(document_id)
+    info = await store.info(document_id=document_id, digest=document_digest, tenant_id=tenant_id)
     files = _files_from_info(info)
     md_files = [f for f in files if (_key_of(f) or '').endswith('document.md')]
     assert len(md_files) == 1
     assert (_ctype_of(md_files[0]) or '').startswith('text/markdown')
 
     # Cleanup (only markdown exists)
-    ok = await store.delete(document_id=document_id, delete_markdown=True, delete_original=False)
+    ok = await store.delete(
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+        delete_markdown=True,
+        delete_original=False,
+    )
     assert ok is True
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_info_with_both_files_success(base_prefix, apple_report_first_page_upload):
+async def test_info_with_both_files_success(
+    base_prefix,
+    apple_report_first_page_upload,
+    tenant_id,
+    document_digest,
+):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
 
     document_id = uuid.uuid4()
-    saved = await store.save_original(file, document_id=document_id, compress=True)
-    digest = saved.document_id
-    await store.save_markdown('# Doc\ncontent', document_id=digest)
+    await store.save_original(
+        file,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+        compress=True,
+    )
+    await store.save_markdown(
+        '# Doc\ncontent',
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
 
-    info = await store.info(digest)
+    info = await store.info(document_id=document_id, digest=document_digest, tenant_id=tenant_id)
     files = _files_from_info(info)
     keys = [(_key_of(f) or '') for f in files]
     assert any(k.endswith('original.pdf') or k.endswith('original.pdf.gz') for k in keys)
     assert any(k.endswith('document.md') for k in keys)
 
-    assert await store.delete(digest) is True
+    assert (
+        await store.delete(
+            document_id=document_id,
+            digest=document_digest,
+            tenant_id=tenant_id,
+        )
+        is True
+    )
 
 
 @pytest.mark.integration
@@ -116,26 +171,51 @@ async def test_load_failure_nonexistent_key_raises(base_prefix):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_make_uri_returns_file_scheme(base_prefix, apple_report_first_page_upload):
+async def test_make_uri_returns_file_scheme(
+    base_prefix,
+    apple_report_first_page_upload,
+    tenant_id,
+    document_digest,
+):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
 
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
     document_id = uuid.uuid4()
 
-    saved = await store.save_original(file, document_id=document_id)
-    uri = make_uri(saved.original_key or '')
+    saved = await store.save_original(
+        file,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
+    uri = store.make_uri(saved.original_key or '')
     assert uri.startswith('file://')
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_head_returns_expected_metadata(base_prefix, apple_report_first_page_upload):
+async def test_head_returns_expected_metadata(
+    base_prefix,
+    apple_report_first_page_upload,
+    tenant_id,
+    document_digest,
+):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     document_id = uuid.uuid4()
 
     upload = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
-    saved_orig = await store.save_original(upload, document_id=document_id)
-    saved_md = await store.save_markdown('# Head Test\ncontent', document_id=document_id)
+    saved_orig = await store.save_original(
+        upload,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
+    saved_md = await store.save_markdown(
+        '# Head Test\ncontent',
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
 
     # Head for markdown
     if saved_md.markdown_key is None:
@@ -171,15 +251,30 @@ async def test_head_returns_expected_metadata(base_prefix, apple_report_first_pa
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_stream_markdown_and_original_success(base_prefix, apple_report_first_page_upload):
+async def test_stream_markdown_and_original_success(
+    base_prefix,
+    apple_report_first_page_upload,
+    tenant_id,
+    document_digest,
+):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     document_id = uuid.uuid4()
 
     # Save original (no gzip) and markdown
     upload = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
-    saved_orig = await store.save_original(upload, document_id=document_id)
+    saved_orig = await store.save_original(
+        upload,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
     md_text = '# Stream Test\nHello streaming world'
-    saved_md = await store.save_markdown(md_text, document_id=document_id)
+    saved_md = await store.save_markdown(
+        md_text,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
 
     # Stream markdown and verify content
     assert saved_md.markdown_key is not None
@@ -199,4 +294,10 @@ async def test_stream_markdown_and_original_success(base_prefix, apple_report_fi
     assert streamed_orig == loaded_orig
 
     # Cleanup
-    assert await store.delete(document_id) is True
+    assert (
+        await store.delete(
+            document_id=document_id,
+            digest=document_digest,
+            tenant_id=tenant_id,
+        )
+    ) is True

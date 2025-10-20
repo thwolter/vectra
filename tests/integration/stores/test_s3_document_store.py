@@ -1,3 +1,4 @@
+import base64
 import uuid
 from pathlib import Path
 
@@ -22,6 +23,16 @@ def store(base_prefix: str):
 
 
 @pytest.fixture
+def tenant_id() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+@pytest.fixture
+def document_digest() -> str:
+    return base64.b64encode(uuid.uuid4().bytes).decode('ascii')
+
+
+@pytest.fixture
 def file(tiny_pdf_upload: UploadFile):
     return TemporaryUploadFile.from_upload(tiny_pdf_upload)
 
@@ -34,26 +45,41 @@ def test_local_store_conforms_runtime(tmp_path):
 @pytest.mark.integration
 @pytest.mark.needs_aws
 @pytest.mark.asyncio
-async def test_save_original_and_delete_success(store, file):
-    saved = await store.save_original(file, document_id=uuid.uuid4())
+async def test_save_original_and_delete_success(store, file, tenant_id, document_digest):
+    document_id = uuid.uuid4()
+    saved = await store.save_original(
+        file,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
     assert saved.original_key is not None
 
-    info = await store.info(saved.document_id)
+    info = await store.info(document_id=document_id, digest=document_digest, tenant_id=tenant_id)
     files = info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
     keys = [(f['key'] if isinstance(f, dict) else getattr(f, 'key', '')) for f in files]
     assert any(k.endswith('.pdf') or k.endswith('.pdf.gz') for k in keys)
 
-    result = await store.delete(saved.document_id)
+    result = await store.delete(
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
     assert result is True
 
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
 @pytest.mark.asyncio
-async def test_save_markdown_then_load_and_delete_success(store):
+async def test_save_markdown_then_load_and_delete_success(store, tenant_id, document_digest):
     content = '# Title\nHello world'
     document_id = uuid.uuid4()
-    saved_md = await store.save_markdown(content, document_id=document_id)
+    saved_md = await store.save_markdown(
+        content,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
     assert saved_md.markdown_key is not None
 
     # Load back markdown and compare content
@@ -61,7 +87,7 @@ async def test_save_markdown_then_load_and_delete_success(store):
     assert data.decode('utf-8') == content
 
     # Info should include markdown file with proper content type
-    info = await store.info(document_id)
+    info = await store.info(document_id=document_id, digest=document_digest, tenant_id=tenant_id)
     files = info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
     md_files = [
         f for f in files if ((f['key'] if isinstance(f, dict) else getattr(f, 'key', '')).endswith('document.md'))
@@ -73,26 +99,49 @@ async def test_save_markdown_then_load_and_delete_success(store):
     assert str(md_ctype).startswith('text/markdown')
 
     # Cleanup
-    ok = await store.delete(document_id, delete_markdown=True, delete_original=False)
+    ok = await store.delete(
+        document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+        delete_markdown=True,
+        delete_original=False,
+    )
     assert ok is True
 
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
 @pytest.mark.asyncio
-async def test_info_with_both_files_success(store, file):
-    saved = await store.save_original(file, document_id=uuid.uuid4(), compress=True)
-    digest = saved.document_id
+async def test_info_with_both_files_success(store, file, tenant_id, document_digest):
+    document_id = uuid.uuid4()
+    await store.save_original(
+        file,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+        compress=True,
+    )
 
-    await store.save_markdown('# Doc\ncontent', document_id=digest)
+    await store.save_markdown(
+        '# Doc\ncontent',
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
 
-    info = await store.info(digest)
+    info = await store.info(document_id=document_id, digest=document_digest, tenant_id=tenant_id)
     files = info.get('files', []) if isinstance(info, dict) else getattr(info, 'files', [])
     keys = [(f['key'] if isinstance(f, dict) else getattr(f, 'key', '')) for f in files]
     assert any(k.endswith('original.pdf') or k.endswith('original.pdf.gz') for k in keys)
     assert any(k.endswith('document.md') for k in keys)
 
-    assert await store.delete(digest) is True
+    assert (
+        await store.delete(
+            document_id=document_id,
+            digest=document_digest,
+            tenant_id=tenant_id,
+        )
+    ) is True
 
 
 @pytest.mark.integration
@@ -117,7 +166,11 @@ async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
     )
     bad_store = S3Store(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     with pytest.raises(Exception):
-        await bad_store.info(uuid.uuid4())
+        await bad_store.info(
+            document_id=uuid.uuid4(),
+            digest=base64.b64encode(uuid.uuid4().bytes).decode('ascii'),
+            tenant_id=uuid.uuid4(),
+        )
 
 
 @pytest.mark.integration
@@ -137,21 +190,41 @@ async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_repo
     # save_markdown should raise
     document_id = uuid.uuid4()
     with pytest.raises(Exception):
-        await bad_store.save_markdown('content', document_id=document_id)
+        await bad_store.save_markdown(
+            'content',
+            document_id=document_id,
+            digest=base64.b64encode(uuid.uuid4().bytes).decode('ascii'),
+            tenant_id=uuid.uuid4(),
+        )
 
     # save_original with a real file should also raise due to bucket
     temp_file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
     with pytest.raises(Exception):
-        await bad_store.save_original(temp_file, document_id=document_id)
+        await bad_store.save_original(
+            temp_file,
+            document_id=document_id,
+            digest=base64.b64encode(uuid.uuid4().bytes).decode('ascii'),
+            tenant_id=uuid.uuid4(),
+        )
 
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
 @pytest.mark.asyncio
-async def test_head_returns_expected_metadata_s3(store, file):
+async def test_head_returns_expected_metadata_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
-    saved_orig = await store.save_original(file, document_id=document_id)
-    saved_md = await store.save_markdown('# Head Test\ncontent', document_id=document_id)
+    saved_orig = await store.save_original(
+        file,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
+    saved_md = await store.save_markdown(
+        '# Head Test\ncontent',
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
 
     # Head markdown
     md_meta = await store.head(saved_md.markdown_key)
@@ -181,16 +254,26 @@ async def test_head_returns_expected_metadata_s3(store, file):
     assert isinstance(orig_size, int) and orig_size > 0
 
     # Cleanup
-    await store.delete(document_id)
+    await store.delete(document_id, digest=document_digest, tenant_id=tenant_id)
 
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
 @pytest.mark.asyncio
-async def test_stream_matches_load_for_both_files_s3(store, file):
+async def test_stream_matches_load_for_both_files_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
-    saved_orig = await store.save_original(file, document_id=document_id)
-    saved_md = await store.save_markdown('# Stream Test\ncontent', document_id=document_id)
+    saved_orig = await store.save_original(
+        file,
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
+    saved_md = await store.save_markdown(
+        '# Stream Test\ncontent',
+        document_id=document_id,
+        digest=document_digest,
+        tenant_id=tenant_id,
+    )
 
     # Stream markdown
     md_chunks = bytearray()
@@ -205,4 +288,4 @@ async def test_stream_matches_load_for_both_files_s3(store, file):
     assert bytes(orig_chunks) == await store.load(saved_orig.original_key)
 
     # Cleanup
-    await store.delete(document_id)
+    await store.delete(document_id, digest=document_digest, tenant_id=tenant_id)

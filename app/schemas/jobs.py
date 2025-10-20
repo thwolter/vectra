@@ -19,6 +19,7 @@ class JobCtx:
 
     # Identifiers and settings
     job_id: UUID
+    tenant_id: UUID
     collection: str
     file: TemporaryUploadFile
 

@@ -102,17 +102,17 @@ class UploadService:
         digest: str,
     ) -> tuple[JobRecord | None, bool]:
         job = await self.job_service.get_pending_job(session, document_id=document_id)
-        already_running = job is not None
-
         if job:
-            return job, already_running
+            return job, True
 
         ingestion = await self._find_existing_ingestion(session, digest=digest)
-        if ingestion:
-            already_running = True
+        if ingestion and ingestion.job_id:
             job = await self._fetch_job_by_id(session, job_id=ingestion.job_id)
+            if job and JobStatus(job.status) in {JobStatus.QUEUED, JobStatus.PROCESSING}:
+                return job, True
+            return job, False
 
-        return job, already_running
+        return None, False
 
     async def initiate_document_intake(self, session: AsyncSession, *, payload: StartUploadInput) -> UploadInitResponse:
         """Initialize a job and immediately return UploadInitResponse.
@@ -122,6 +122,24 @@ class UploadService:
 
         digest = await payload.file.sha256_b64()
         document, created = await self._ensure_document(session, payload=payload, digest=digest)
+
+        if not created:
+            ingestion = await self._find_existing_ingestion(session, digest=digest)
+            if ingestion:
+                existing_job = (
+                    await self._fetch_job_by_id(session, job_id=ingestion.job_id) if ingestion.job_id else None
+                )
+                existing_completed = existing_job and JobStatus(existing_job.status) == JobStatus.COMPLETED
+                if existing_completed or existing_job is None:
+                    job_id = existing_job.id if existing_job else ingestion.job_id or document.id
+                    return UploadInitResponse(
+                        job_id=job_id,
+                        document_id=document.id,
+                        status=JobStatus.DUPLICATED,
+                        digest=digest,
+                        original_filename=payload.file.filename,
+                        already_running=False,
+                    )
 
         if created:
             job = await self._create_job(session, document_id=document.id)

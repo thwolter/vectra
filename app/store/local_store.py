@@ -44,7 +44,7 @@ class LocalFileStore(StoreKeyHelpers):
     """Async local filesystem storage for document artifacts.
 
     Directory layout (relative keys):
-        {base_path}/{collection}/{document_id}/
+        {base_path}/{tenant}/{collection}/{digest}/
             - original{.ext | .ext.gz}
             - document.md
 
@@ -55,11 +55,16 @@ class LocalFileStore(StoreKeyHelpers):
         self.collection = collection
         self.base_path = str(base_path or settings.local_file_path)
 
+    def make_uri(self, key: str) -> str:
+        return make_uri(key)
+
     async def save_original(
         self,
         file: TemporaryUploadFile,
         *,
         document_id: UUID,
+        digest: str,
+        tenant_id: UUID,
         compress: bool | None = None,
     ) -> ArtifactInfo:
         # Ensure we have a concrete UUID for key encoding
@@ -68,7 +73,12 @@ class LocalFileStore(StoreKeyHelpers):
         is_pdf = ext.lower() == '.pdf'
         gzip_enabled = bool(compress) and is_pdf
 
-        key = self._original_key(document_id, ext, gzip_enabled=gzip_enabled)
+        key = self._original_key(
+            tenant_id=tenant_id,
+            digest=digest,
+            ext=ext,
+            gzip_enabled=gzip_enabled,
+        )
         dest = _resolve_fs_path(key)
         dest.parent.mkdir(parents=True, exist_ok=True)
 
@@ -102,8 +112,10 @@ class LocalFileStore(StoreKeyHelpers):
         md_text: str,
         *,
         document_id: UUID,
+        digest: str,
+        tenant_id: UUID,
     ) -> ArtifactInfo:
-        key = self._markdown_key(document_id)
+        key = self._markdown_key(tenant_id=tenant_id, digest=digest)
         dest = _resolve_fs_path(key)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(md_text, encoding='utf-8')
@@ -115,14 +127,32 @@ class LocalFileStore(StoreKeyHelpers):
             markdown_key=key,
         )
 
+    def _cleanup_empty_dirs(self, leaf: Path) -> None:
+        """Remove empty directories up to the store base path."""
+        try:
+            current = leaf.resolve()
+            base_root = Path(self.base_path).resolve()
+            while current != base_root and base_root in current.parents:
+                if current.exists():
+                    try:
+                        current.rmdir()
+                    except OSError:
+                        break
+                current = current.parent
+        except Exception:
+            # Non-fatal cleanup failure
+            pass
+
     async def delete(
         self,
         document_id: UUID,
         *,
+        digest: str,
+        tenant_id: UUID,
         delete_original: bool = True,
         delete_markdown: bool = True,
     ) -> bool:
-        prefix = self._prefix(document_id)
+        prefix = self._prefix(tenant_id=tenant_id, digest=digest)
         base = _resolve_fs_path(prefix)
         try:
             if not base.exists():
@@ -142,13 +172,8 @@ class LocalFileStore(StoreKeyHelpers):
                     except Exception:
                         logger.exception('Failed to delete file', extra={'path': str(p)})
                         return False
-            # Remove directory if empty
-            try:
-                if base.exists() and not any(base.iterdir()):
-                    base.rmdir()
-            except Exception:
-                # Non-fatal if cannot remove dir
-                pass
+            # Remove empty directories up to the base tenant/collection/digest folder
+            self._cleanup_empty_dirs(base)
             return True
         except Exception as e:
             logger.error(
@@ -214,8 +239,8 @@ class LocalFileStore(StoreKeyHelpers):
 
         return _gen()
 
-    async def info(self, document_id: UUID) -> StoredFiles:
-        prefix = self._prefix(document_id)
+    async def info(self, *, document_id: UUID, digest: str, tenant_id: UUID) -> StoredFiles:
+        prefix = self._prefix(tenant_id=tenant_id, digest=digest)
         base = _resolve_fs_path(prefix)
 
         files: list[FileInfo] = []

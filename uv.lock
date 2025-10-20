@@ -5329,14 +5329,11 @@ dependencies = [
     { name = "asyncio" },
     { name = "asyncpg" },
     { name = "click" },
-    { name = "docling" },
     { name = "dramatiq", extra = ["redis"] },
-    { name = "easyocr" },
     { name = "fastapi", extra = ["standard"] },
     { name = "greenlet" },
     { name = "langchain" },
     { name = "langchain-community" },
-    { name = "langchain-docling" },
     { name = "langchain-openai" },
     { name = "langchain-postgres" },
     { name = "langgraph" },
@@ -5347,7 +5344,6 @@ dependencies = [
     { name = "mkdocs-mermaid2-plugin" },
     { name = "notebook" },
     { name = "openai" },
-    { name = "opencv-python-headless" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -5362,11 +5358,20 @@ dependencies = [
     { name = "requests" },
     { name = "sqlmodel" },
     { name = "tenauth" },
-    { name = "torch" },
-    { name = "torchvision" },
     { name = "typer" },
     { name = "types-requests" },
     { name = "uvicorn" },
+]
+
+[package.optional-dependencies]
+docling = [
+    { name = "docling" },
+    { name = "easyocr" },
+    { name = "langchain-docling" },
+    { name = "opencv-python-headless" },
+    { name = "tiktoken" },
+    { name = "torch" },
+    { name = "torchvision" },
 ]
 
 [package.dev-dependencies]
@@ -5393,14 +5398,14 @@ requires-dist = [
     { name = "asyncio", specifier = ">=4.0.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "click", specifier = ">=8.2.1" },
-    { name = "docling", specifier = ">=2.44.0" },
+    { name = "docling", marker = "extra == 'docling'", specifier = ">=2.44.0" },
     { name = "dramatiq", extras = ["redis"], specifier = ">=1.17.0" },
-    { name = "easyocr", specifier = ">=1.7.2" },
+    { name = "easyocr", marker = "extra == 'docling'", specifier = ">=1.7.2" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.116.1" },
     { name = "greenlet", specifier = ">=3.2.3" },
     { name = "langchain", specifier = ">=0.3.27" },
     { name = "langchain-community", specifier = ">=0.3.27" },
-    { name = "langchain-docling", specifier = ">=1.0.0" },
+    { name = "langchain-docling", marker = "extra == 'docling'", specifier = ">=1.0.0" },
     { name = "langchain-openai", specifier = ">=0.3.28" },
     { name = "langchain-postgres", specifier = ">=0.0.15" },
     { name = "langgraph", specifier = ">=0.6.3" },
@@ -5411,7 +5416,7 @@ requires-dist = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "notebook", specifier = ">=7.4.4" },
     { name = "openai", specifier = ">=1.98.0" },
-    { name = "opencv-python-headless", specifier = ">=4.11.0.86" },
+    { name = "opencv-python-headless", marker = "extra == 'docling'", specifier = ">=4.11.0.86" },
     { name = "opentelemetry-distro", specifier = ">=0.58b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.37.0" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", specifier = ">=1.37.0" },
@@ -5426,12 +5431,14 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "sqlmodel", specifier = ">=0.0.24" },
     { name = "tenauth", specifier = ">=0.1.2" },
-    { name = "torch", specifier = ">=2.8.0" },
-    { name = "torchvision", specifier = ">=0.23.0" },
+    { name = "tiktoken", marker = "extra == 'docling'", specifier = ">=0.7.0" },
+    { name = "torch", marker = "extra == 'docling'", specifier = ">=2.8.0" },
+    { name = "torchvision", marker = "extra == 'docling'", specifier = ">=0.23.0" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "types-requests", specifier = ">=2.32.4.20250611" },
     { name = "uvicorn", specifier = ">=0.35.0" },
 ]
+provides-extras = ["docling"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -1,3 +1,4 @@
+import base64
 import datetime as dt
 import uuid
 from unittest.mock import AsyncMock, MagicMock
@@ -20,6 +21,10 @@ def get_store(client: MagicMock):
     return store
 
 
+def _digest() -> str:
+    return base64.b64encode(uuid.uuid4().bytes).decode('ascii')
+
+
 @pytest.mark.asyncio
 async def test_save_original_calls_upload_fileobj(tiny_pdf_upload: UploadFile):
     client = MagicMock()
@@ -28,7 +33,12 @@ async def test_save_original_calls_upload_fileobj(tiny_pdf_upload: UploadFile):
     store = get_store(client)
     file = TemporaryUploadFile.from_upload(tiny_pdf_upload)
 
-    await store.save_original(file, document_id=uuid.uuid4())
+    await store.save_original(
+        file,
+        document_id=uuid.uuid4(),
+        digest=_digest(),
+        tenant_id=uuid.uuid4(),
+    )
     assert client.upload_fileobj.call_count == 1
 
 
@@ -39,7 +49,12 @@ async def test_save_markdown_calls_upload_fileobj():
 
     store = get_store(client)
 
-    await store.save_markdown('# Title\nBody', document_id=uuid.uuid4())
+    await store.save_markdown(
+        '# Title\nBody',
+        document_id=uuid.uuid4(),
+        digest=_digest(),
+        tenant_id=uuid.uuid4(),
+    )
     assert client.upload_fileobj.call_count == 1
 
 
@@ -58,9 +73,13 @@ async def test_delete_calls_list_and_delete_objects():
 
     store = get_store(client)
     # Ensure predictable prefix matching inside delete
-    store._prefix = lambda document_id: 'pfx/'  # type: ignore[attr-defined]
+    store._prefix = lambda **_: 'pfx/'  # type: ignore[attr-defined]
 
-    ok = await store.delete(uuid.uuid4())
+    ok = await store.delete(
+        uuid.uuid4(),
+        digest=_digest(),
+        tenant_id=uuid.uuid4(),
+    )
 
     assert ok is True
     assert client.list_objects_v2.call_count == 1
@@ -75,7 +94,7 @@ async def test_delete_returns_true_when_nothing_to_delete():
 
     store = get_store(client)
 
-    ok = await store.delete(uuid.uuid4())
+    ok = await store.delete(uuid.uuid4(), digest=_digest(), tenant_id=uuid.uuid4())
 
     assert ok is True
     assert client.list_objects_v2.call_count == 1
@@ -120,7 +139,7 @@ async def test_info_calls_list_and_head_object():
     store = get_store(client)
 
     document_id = uuid.uuid4()
-    info = await store.info(document_id)
+    info = await store.info(document_id=document_id, digest=_digest(), tenant_id=uuid.uuid4())
 
     assert client.list_objects_v2.call_count == 1
     assert client.head_object.call_count == 1

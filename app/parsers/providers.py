@@ -8,7 +8,7 @@ from .protocols import ParserProtocol
 from .schemas import ParserConfig
 
 if TYPE_CHECKING:
-    from .docling import DoclingParser, DoclingParserConfig
+    pass
 
 ParserFactory = Callable[..., ParserProtocol]
 PARSER_PROVIDERS: Dict[str, ParserFactory] = {}
@@ -34,7 +34,7 @@ def parser_provider(*, name: str, config: ParserConfig) -> ParserProtocol:
 
 def _docling_parser_factory(*, config: ParserConfig) -> ParserProtocol:
     try:
-        from .docling import DoclingParser, DoclingParserConfig  # noqa: WPS433
+        from .docling import DoclingParser, DoclingParserConfig
     except ImportError as exc:  # pragma: no cover - exercised when optional deps missing
         raise ImportError(
             'Docling parser extras are not installed. Install with "uv add .[docling]" or "pip install vectra[docling]".',

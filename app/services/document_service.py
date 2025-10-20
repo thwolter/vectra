@@ -14,7 +14,6 @@ from app.schemas.documents import (
     DocumentListResponse,
     DocumentResponse,
 )
-from app.store.local_store import make_uri
 from app.store.protocols import StoreProtocol
 from app.store.providers import default_store_provider
 from app.store.schemas import FileInfo
@@ -27,12 +26,15 @@ class DocumentService:
         *,
         repo: DocumentRepository | None = None,
     ) -> None:
-        self.store = default_store_provider('default')
-        assert isinstance(self.store, StoreProtocol)
         self.repo = repo or document_repository
 
     async def ensure_canonical_document(self, session, *, data: DocumentCreate) -> Tuple[DocumentRecord, bool]:
         return await self.repo.get_or_create(session, data=data)
+
+    def _get_store(self, collection: str) -> StoreProtocol:
+        store = default_store_provider(collection=collection)
+        assert isinstance(store, StoreProtocol)
+        return store
 
     async def update_document_uris(
         self,
@@ -48,8 +50,11 @@ class DocumentService:
         coordinates with the DocumentStore to build fully qualified URIs.
         """
 
-        original_uri = make_uri(original_key) if original_key else None
-        markdown_uri = make_uri(markdown_key) if markdown_key else None
+        record = await self.repo.get(session, document_id=document_id)
+        store = self._get_store(record.collection)
+
+        original_uri = store.make_uri(original_key) if original_key else None
+        markdown_uri = store.make_uri(markdown_key) if markdown_key else None
 
         if not original_uri and not markdown_uri:
             return
@@ -64,10 +69,16 @@ class DocumentService:
         )
 
     async def stream_file(
-        self, document_id: UUID, which: Literal['original', 'markdown']
+        self,
+        session: AsyncSession,
+        *,
+        document_id: UUID,
+        which: Literal['original', 'markdown'],
     ) -> tuple[AsyncIterator[bytes], FileInfo, str]:
         """Resolve a document artifact and return (async_bytes_iter, metadata, key)."""
-        info = await self.store.info(document_id)
+        record = await self.repo.get(session, document_id=document_id)
+        store = self._get_store(record.collection)
+        info = await store.info(document_id=document_id, digest=record.digest, tenant_id=record.tenant_id)
         files = info.files
         if which == 'markdown':
             target = next((f for f in files if f.key.endswith('document.md')), None)
@@ -82,15 +93,15 @@ class DocumentService:
         if not target:
             raise FileNotFoundError(f'{which} file not found for document {document_id}')
         key = target.key
-        meta = await self.store.head(key)
-        streamer = self.store.stream(key)
+        meta = await store.head(key)
+        streamer = store.stream(key)
         return streamer, meta, key
 
-    async def stream_markdown(self, document_id: UUID):
-        return await self.stream_file(document_id, 'markdown')
+    async def stream_markdown(self, session: AsyncSession, document_id: UUID):
+        return await self.stream_file(session, document_id=document_id, which='markdown')
 
-    async def stream_original(self, document_id: UUID):
-        return await self.stream_file(document_id, 'original')
+    async def stream_original(self, session: AsyncSession, document_id: UUID):
+        return await self.stream_file(session, document_id=document_id, which='original')
 
     async def get_document(self, session: AsyncSession, *, document_id: UUID) -> DocumentResponse:
         doc = await self.repo.get(session, document_id=document_id)
@@ -120,4 +131,15 @@ class DocumentService:
         return DocumentListResponse.model_validate(docs)
 
     async def delete(self, session: AsyncSession, *, document_id: UUID) -> None:
+        record = await self.repo.get(session, document_id=document_id)
+        store = self._get_store(record.collection)
+        deleted = await store.delete(
+            document_id=document_id,
+            digest=record.digest,
+            tenant_id=record.tenant_id,
+            delete_original=True,
+            delete_markdown=True,
+        )
+        if not deleted:
+            raise RuntimeError('Failed to delete stored artifacts for document')
         await self.repo.delete(session, document_id=document_id)

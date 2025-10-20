@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Protocol, TypedDict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Protocol, TypedDict
 
 from langchain_core.documents import Document
 from loguru import logger
@@ -25,15 +25,15 @@ _runtime_cache: _DoclingRuntime | None = None
 
 def _load_docling_runtime() -> _DoclingRuntime:
     """Import docling dependencies lazily so the module can exist without extras installed."""
-    global _runtime_cache  # noqa: WPS420
+    global _runtime_cache
     if _runtime_cache is not None:
         return _runtime_cache
 
     try:
-        import tiktoken  # noqa: WPS433
-        from docling_core.transforms.chunker.hybrid_chunker import HybridChunker  # noqa: WPS433
-        from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer  # noqa: WPS433
-        from langchain_docling import DoclingLoader  # noqa: WPS433
+        import tiktoken
+        from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+        from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
+        from langchain_docling import DoclingLoader
     except ImportError as exc:  # pragma: no cover - exercised when optional deps missing
         raise ImportError(
             'Docling parser extras are not installed. Install with "uv add .[docling]"'

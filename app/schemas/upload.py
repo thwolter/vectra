@@ -104,6 +104,7 @@ class JobStatus(enum.Enum):
     NEEDS_REVIEW = 'needs_review'
     COMPLETED = 'completed'
     FAILED = 'failed'
+    DUPLICATED = 'duplicated'
 
 
 JOBS_PENDING = [JobStatus.QUEUED, JobStatus.PROCESSING]
