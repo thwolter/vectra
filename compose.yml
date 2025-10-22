@@ -36,13 +36,19 @@ services:
       POSTGRES_DB: vectra
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      VECTRA_APP_USER: ${VECTRA_APP_USER:-vectra_app_user}
+      VECTRA_APP_PASSWORD: ${VECTRA_APP_PASSWORD:-app-user-password}
+      VECTRA_ALEMBIC_USER: ${VECTRA_ALEMBIC_USER:-vectra_alembic_user}
+      VECTRA_ALEMBIC_PASSWORD: ${VECTRA_ALEMBIC_PASSWORD:-alembic-user-password}
+      METIS_APP_USER: ${METIS_APP_USER:-metis_app_user}
+      METIS_APP_PASSWORD: ${METIS_APP_PASSWORD:-metis-app-password}
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d vectra']
       interval: 10s
       timeout: 5s
       retries: 5
     ports:
-      - '5434:5432'
+      - '5432:5432'
     volumes:
       - ./docker/init:/docker-entrypoint-initdb.d:ro
       - vectra-db-data:/var/lib/postgresql/data
@@ -59,8 +65,8 @@ services:
       otel-collector:
         condition: service_healthy
     environment:
-      POSTGRES_URL: postgresql://vectra_app_user:app-user-password@vectra-db:5432/vectra
-      ALEMBIC_DATABASE_URL: postgresql://vectra_alembic_user:alembic-user-password@vectra-db:5432/vectra
+      POSTGRES_URL: postgresql://${VECTRA_APP_USER:-vectra_app_user}:${VECTRA_APP_PASSWORD:-app-user-password}@vectra-db:5432/vectra
+      ALEMBIC_DATABASE_URL: postgresql://${VECTRA_ALEMBIC_USER:-vectra_alembic_user}:${VECTRA_ALEMBIC_PASSWORD:-alembic-user-password}@vectra-db:5432/vectra
       REDIS_URL: redis://:redispassword@redis:6379/0
       DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -86,9 +92,26 @@ services:
     ports:
       - '8002:8000'
     volumes:
-      - vectra-documents:/tmp/vectra/documents
+      - /tmp/vectra/documents:/tmp/vectra/documents
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+        - action: sync
+          path: ./scripts
+          target: /app/scripts
+        - action: sync
+          path: ./alembic
+          target: /app/alembic
+        - action: sync
+          path: ./alembic.ini
+          target: /app/alembic.ini
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
 
 volumes:
   redis-data:
   vectra-db-data:
-  vectra-documents:

@@ -133,13 +133,7 @@ class DocumentService:
     async def delete(self, session: AsyncSession, *, document_id: UUID) -> None:
         record = await self.repo.get(session, document_id=document_id)
         store = self._get_store(record.collection)
-        deleted = await store.delete(
-            document_id=document_id,
-            digest=record.digest,
-            tenant_id=record.tenant_id,
-            delete_original=True,
-            delete_markdown=True,
-        )
+        deleted = await store.delete(document_id=document_id, digest=record.digest, tenant_id=record.tenant_id)
         if not deleted:
             raise RuntimeError('Failed to delete stored artifacts for document')
         await self.repo.delete(session, document_id=document_id)
