@@ -12,7 +12,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     env: Literal['development', 'production', 'testing'] = 'production'
-    app_name: str = 'Vetra'
+    app_name: str = 'Vectra'
     debug: bool = True
     version: str = '0.2.0'
     admin_email: str = 'support@riskary.de'
@@ -22,16 +22,6 @@ class Settings(BaseSettings):
 
     postgres_url: SecretStr
     redis_url: SecretStr
-
-    # ChatDoc API configuration
-    chatdoc_api_key: SecretStr | None = None
-    chatdoc_api_url: str = 'https://api.chatdoc.com'
-
-    # Llama Cloud
-    llama_cloud_api_key: SecretStr | None = None
-
-    # OpenAI API configuration for embeddings
-    openai_api_key: SecretStr
 
     document_store: Literal['local', 's3'] = 's3'
     local_file_path: str = '../documents'

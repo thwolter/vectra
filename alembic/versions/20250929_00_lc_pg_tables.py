@@ -33,7 +33,7 @@ _CREATE_EMBEDDING = """
 CREATE TABLE IF NOT EXISTS {schema}.langchain_pg_embedding (
     id VARCHAR PRIMARY KEY,
     collection_id UUID REFERENCES {schema}.langchain_pg_collection(uuid) ON DELETE CASCADE,
-    embedding vector,
+    embedding vector(1536),
     document VARCHAR NULL,
     cmetadata JSONB NULL
 );

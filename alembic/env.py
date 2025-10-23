@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from dotenv import dotenv_values
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 from sqlmodel import SQLModel
 
 from alembic import context
@@ -82,9 +82,10 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     section = cast(dict[str, Any], config.get_section(config.config_ini_section) or {})
-    connectable = engine_from_config(section, prefix='sqlalchemy.', poolclass=pool.NullPool)
+    connectable = engine_from_config(section, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
+        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{APP_SCHEMA}"'))
         connection.commit()
         context.configure(
             connection=connection,

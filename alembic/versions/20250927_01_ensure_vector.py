@@ -9,6 +9,7 @@ Create Date: 2025-09-27 09:05:00
 from __future__ import annotations
 
 from alembic import op
+from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision = '20250927_01_ensure_vector'
@@ -18,7 +19,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    pass
+    # Ensure pgvector type is available for downstream tables
+    op.execute('CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA vectra')
 
 
 def downgrade() -> None:
