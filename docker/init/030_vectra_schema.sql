@@ -57,17 +57,17 @@ $vectra_schema$
                 );
 
         EXECUTE format(
-                'ALTER ROLE %I IN DATABASE %I SET search_path = %L',
+                'ALTER ROLE %I IN DATABASE %I SET search_path = %I, public',
                 app_user,
                 current_db,
-                app_schema || ', public'
+                app_schema
                 );
 
         EXECUTE format(
-                'ALTER ROLE %I IN DATABASE %I SET search_path = %L',
+                'ALTER ROLE %I IN DATABASE %I SET search_path = pg_catalog, %I, public',
                 alembic_user,
                 current_db,
-                app_schema || ', public'
+                app_schema
                 );
 
         EXECUTE format('GRANT CREATE ON DATABASE %I TO %I', current_database(), alembic_user);

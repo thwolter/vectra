@@ -20,7 +20,7 @@ depends_on = None
 
 def upgrade() -> None:
     # Ensure pgvector type is available for downstream tables
-    op.execute('CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA vectra')
+    op.execute('CREATE EXTENSION IF NOT EXISTS vector')
 
 
 def downgrade() -> None:
