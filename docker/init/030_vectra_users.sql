@@ -1,7 +1,5 @@
 \set ON_ERROR_STOP on
 
-\echo '=== Ensuring vectra application users exist ==='
-
 \getenv app_user VECTRA_USER
 \if :{?app_user} \else \set app_user 'vectra_user' \endif
 
@@ -49,4 +47,3 @@ $vectra_users$;
 
 COMMIT;
 
-\echo '=== Vectra application users ready ==='

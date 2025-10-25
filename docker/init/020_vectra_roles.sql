@@ -1,7 +1,5 @@
 \set ON_ERROR_STOP on
 
-\echo '=== Ensuring core roles exist ==='
-
 DO $vectra_roles$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ddl_owner') THEN
@@ -19,5 +17,3 @@ END;
 $vectra_roles$;
 
 COMMIT;
-
-\echo '=== Core roles ready ==='
