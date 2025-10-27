@@ -91,11 +91,19 @@ class Settings(BaseSettings):
 
     @field_validator('postgres_url', mode='before')
     @classmethod
-    def _normalise_postgres_url(cls, v) -> SecretStr:
-        url = cls.postgres_url.get_secret_value().strip()
+    def _normalise_postgres_url(cls, url) -> SecretStr:
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
         return SecretStr(url)
+
+    @property
+    def async_postgres_url(self) -> SecretStr:
+        dsn = self.postgres_url.get_secret_value()
+        if dsn.startswith('postgresql://'):
+            dsn = dsn.replace('postgresql://', 'postgresql+asyncpg://', 1)
+        if dsn.startswith('postgres://'):
+            dsn = dsn.replace('postgres://', 'postgresql+asyncpg://', 1)
+        return SecretStr(dsn)
 
 
 @lru_cache

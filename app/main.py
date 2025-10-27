@@ -77,7 +77,12 @@ async def lifespan(app: FastAPI):
         logger.bind(component='app').info('APP_SHUTDOWN: database connection closed')
 
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan, middleware=middleware)
+app = FastAPI(
+    title=settings.app_name,
+    lifespan=lifespan,
+    middleware=middleware,
+    version=settings.version
+)
 
 init_otel_fastapi(
     app,
