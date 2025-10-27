@@ -88,7 +88,7 @@ def get_vectorstore(
     - No database I/O is performed here to keep this function sync-safe.
     """
 
-    dsn = settings.pg_vector_url.get_secret_value()
+    dsn = settings.postgres_url.get_secret_value()
     tenant_dsn = dsn_with_tenant(dsn, tenant_id)
     tenant_dsn = _ensure_search_path_in_dsn(tenant_dsn)
 

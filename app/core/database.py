@@ -122,7 +122,7 @@ class DatabaseManager:
 
     def _async_dsn(self) -> str:
         # Convert postgresql:// to postgresql+asyncpg:// for async engine
-        dsn = self._settings.pg_vector_url.get_secret_value()
+        dsn = self._settings.postgres_url.get_secret_value()
         if dsn.startswith('postgresql+asyncpg://'):
             return dsn
         if dsn.startswith('postgresql://'):

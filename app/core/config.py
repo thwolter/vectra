@@ -2,10 +2,11 @@ from functools import lru_cache
 from typing import Any, Literal
 
 from dotenv import load_dotenv
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, Field
 from pydantic_settings import BaseSettings
 
 from .helper import parse_cors_origins
+from .utils import load_version
 
 load_dotenv()
 
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
     env: Literal['development', 'production', 'testing'] = 'production'
     app_name: str = 'Vectra'
     debug: bool = True
-    version: str = '0.2.0'
+    version: str = Field(default_factory=load_version)
     admin_email: str = 'support@riskary.de'
 
     default_profile: str = 'default'
@@ -80,22 +81,18 @@ class Settings(BaseSettings):
     deployment_env: str = 'development'
     service_name_app: str = 'app'
     service_name_worker: str = 'worker'
+
     cors_allow_origins: tuple[str, ...] = ()
 
     @field_validator('cors_allow_origins', mode='before')
     @classmethod
-    def normalize_cors_origins(cls, value: Any) -> tuple[str, ...]:
+    def _normalize_cors_origins(cls, value: Any) -> tuple[str, ...]:
         return parse_cors_origins(value)
 
-    @property
-    def pg_vector_url(self) -> SecretStr:
-        """
-        Returns the PostgreSQL database URL for PGVector.
-        Converts 'postgres://' to 'postgresql://' if needed.
-        Also trims accidental surrounding whitespace that could lead to
-        invalid database names like "test ".
-        """
-        url = self.postgres_url.get_secret_value().strip()
+    @field_validator('postgres_url', mode='before')
+    @classmethod
+    def _normalise_postgres_url(cls, v) -> SecretStr:
+        url = cls.postgres_url.get_secret_value().strip()
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
         return SecretStr(url)
