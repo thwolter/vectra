@@ -1,7 +1,7 @@
 import pytest
 
-from app.repositories import document_repository
-from app.repositories.exceptions import RecordNotFoundError
+from repositories import document_repository
+from repositories.exceptions import RecordNotFoundError
 
 
 @pytest.mark.needs_postgres

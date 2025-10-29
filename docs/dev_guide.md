@@ -64,12 +64,12 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
    Example (Python):
 
    ```python
-   from app.parsers.providers import parser_provider
-   from app.parsers.schemas import ParserConfig
+   from src.parsers.providers import parser_provider
+   from src.parsers.schemas import ParserConfig
 
    parser = parser_provider(name="llama", config=ParserConfig())
    # or to use custom options for Llama:
-   from app.parsers.llama import LlamaParserConfig
+   from src.parsers.llama import LlamaParserConfig
    parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown"))
    ```
 

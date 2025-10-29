@@ -2,13 +2,13 @@ from typing import AsyncGenerator
 
 import pytest
 
-from app.repositories import document_repository
-from app.repositories.models import DocumentRecord
-from app.repositories.schemas import DocumentCreate
+from repositories import document_repository
+from repositories.models import DocumentRecord
+from repositories.schemas import DocumentCreate
 
 
 @pytest.fixture
-async def document_created(session, digest_random) -> AsyncGenerator[DocumentRecord, None]:
+async def document_created(auth_session, digest_random) -> AsyncGenerator[DocumentRecord, None]:
     document_create = DocumentCreate(
         collection='default',
         digest=digest_random,
@@ -17,6 +17,6 @@ async def document_created(session, digest_random) -> AsyncGenerator[DocumentRec
         size_bytes=1024,
         meta={'company': 'ACME Inc.'},
     )
-    record = await document_repository.create(session, data=document_create)
+    record = await document_repository.create(auth_session, data=document_create)
     yield record
-    await session.delete(record)
+    await auth_session.delete(record)

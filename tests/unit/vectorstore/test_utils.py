@@ -1,7 +1,7 @@
 import pytest
 from langchain_core.documents import Document
 
-from app.vector.utils import estimate_docs_tokens, validate_docs
+from vector.utils import estimate_docs_tokens, validate_docs
 
 
 def test_estimate_tokens_sums_over_docs():

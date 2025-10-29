@@ -1,7 +1,7 @@
 from langchain_core.documents import Document
 
-from app.vector.batching import BatchBuilder
-from app.vector.models import IngestorSettings
+from vector.batching import BatchBuilder
+from vector.models import IngestorSettings
 
 
 def test_empty_docs_returns_empty_batches():

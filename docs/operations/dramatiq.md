@@ -23,7 +23,7 @@ Use the stock `dramatiq` CLI to run workers once the environment variables are s
 ```bash
 DRAMATIQ_BROKER_URL=redis://redis:6379/0 \
 DRAMATIQ_QUEUE_NAME=upload-processing \
-dramatiq app.worker.actors
+dramatiq src.worker.actors
 ```
 
 The module `app.worker.actors` auto-configures the broker (Redis + monitoring middleware) and exposes the `process_upload` actor.

@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import UploadFile
 
-from app.api.file import TemporaryUploadFile
-from app.schemas.enums import CollectionEnum
-from app.store.s3_store import S3Store
+from api.file import TemporaryUploadFile
+from schemas.enums import CollectionEnum
+from store.s3_store import S3Store
 
 
 def get_store(client: MagicMock):

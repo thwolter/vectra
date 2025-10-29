@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi import UploadFile
 
-from app.api.file import TemporaryUploadFile
+from api.file import TemporaryUploadFile
 
 
 def test_saves_file_and_cleanup_deletes(tiny_pdf_upload: UploadFile):

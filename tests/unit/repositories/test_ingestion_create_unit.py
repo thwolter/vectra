@@ -4,12 +4,14 @@ from uuid import uuid4
 
 import pytest
 
-from app.repositories.schemas import IngestionCreate
-from app.vector.models import IngestorSettings
+from repositories.schemas import IngestionCreate
+from vector.models import IngestorSettings
 
 
 @pytest.mark.unit
 async def test_from_settings_populates_fields(digest_random):
+    """Test that the from_settings classmethod populates the correct fields."""
+
     document_id = uuid4()
     job_id = uuid4()
     collection = 'finance'
@@ -36,6 +38,8 @@ async def test_from_settings_populates_fields(digest_random):
 
 @pytest.mark.unit
 async def test_fingerprint_independence_and_collection_dependence(digest_random):
+    """Test that fingerprint is independent of volatile IDs and dependent on collection."""
+
     base = IngestionCreate.create(collection='c1', document_id=uuid4(), job_id=uuid4(), digest=digest_random)
 
     f1 = base.fingerprint()

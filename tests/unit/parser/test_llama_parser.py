@@ -1,8 +1,8 @@
 import pytest
 from langchain_core.documents import Document
 
-from app.parsers.llama import LlamaParser, LlamaParserConfig
-from app.parsers.schemas import ParseResult
+from parsers.llama import LlamaParser, LlamaParserConfig
+from parsers.schemas import ParseResult
 
 
 class _DummyLoader:

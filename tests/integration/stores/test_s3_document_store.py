@@ -5,11 +5,11 @@ from pathlib import Path
 import pytest
 from fastapi import UploadFile
 
-from app.api.file import TemporaryUploadFile
-from app.schemas.enums import CollectionEnum
-from app.store import s3_store as module
-from app.store.protocols import StoreProtocol
-from app.store.s3_store import S3Store
+from api.file import TemporaryUploadFile
+from schemas.enums import CollectionEnum
+from store import s3_store as module
+from store.protocols import StoreProtocol
+from store.s3_store import S3Store
 
 
 @pytest.fixture

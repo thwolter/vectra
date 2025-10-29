@@ -9,13 +9,15 @@ Create Date: 2025-10-01 08:00:00
 from __future__ import annotations
 
 from alembic import op
-from app.core.db_schema import APP_SCHEMA
+from core.config import get_settings
 
 # revision identifiers, used by Alembic.
 revision = '20251001_00_metis_vector_privs'
 down_revision = '20250929_01_vec_tenant_rls'
 branch_labels = None
 depends_on = None
+
+APP_SCHEMA = get_settings().db_schema
 
 _GRANT_METIS_ACCESS = f"""
 DO $$

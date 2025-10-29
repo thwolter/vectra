@@ -3,14 +3,14 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.file import TemporaryUploadFile
-from app.core.dependencies import access_scoped_session
-from app.main import app
-from app.repositories.exceptions import RecordNotFoundError
-from app.schemas.enums import CollectionEnum
-from app.services.factory import get_document_service
-from app.services.factory import get_document_service as _get_document_service_dep
-from app.store.local_store import LocalFileStore
+from api.file import TemporaryUploadFile
+from core.db import scoped_session
+from main import app
+from repositories.exceptions import RecordNotFoundError
+from schemas.enums import CollectionEnum
+from services.factory import get_document_service
+from services.factory import get_document_service as _get_document_service_dep
+from store.local_store import LocalFileStore
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ async def streaming_env(apple_report_first_page_upload):
         return _Session()
 
     app.dependency_overrides[_get_document_service_dep] = _override_service  # type: ignore[attr-defined]
-    app.dependency_overrides[access_scoped_session] = _session_override  # type: ignore[attr-defined]
+    app.dependency_overrides[scoped_session] = _session_override
     client = TestClient(app)
 
     await store.save_original(
@@ -77,11 +77,10 @@ async def streaming_env(apple_report_first_page_upload):
     finally:
         # Cleanup override after all tests in this module finish
         app.dependency_overrides.pop(_get_document_service_dep, None)  # type: ignore[attr-defined]
-        app.dependency_overrides.pop(access_scoped_session, None)  # type: ignore[attr-defined]
+        app.dependency_overrides.pop(scoped_session, None)  # type: ignore[attr-defined]
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_stream_markdown_success(streaming_env):
     client, store, document_id, tenant_id, digest = streaming_env
 
@@ -98,7 +97,6 @@ async def test_stream_markdown_success(streaming_env):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_stream_original_success(streaming_env):
     client, store, document_id, tenant_id, digest = streaming_env
 
@@ -116,7 +114,6 @@ async def test_stream_original_success(streaming_env):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_stream_missing_file_returns_404(streaming_env):
     client, *_ = streaming_env
 

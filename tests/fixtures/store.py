@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from loguru import logger
 
-from app.core.config import get_settings
+from core.config import get_settings
 
 
 @pytest.fixture(autouse=True)

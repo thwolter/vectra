@@ -11,8 +11,11 @@ from sqlalchemy import engine_from_config, pool, text
 from sqlmodel import SQLModel
 
 from alembic import context
+from core.config import get_settings
 
-# Ensure project root is on sys.path so `app` package is importable when running `alembic` CLI
+settings = get_settings()
+
+# Ensure project root is on sys.path so `src` package is importable when running `alembic` CLI
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -24,8 +27,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from app.core.db_schema import APP_SCHEMA  # noqa: E402
-from app.repositories import (  # noqa: F401,E402  Ensure models import for metadata
+from repositories import (  # noqa: F401,E402  Ensure models import for metadata
     models as _models,
 )
 
@@ -54,7 +56,7 @@ def _normalize_sync_url(url: str) -> str:
 
 env_values = _collect_env()
 
-alembic_url = env_values.get('ALEMBIC_DATABASE_URL') or os.getenv('ALEMBIC_DATABASE_URL')
+alembic_url = os.getenv('ALEMBIC_DATABASE_URL') or env_values.get('ALEMBIC_DATABASE_URL')
 if alembic_url is None:
     raise RuntimeError('ALEMBIC_DATABASE_URL must be defined in .env, or the environment for Alembic migrations.')
 
@@ -70,7 +72,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         include_schemas=True,
         version_table='alembic_version',
-        version_table_schema=APP_SCHEMA,
+        version_table_schema=settings.db_schema,
         dialect_opts={'paramstyle': 'named'},
         compare_server_default=True,
     )
@@ -84,15 +86,17 @@ def run_migrations_online() -> None:
     section = cast(dict[str, Any], config.get_section(config.config_ini_section) or {})
     connectable = engine_from_config(section, poolclass=pool.NullPool)
 
+    db_schema = settings.db_schema
+
     with connectable.connect() as connection:
-        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{APP_SCHEMA}"'))
+        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{db_schema}"'))
         connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             include_schemas=True,
             version_table='alembic_version',
-            version_table_schema=APP_SCHEMA,
+            version_table_schema=db_schema,
             compare_server_default=True,
         )
 

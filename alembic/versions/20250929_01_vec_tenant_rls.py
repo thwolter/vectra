@@ -9,7 +9,7 @@ Create Date: 2025-09-29 10:46:00
 from __future__ import annotations
 
 from alembic import op
-from app.core.db_schema import APP_SCHEMA
+from core.config import get_settings
 
 # revision identifiers, used by Alembic.
 revision = '20250929_01_vec_tenant_rls'
@@ -17,6 +17,7 @@ down_revision = '20250929_00_lc_pg_tables'
 branch_labels = None
 depends_on = None
 
+APP_SCHEMA = get_settings().db_schema
 
 _ADD_TENANT_COL_TEMPLATE = """
 DO $$

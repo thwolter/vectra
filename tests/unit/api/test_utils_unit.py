@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.api.utils import check_file_type_size
-from app.profiles.registry import ProcessingProfileSettings
+from api.utils import check_file_type_size
+from profiles.registry import ProcessingProfileSettings
 
 
 @pytest.mark.asyncio

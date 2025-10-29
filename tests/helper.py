@@ -6,11 +6,11 @@ from typing import Any
 
 from starlette.testclient import TestClient
 
-from app.main import app
-from app.profiles.registry import register_profile
-from app.schemas.enums import CollectionEnum
-from app.services.factory import get_upload_service as _get_upload_service_dep
-from tests.support.profiles import build_test_profile
+from main import app
+from profiles.registry import register_profile
+from schemas.enums import CollectionEnum
+from services.factory import get_upload_service as _get_upload_service_dep
+from tests.support.profiles import build_test_profile  # type: ignore[missing-import]
 
 
 def make_files_param(apple_report_first_page):

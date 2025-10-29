@@ -1,17 +1,20 @@
-import sys
+from __future__ import annotations
+
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import SecretStr
 
-from app.core.config import get_settings
-from tests.support.profiles import TestProcessingProfile, ensure_test_profile
+from core.config import get_settings
+from tests.support.profiles import (  # type: ignore[missing-import]
+    TestProcessingProfile,
+    ensure_test_profile,
+)
 
-# Load session-level fixtures (auth, tenant, httpx client) for all tests
+# Load session-level fixtures (auth, client, data) for all tests
 pytest_plugins = [
-    'tests.fixtures.session',
-    'tests.fixtures.client',
     'tests.fixtures.jobs',
     'tests.fixtures.digest',
     'tests.fixtures.data',
@@ -24,17 +27,14 @@ pytest_plugins = [
 if TYPE_CHECKING:
     pass
 
-# Minimal path setup: ensure project root is on sys.path for absolute imports like `from app...`
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_PROJECT_ROOT_STR = str(_PROJECT_ROOT)
-if _PROJECT_ROOT_STR not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT_STR)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+TESTS_ROOT = Path(__file__).resolve().parent
 
-# Also ensure the tests directory itself is importable so `from fixtures...` works under xdist
-_TESTS_ROOT = Path(__file__).resolve().parent
-_TESTS_ROOT_STR = str(_TESTS_ROOT)
-if _TESTS_ROOT_STR not in sys.path:
-    sys.path.insert(0, _TESTS_ROOT_STR)
+DEFAULT_ENV_VARS = {
+    'OPENAI_API_KEY': 'test-key',
+    'JWT_SECRET': 'test-secret',
+    'ENV': 'testing',
+}
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:  # pragma: no cover - pytest hook
@@ -45,12 +45,10 @@ def pytest_sessionstart(session: pytest.Session) -> None:  # pragma: no cover - 
     settings.dramatiq_broker_url = SecretStr('')
 
 
-def pytest_ignore_collect(path, config):
-    """Avoid importing tests under integration/ and e2e/ unless explicitly requested.
+# Collection policy: only collect integration/e2e when requested via -m
 
-    This prevents import-time errors from modules that rely on optional deps or
-    environment when running only unit tests.
-    """
+
+def pytest_ignore_collect(path, config):
     path_str = str(path)
     selected = config.getoption('-m') or ''
     if '/integration/' in path_str or path_str.endswith('/integration'):
@@ -61,38 +59,25 @@ def pytest_ignore_collect(path, config):
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.getoption('-m') and 'e2e' in config.getoption('-m'):
-        pass
-    else:
+    if not (config.getoption('-m') and 'e2e' in config.getoption('-m')):
         skip_e2e = pytest.mark.skip(reason='need -m e2e to run')
         for item in items:
             if 'e2e' in item.keywords:
                 item.add_marker(skip_e2e)
 
-    if config.getoption('-m') and 'integration' in config.getoption('-m'):
-        pass
-    else:
+    if not (config.getoption('-m') and 'integration' in config.getoption('-m')):
         skip_integration = pytest.mark.skip(reason='need -m integration to run')
         for item in items:
             if 'integration' in item.keywords:
                 item.add_marker(skip_integration)
 
 
+# Gate external SaaS-dependent tests by env vars
+
+
 def pytest_runtest_setup(item: pytest.Item):
-    """Skip tests with needs_* markers when required environment vars are missing.
-
-    This provides explicit gating without any custom requires_env plumbing.
-    Use at test level, e.g., pytestmark = [pytest.mark.integration, pytest.mark.needs_postgres].
-    """
-    import os
-
     def _missing(vars_: list[str]) -> list[str]:
         return [v for v in vars_ if not os.environ.get(v)]
-
-    if item.get_closest_marker('needs_postgres'):
-        missing = _missing(['POSTGRES_URL'])
-        if missing:
-            pytest.skip(f'skipped: missing env vars for Postgres: {", ".join(missing)}')
 
     if item.get_closest_marker('needs_aws'):
         missing = _missing(['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET'])
@@ -103,3 +88,12 @@ def pytest_runtest_setup(item: pytest.Item):
         missing = _missing(['OPENAI_API_KEY'])
         if missing:
             pytest.skip(f'skipped: missing env vars for OpenAI: {", ".join(missing)}')
+
+
+# Global defaults and FastAPI auth overrides
+
+
+@pytest.fixture(scope='session', autouse=True)
+def _set_default_env() -> None:
+    for key, value in DEFAULT_ENV_VARS.items():
+        os.environ.setdefault(key, value)

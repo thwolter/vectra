@@ -8,8 +8,8 @@ import pytest
 from langchain_core.embeddings import Embeddings
 from langchain_postgres import PGVector
 
-from app.vector.factory import get_vectorstore
-from app.vector.models import IngestorSettings
+from vector.factory import get_vectorstore
+from vector.models import IngestorSettings
 
 
 class FakeEmbeddings(Embeddings):

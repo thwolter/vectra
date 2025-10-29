@@ -15,7 +15,7 @@ Coordinates ingestion from the HTTP edge to background execution. It owns the or
 ## Construction
 
 ```python
-from app.services.factory import get_upload_service
+from src.services.factory import get_upload_service
 service = get_upload_service()
 ```
 

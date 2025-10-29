@@ -26,8 +26,8 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser, follow
    Example (Python):
 
    ```python
-   from app.parsers.providers import parser_provider
-   from app.parsers.schemas import ParserConfig
+   from src.parsers.providers import parser_provider
+   from src.parsers.schemas import ParserConfig
 
    parser = parser_provider(name="llama", config=ParserConfig())
    ```
@@ -35,7 +35,7 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser, follow
    Or use Llama-specific options:
 
    ```python
-   from app.parsers.llama import LlamaParserConfig
+   from src.parsers.llama import LlamaParserConfig
    parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown"))
    ```
 

@@ -5,16 +5,16 @@ import pytest
 from fastapi import UploadFile
 from tenauth.schemas import AccessContext
 
-from app.api.file import TemporaryUploadFile
-from app.repositories import embeddings_repository
-from app.schemas.upload import ContinueProcessingInput, JobStatus
-from tests.support.profiles import TestProcessingProfile
+from api.file import TemporaryUploadFile
+from repositories import embeddings_repository
+from schemas.upload import ContinueProcessingInput, JobStatus
+from tests.support.profiles import TestProcessingProfile  # type: ignore[attr-defined]
 
 
 @pytest.mark.needs_postgres
 async def test_upload_then_continue_processing_and_status_completed(
     small_pdf,
-    session,
+    auth_session,
     auth_client,
 ):
     api_client = auth_client
@@ -24,12 +24,12 @@ async def test_upload_then_continue_processing_and_status_completed(
     files = {'file': ('tiny.pdf', io.BytesIO(file_bytes), 'application/pdf')}
 
     # Step 1: init upload via API
-    r = api_client.post('/api/v1/uploads', files=files)
+    r = await api_client.post('/api/v1/uploads', files=files)
     assert r.status_code == 201, r.text
     init = r.json()
 
     # Step 2: check job status via API
-    r2 = api_client.get(f'/api/v1/jobs/{init["job_id"]}')
+    r2 = await api_client.get(f'/api/v1/jobs/{init["job_id"]}')
     assert r2.status_code == 200
     status_payload = r2.json()
     # Status may vary depending on environment timing; ensure endpoint is reachable and job_id matches
@@ -37,7 +37,7 @@ async def test_upload_then_continue_processing_and_status_completed(
 
     # Step 4: verify embeddings exist for the document by digest via metadata repo
     exists = await embeddings_repository.exists(
-        session,
+        auth_session,
         digest=init['digest'],
         collection=TestProcessingProfile.collection,
     )
@@ -49,7 +49,7 @@ async def test_upload_then_continue_processing_and_status_completed(
 async def test_second_upload_is_deduplicated_after_first_ingestion(
     apple_report_first_page,
     auth_client,
-    session,
+    auth_session,
     upload_service,
 ):
     with open(apple_report_first_page, 'rb') as f:
@@ -57,7 +57,7 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
     files = {'file': ('tiny.pdf', io.BytesIO(file_bytes), 'application/pdf')}
 
     # First upload + full processing via service
-    r1 = auth_client.post('/api/v1/uploads', files=files)
+    r1 = await auth_client.post('/api/v1/uploads', files=files)
     assert r1.status_code == 201
     init1 = r1.json()
 
@@ -70,14 +70,14 @@ async def test_second_upload_is_deduplicated_after_first_ingestion(
             document_id=uuid.UUID(init1['document_id']),
             digest=init1['digest'],
             file=temp_file,
-            access_context=AccessContext.from_session(session),
+            access_context=AccessContext.from_session(auth_session),
         )
     )
 
     temp_file.close()
 
     # Second upload init should report deduplicated True
-    r2 = auth_client.post('/api/v1/uploads', files=files)
+    r2 = await auth_client.post('/api/v1/uploads', files=files)
     assert r2.status_code == 201
     init2 = r2.json()
     assert init2['status'] == JobStatus.DUPLICATED.value

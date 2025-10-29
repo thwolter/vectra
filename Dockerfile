@@ -50,15 +50,15 @@ COPY --from=build /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 
 # App code late to keep cache hot
-COPY app ./app
+COPY src ./app
 COPY scripts ./scripts
 COPY alembic.ini .
 COPY alembic ./alembic
 
 # Ensure entrypoint is executable and set permissions before dropping root
-RUN chmod +x /app/scripts/entrypoint.sh && \
+RUN chmod +x /src/scripts/entrypoint.sh && \
     useradd -m appuser && \
-    chown -R appuser:appuser /app /opt/venv
+    chown -R appuser:appuser /src /opt/venv
 USER appuser
 
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]

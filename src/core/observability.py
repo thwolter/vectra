@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import os
+import socket
+from typing import Dict, Optional
+
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+try:
+    # FastAPI instrumentation is optional (not needed for workers)
+    from opentelemetry.instrumentation.fastapi import (
+        FastAPIInstrumentor,  # type: ignore
+    )
+except Exception:  # pragma: no cover - optional dependency in some envs
+    FastAPIInstrumentor = None  # type: ignore
+
+# --- Internal singleton guards to avoid duplicate providers ---
+_PROVIDER_INITIALISED = False
+_METRICS_INITIALISED = False
+
+
+def _build_resource(
+    *,
+    service_name: str,
+    service_namespace: Optional[str] = None,
+    deployment_environment: Optional[str] = None,
+    extra: Optional[Dict[str, str]] = None,
+) -> Resource:
+    """Create a merged Resource that respects OTEL_RESOURCE_ATTRIBUTES env and adds sane defaults.
+
+    The env-driven Resource (OTEL_RESOURCE_ATTRIBUTES) is merged automatically by Resource.create.
+    We add instance id and any extra attributes on top.
+    """
+    attrs = {
+        'service.name': service_name,
+        'service.namespace': service_namespace or os.getenv('SERVICE_NAMESPACE', 'finrag'),
+        'deployment.environment': deployment_environment or os.getenv('DEPLOYMENT_ENV', 'development'),
+        'service.instance.id': os.getenv('SERVICE_INSTANCE_ID', f'{socket.gethostname()}:{os.getpid()}'),
+    }
+    if extra:
+        attrs.update(extra)
+    return Resource.create(attrs)
+
+
+def _ensure_provider(resource: Resource) -> TracerProvider:
+    global _PROVIDER_INITIALISED
+    provider = trace.get_tracer_provider()
+
+    # If a real provider is not set yet (or we want to force our SDK provider), set it once.
+    if not isinstance(provider, TracerProvider) or not _PROVIDER_INITIALISED:
+        provider = TracerProvider(resource=resource)
+        processor = BatchSpanProcessor(OTLPSpanExporter())  # honours OTEL_* env vars
+        provider.add_span_processor(processor)
+        trace.set_tracer_provider(provider)
+        _PROVIDER_INITIALISED = True
+    else:
+        # Merge/extend the resource if different calls add attributes.
+        # The SDK doesn't support mutating resources; if already set, we keep the first one to avoid surprises.
+        pass
+
+    return provider
+
+
+def _ensure_metrics_provider(resource: Resource) -> MeterProvider:
+    global _METRICS_INITIALISED
+    provider = metrics.get_meter_provider()
+    # If no real MeterProvider is set (defaults to NoOp), set one with OTLP Metric exporter.
+    if not isinstance(provider, MeterProvider) or not _METRICS_INITIALISED:
+        reader = PeriodicExportingMetricReader(OTLPMetricExporter())  # honours OTEL_* env
+        provider = MeterProvider(resource=resource, metric_readers=[reader])
+        metrics.set_meter_provider(provider)
+        _METRICS_INITIALISED = True
+    return provider
+
+
+def init_otel_fastapi(
+    app,
+    *,
+    service_name: str = 'src',
+    service_namespace: Optional[str] = None,
+    deployment_environment: Optional[str] = None,
+    extra: Optional[Dict[str, str]] = None,
+) -> None:
+    """Initialise OpenTelemetry for the FastAPI web src.
+
+    - Sets up the global TracerProvider with OTLP HTTP/protobuf exporter (config via env).
+    - Instruments FastAPI request handling (if the instrumentation package is available).
+    """
+    resource = _build_resource(
+        service_name=service_name,
+        service_namespace=service_namespace,
+        deployment_environment=deployment_environment,
+        extra=extra,
+    )
+    _ensure_provider(resource)
+    _ensure_metrics_provider(resource)
+
+    if FastAPIInstrumentor is not None:
+        # Avoid double instrumentation when auto-instrumentation has been used accidentally.
+        try:
+            if hasattr(FastAPIInstrumentor, 'uninstrument_app'):
+                FastAPIInstrumentor.uninstrument_app(app)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        if hasattr(FastAPIInstrumentor, 'instrument_app'):
+            FastAPIInstrumentor.instrument_app(app)  # type: ignore[attr-defined]
+
+
+def init_otel_worker(
+    *,
+    service_name: str = 'worker',
+    service_namespace: Optional[str] = None,
+    deployment_environment: Optional[str] = None,
+    extra: Optional[Dict[str, str]] = None,
+) -> None:
+    """Initialise OpenTelemetry for background workers (e.g., Dramatiq).
+
+    This intentionally does not instrument FastAPI. If you want Dramatiq span context per-message,
+    add a simple middleware around actor execution to create spans using `get_tracer()`.
+    """
+    resource = _build_resource(
+        service_name=service_name,
+        service_namespace=service_namespace,
+        deployment_environment=deployment_environment,
+        extra=extra,
+    )
+    _ensure_provider(resource)
+    _ensure_metrics_provider(resource)
+
+
+def get_tracer(name: str):
+    """Helper to obtain a tracer for manual spans in both src and worker processes."""
+    return trace.get_tracer(name)

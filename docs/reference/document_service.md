@@ -14,7 +14,7 @@ Acts as the boundary between HTTP routes and document persistence. It wraps repo
 ## Construction
 
 ```python
-from app.services.factory import get_document_service
+from src.services.factory import get_document_service
 document_service = get_document_service()
 ```
 

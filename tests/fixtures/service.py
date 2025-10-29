@@ -1,11 +1,11 @@
 import pytest
 
-from app.services.factory import (
+from services.factory import (
     get_profile_settings,
     get_upload_pipeline,
     get_upload_service,
 )
-from tests.support.profiles import TestProcessingProfile
+from tests.support.profiles import TestProcessingProfile  # type: ignore[missing-import]
 
 
 @pytest.fixture

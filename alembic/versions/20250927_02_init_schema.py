@@ -12,13 +12,16 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
-from app.core.db_schema import APP_SCHEMA
+from core.config import get_settings
 
 # revision identifiers, used by Alembic.
 revision = '20250927_02_init_schema'
 down_revision = '20250927_01_ensure_vector'
 branch_labels = None
 depends_on = None
+
+
+APP_SCHEMA = get_settings().db_schema
 
 
 def upgrade() -> None:
@@ -49,7 +52,7 @@ def upgrade() -> None:
             'created_by',
             postgresql.UUID(as_uuid=True),
             nullable=False,
-            server_default=sa.text("current_setting('app.user_id', true)::uuid"),
+            server_default=sa.text("current_setting('src.user_id', true)::uuid"),
         ),
         sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
         sa.UniqueConstraint('tenant_id', 'collection', 'digest', name='uq_documents_tenant_collection_digest'),
@@ -96,7 +99,7 @@ def upgrade() -> None:
             'created_by',
             postgresql.UUID(as_uuid=True),
             nullable=False,
-            server_default=sa.text("current_setting('app.user_id', true)::uuid"),
+            server_default=sa.text("current_setting('src.user_id', true)::uuid"),
         ),
         sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
         schema=APP_SCHEMA,
@@ -149,7 +152,7 @@ def upgrade() -> None:
             'created_by',
             postgresql.UUID(as_uuid=True),
             nullable=False,
-            server_default=sa.text("current_setting('app.user_id', true)::uuid"),
+            server_default=sa.text("current_setting('src.user_id', true)::uuid"),
         ),
         sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
         sa.UniqueConstraint('tenant_id', 'document_id', 'collection', 'digest', name='uq_ingestion_compound'),

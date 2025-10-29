@@ -15,7 +15,7 @@ Encapsulates job lifecycle rules for uploads, keeping the repository focused on 
 ## Usage
 
 ```python
-from app.services.factory import get_job_service
+from src.services.factory import get_job_service
 job_service = get_job_service()
 await job_service.update_status(
     session,

@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from app.api.file import TemporaryUploadFile
-from app.schemas.enums import CollectionEnum
-from app.store.local_store import LocalFileStore
-from app.store.protocols import StoreProtocol
+from api.file import TemporaryUploadFile
+from schemas.enums import CollectionEnum
+from store.local_store import LocalFileStore
+from store.protocols import StoreProtocol
 
 # Helpers to make tests resilient whether info() returns dicts or Pydantic models
 

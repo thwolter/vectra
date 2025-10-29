@@ -21,8 +21,8 @@ The vector store is instantiated with `app/vector/factory.get_vectorstore`, whic
 
 ```python
 from uuid import UUID
-from app.vector.factory import get_vectorstore
-from app.vector.models import IngestorSettings
+from src.vector.factory import get_vectorstore
+from src.vector.models import IngestorSettings
 
 tenant_id = UUID("...")  # Usually from the access token / session
 vs = get_vectorstore(

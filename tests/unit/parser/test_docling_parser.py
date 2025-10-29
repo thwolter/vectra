@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, create_autospec
 import pytest
 from langchain_core.documents import Document
 
-from app.parsers.docling import DoclingParser, DoclingParserConfig
-from app.parsers.schemas import ParseResult
+from parsers.docling import DoclingParser, DoclingParserConfig
+from parsers.schemas import ParseResult
 
 langchain_docling = pytest.importorskip('langchain_docling')
 pytest.importorskip('docling_core.transforms.chunker.hybrid_chunker')

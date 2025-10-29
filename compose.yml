@@ -86,17 +86,17 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./app
-          target: /app/app
+          path: src
+          target: /src/src
         - action: sync
           path: ./scripts
-          target: /app/scripts
+          target: /src/scripts
         - action: sync
           path: ./alembic
-          target: /app/alembic
+          target: /src/alembic
         - action: sync
           path: ./alembic.ini
-          target: /app/alembic.ini
+          target: /src/alembic.ini
         - action: rebuild
           path: ./pyproject.toml
         - action: rebuild

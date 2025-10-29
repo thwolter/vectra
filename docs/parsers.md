@@ -10,7 +10,7 @@ Parsers convert uploaded files into structured content that downstream component
 `app/parsers/providers.py` registers named factories that construct parser instances. Services request a parser by name, usually sourced from the active processing profile:
 
 ```python
-from app.parsers.providers import parser_provider
+from src.parsers.providers import parser_provider
 parser = parser_provider(name="llama", config=ParserConfig())
 ```
 

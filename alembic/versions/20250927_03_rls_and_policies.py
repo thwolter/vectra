@@ -9,13 +9,15 @@ Create Date: 2025-09-27 09:22:00
 from __future__ import annotations
 
 from alembic import op
-from app.core.db_schema import APP_SCHEMA
+from core.config import get_settings
 
 # revision identifiers, used by Alembic.
 revision = '20250927_03_rls_and_policies'
 down_revision = '20250927_02_init_schema'
 branch_labels = None
 depends_on = None
+
+APP_SCHEMA = get_settings().db_schema
 
 
 APP_TENANT_TABLES = (
@@ -51,12 +53,12 @@ $$;
 
 
 def upgrade() -> None:
-    # Enable and enforce RLS and create tenant isolation policy on app tables
+    # Enable and enforce RLS and create tenant isolation policy on src tables
     for tbl in APP_TENANT_TABLES:
         op.execute(_DEF_TEMPLATE.format(schema=APP_SCHEMA, tbl=tbl))
 
 
 def downgrade() -> None:
-    # Drop policy and disable RLS (optional) on app tables
+    # Drop policy and disable RLS (optional) on src tables
     for tbl in APP_TENANT_TABLES:
         op.execute(_UNDO_TEMPLATE.format(schema=APP_SCHEMA, tbl=tbl))

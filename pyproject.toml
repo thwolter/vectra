@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi[standard]>=0.116.1",
+    "fastapi[standard]>=0.120.1",
     "requests>=2.31.0",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.1",
@@ -86,6 +86,7 @@ dev = [
     "vulture>=2.14",
     "typer>=0.16.0",
     "pyrefly>=0.31.1",
+    "testcontainers>=4.13.2",
 ]
 
 [tool.pytest.ini_options]
@@ -100,7 +101,6 @@ markers = [
   "e2e: end-to-end tests",
   "slow: slow-running tests",
   "requires_env(*vars): skip test if these env vars are missing",
-  "needs_postgres: shorthand for requires_env('POSTGRES_URL')",
   "needs_aws: shorthand for requires_env('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET')",
   "needs_openai: shorthand for requires_env('OPENAI_API_KEY')",
 ]
@@ -125,7 +125,7 @@ build-backend = "setuptools.build_meta"
 # Explicitly control package discovery to avoid including non-package directories
 
 [tool.setuptools.packages.find]
-include = ["app*", "commands*"]
+include = ["src", "commands*"]
 exclude = [
   "tests*",
   "docs*",

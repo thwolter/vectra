@@ -9,13 +9,16 @@ Create Date: 2025-09-29 10:58:00
 from __future__ import annotations
 
 from alembic import op
-from app.core.db_schema import APP_SCHEMA
+from core.config import get_settings
 
 # revision identifiers, used by Alembic.
 revision = '20250929_00_lc_pg_tables'
 down_revision = '20250927_03_rls_and_policies'
 branch_labels = None
 depends_on = None
+
+
+APP_SCHEMA = get_settings().db_schema
 
 # Note: We mirror the schema used by langchain_postgres PGVector backend.
 # Tables are only created if they do not already exist to avoid conflicts

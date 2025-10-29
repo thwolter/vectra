@@ -7,13 +7,16 @@ from typing import Optional
 import numpy as np
 from langchain_core.embeddings import Embeddings
 
-from app.parsers.protocols import ParserProtocol
-from app.parsers.providers import register_parser_provider
-from app.parsers.schemas import ParserConfig
-from app.profiles.registry import ProcessingProfileSettings, register_profile
-from app.vector.factory import register_embeddings_provider
-from app.vector.models import IngestorSettings
-from tests.support.fakes import FakeSampleParser
+from parsers.protocols import ParserProtocol
+from parsers.providers import register_parser_provider
+from parsers.schemas import ParserConfig
+from src.profiles.registry import (  # type: ignore[missing-import]
+    ProcessingProfileSettings,
+    register_profile,
+)
+from tests.support.fakes import FakeSampleParser  # type: ignore[missing-import]
+from vector.factory import register_embeddings_provider
+from vector.models import IngestorSettings
 
 
 class TestEmbeddings(Embeddings):

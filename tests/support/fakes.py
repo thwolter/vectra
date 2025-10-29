@@ -6,8 +6,8 @@ from pathlib import Path
 from langchain_core.documents import Document
 from loguru import logger
 
-from app.parsers.protocols import ParserProtocol
-from app.parsers.schemas import ParseResult
+from parsers.protocols import ParserProtocol
+from parsers.schemas import ParseResult
 
 
 class FakeSampleParser(ParserProtocol):

@@ -7,8 +7,8 @@ Implements the ingestion contract for converting parsed documents into vector em
 ## Construction
 
 ```python
-from app.vector.ingestor import DocumentIngestor
-from app.vector.models import IngestorSettings
+from src.vector.ingestor import DocumentIngestor
+from src.vector.models import IngestorSettings
 
 ingestor = DocumentIngestor(
     collection="default",
