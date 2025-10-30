@@ -5,7 +5,6 @@ from uuid import UUID
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from profiles.registry import get_profile
 from repositories import DocumentRepository, document_repository
 from repositories.models import DocumentRecord
 from repositories.schemas import DocumentCreate, DocumentUpdate
@@ -17,7 +16,6 @@ from schemas.documents import (
 from store.protocols import StoreProtocol
 from store.providers import default_store_provider
 from store.schemas import FileInfo
-from utils.types import SHA256B64
 
 
 class DocumentService:
@@ -107,9 +105,7 @@ class DocumentService:
         doc = await self.repo.get(session, document_id=document_id)
         return DocumentResponse.model_validate(doc)
 
-    async def get_document_by_digest(
-        self, session: AsyncSession, *, digest: SHA256B64, collection: str
-    ) -> DocumentResponse:
+    async def get_document_by_digest(self, session: AsyncSession, *, digest: str, collection: str) -> DocumentResponse:
         doc = await self.repo.get_for_digest(session, digest=digest, collection=collection)
         return DocumentResponse.model_validate(doc)
 
@@ -120,11 +116,6 @@ class DocumentService:
         filters: DocumentListFilters,
     ) -> DocumentListResponse:
         collection = None
-        if filters.profile_name:
-            try:
-                collection = get_profile(filters.profile_name).collection
-            except KeyError:
-                collection = None
 
         repo_filters = filters.to_repo_filters(collection=collection)
         docs = await self.repo.get_many(session, filters=repo_filters)

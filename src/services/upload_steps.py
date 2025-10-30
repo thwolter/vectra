@@ -5,14 +5,14 @@ from dataclasses import replace as dc_replace
 from loguru import logger
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from parsers.protocols import ParserProtocol
 from repositories import ingestion_repository, job_repository
 from repositories.schemas import IngestionVersion, JobUpdate
 from schemas.jobs import JobCtx
 from services.document_service import DocumentService
 from store.protocols import StoreProtocol
 from store.schemas import ArtifactInfo
-from vector.protocols import IngestorProtocol
+from vector.ingestor import DocumentIngestor
+from vector.parser import LlamaParser
 
 
 class UploadPipeline:
@@ -20,12 +20,8 @@ class UploadPipeline:
         self,
         *,
         store: StoreProtocol,
-        parser: ParserProtocol,
-        ingestor: IngestorProtocol,
     ) -> None:
         self.store = store
-        self.parser = parser
-        self.ingestor = ingestor
 
     async def store_original(self, ctx: JobCtx) -> JobCtx:
         """Store original file in S3 and return ctx with original_key set."""
@@ -46,9 +42,10 @@ class UploadPipeline:
         - source: S3 original key (used for repository checks and deletes)
         - digest: deterministic document id used for idempotency and grouping
         """
-        result = await self.parser.parse(file=str(ctx.file.path))
-        markdown = await self.parser.to_markdown()
-        docs = list(result.documents or [])
+        parser = LlamaParser()
+        result = await parser.parse(file=str(ctx.file.path))
+        markdown = await parser.to_markdown()
+        docs = list(result or [])
         if docs:
             # Attach required metadata for downstream vector and tests
             for d in docs:
@@ -98,7 +95,8 @@ class UploadPipeline:
             ingestion_id = record.id
         elif ctx.docs:
             skip_embed = False
-            result = await self.ingestor.ingest(session=session, docs=ctx.docs, job_id=ctx.job_id)
+            ingestor = DocumentIngestor(collection=ctx.collection)
+            result = await ingestor.ingest(session=session, docs=ctx.docs, job_id=ctx.job_id)
             ingestion_id = result.ingestion_id
         else:
             skip_embed = False

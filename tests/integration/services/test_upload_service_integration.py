@@ -5,15 +5,15 @@ from api.file import TemporaryUploadFile
 from repositories import embeddings_repository, job_repository
 from schemas.enums import CollectionEnum
 from schemas.upload import ContinueProcessingInput, JobStatus, StartUploadInput
-from services.factory import get_job_service
+from services.factory import get_job_service, get_upload_service
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-async def job_uploaded(auth_session, apple_report_first_page_upload, upload_service):
+async def job_uploaded(auth_session, apple_report_first_page_upload):
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
-    service = upload_service
+    service = get_upload_service()
 
     init = await service.initiate_document_intake(auth_session, payload=StartUploadInput(file=file))
     await service.continue_processing(

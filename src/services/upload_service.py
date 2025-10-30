@@ -21,11 +21,11 @@ from schemas.upload import (
     StartUploadInput,
     UploadInitResponse,
 )
-from utils.job import build_job_ctx
 
 from .document_service import DocumentService
 from .job_service import JobService
 from .upload_steps import UploadPipeline
+from .utils import build_job_ctx
 
 
 @dataclass(frozen=True)

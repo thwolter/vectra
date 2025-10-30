@@ -6,7 +6,6 @@ from langchain_core.documents import Document
 from repositories import embeddings_repository
 from schemas.enums import CollectionEnum
 from vector.factory import get_vectorstore
-from vector.ingestor import IngestorSettings
 
 
 @pytest.mark.needs_openai
@@ -16,9 +15,7 @@ async def test_check_documents_exists_scoped_by_collection(
     digest = uuid.uuid4().hex[:10]
 
     tenant_id = auth_session.info['tenant_id']
-    vs_default = get_vectorstore(
-        collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id, config=IngestorSettings()
-    )
+    vs_default = get_vectorstore(collection=CollectionEnum.DEFAULT.value, tenant_id=tenant_id)
     await vs_default.aadd_documents(
         documents=[
             Document(

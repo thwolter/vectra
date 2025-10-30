@@ -37,7 +37,6 @@ class DocumentListFilters(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=100)
     offset: int | None = Field(default=None, ge=0)
     next_page_token: str | None = Field(default=None, alias='nextPageToken')
-    profile_name: str | None = Field(default=None, alias='profileName')
 
     DEFAULT_LIMIT: ClassVar[int] = 20
 

@@ -1,14 +1,66 @@
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, List, Literal
 
 from dotenv import load_dotenv
-from pydantic import Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings
+from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .utils import load_version, parse_cors_origins
 
 
+class AllowedUploadFiles(BaseModel):
+    allowed_extensions: list[str] = ['pdf', 'docx', 'doc', 'txt', 'html', 'htm', 'md', 'rst', 'json', 'yaml', 'yml']
+    upload_size_limit: int = 100 * 1024 * 1024
+    content_type: List[str] = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+        'text/plain',
+        'text/html',
+        'text/markdown',
+        'text/x-rst',
+        'application/json',
+        'application/x-yaml',
+        'text/yaml',
+    ]
+
+
+class LlamaCloudSettings(BaseModel):
+    api_key: SecretStr | None = None
+    parse_mode: str = 'parse_page_with_agent'
+    high_res_ocr: bool = True
+    adaptive_long_table: bool = True
+    outlined_table_extraction: bool = True
+    output_tables_as_HTML: bool = True
+    model: str = 'openai-gpt-5-mini'
+
+    @field_validator('api_key')
+    @classmethod
+    def require_api_key_in_prod(cls, v):
+        import os
+
+        if os.getenv('ENV') == 'prod' and v is None:
+            raise ValueError('LLAMA_CLOUD__API_KEY required in production')
+        return v
+
+
+class TextSplitterSettings(BaseModel):
+    min_heading_level: int = 1
+    max_heading_level: int = 6
+
+
+class EmbeddingSettings(BaseModel):
+    version: str = '1'
+    collection: str = 'default'
+    model: str = 'text-embedding-3-small'
+    dim: int = 1536
+    max_tokens_per_request: int = 300000
+    max_docs_per_batch: int = 100
+
+
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_nested_delimiter='__')
+
     env: Literal['development', 'production', 'testing'] = 'production'
     app_name: str = 'Vectra'
     debug: bool = True
@@ -26,8 +78,12 @@ class Settings(BaseSettings):
     chatdoc_api_key: SecretStr | None = None
     chatdoc_api_url: str = 'https://api.chatdoc.com'
 
-    # Llama Cloud
-    llama_cloud_api_key: SecretStr | None = None
+    # Parser and Text splitter configuration
+    llama_cloud: LlamaCloudSettings = LlamaCloudSettings()  # type: ignore[assignment]
+    text_splitter: TextSplitterSettings = TextSplitterSettings()
+
+    allowed_upload_files: AllowedUploadFiles = AllowedUploadFiles()
+    embedding: EmbeddingSettings = EmbeddingSettings()
 
     # OpenAI API configuration for embeddings
     openai_api_key: SecretStr

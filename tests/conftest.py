@@ -5,13 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from pydantic import SecretStr
-
-from core.config import get_settings
-from tests.support.profiles import (  # type: ignore[missing-import]
-    TestProcessingProfile,
-    ensure_test_profile,
-)
 
 # Load session-level fixtures (auth, client, data) for all tests
 pytest_plugins = [
@@ -21,31 +14,22 @@ pytest_plugins = [
     'tests.fixtures.store',
     'tests.fixtures.document',
     'tests.fixtures.ingestion',
-    'tests.fixtures.service',
 ]
 
 if TYPE_CHECKING:
     pass
 
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TESTS_ROOT = Path(__file__).resolve().parent
+
 
 DEFAULT_ENV_VARS = {
     'OPENAI_API_KEY': 'test-key',
     'JWT_SECRET': 'test-secret',
     'ENV': 'testing',
+    'DOCUMENT_STORE': 'local',
 }
-
-
-def pytest_sessionstart(session: pytest.Session) -> None:  # pragma: no cover - pytest hook
-    ensure_test_profile()
-    settings = get_settings()
-    settings.default_profile = TestProcessingProfile.name
-    settings.document_store = 'local'
-    settings.dramatiq_broker_url = SecretStr('')
-
-
-# Collection policy: only collect integration/e2e when requested via -m
 
 
 def pytest_ignore_collect(path, config):

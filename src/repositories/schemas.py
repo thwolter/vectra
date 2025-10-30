@@ -7,9 +7,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.config import get_settings
 from schemas.upload import JobStatus
 from utils.types import SHA256B64
-from vector.models import IngestorSettings
 
 
 class DocumentCreate(BaseModel):
@@ -60,8 +60,16 @@ class IngestionVersion(BaseModel):
 
     @classmethod
     def from_settings(cls, *, collection: str) -> 'IngestionVersion':
-        settings = IngestorSettings().model_dump()
-        return cls(**settings, collection=collection)
+        settings = get_settings()
+        return cls(
+            chunker_model='MarkdownHeaderTextSplitter',
+            chunker_version='1',
+            chunker_params=settings.text_splitter.model_dump(),
+            embed_model=settings.embedding.model,
+            embed_model_version=settings.embedding.version,
+            embed_dim=settings.embedding.dim,
+            collection=collection,
+        )
 
     def fingerprint(self) -> str:
         payload = self.model_dump(

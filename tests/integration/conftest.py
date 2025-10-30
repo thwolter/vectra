@@ -24,10 +24,6 @@ from tests.db import (  # type: ignore[missing-import]
     reset_database_state,
     run_migrations,
 )
-from tests.support.profiles import (  # type: ignore[missing-import]
-    TestProcessingProfile,
-    ensure_test_profile,
-)
 
 pytestmark = pytest.mark.integration
 
@@ -36,7 +32,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENV_VARS = {
     'JWT_SECRET': 'test-secret',
     'ENV': 'testing',
-    'DEFAULT_PROFILE': TestProcessingProfile.name,
     'DOCUMENT_STORE': 'local',
 }
 
@@ -50,7 +45,6 @@ async def integration_environment() -> AsyncGenerator[None, None]:
     - Resets DB state and seeds
     - Ensures core.db engine is reinitialized
     """
-    ensure_test_profile()
 
     postgres = PostgresContainer('pgvector/pgvector:pg16')
     redis = RedisContainer('redis:6-alpine')
@@ -61,15 +55,29 @@ async def integration_environment() -> AsyncGenerator[None, None]:
     try:
         base_url = make_url(postgres.get_connection_url(driver='asyncpg'))
         app_dsn, alembic_dsn = await prepare_database(base_url)
+        redis_url = f'redis://{redis.get_container_host_ip()}:{redis.get_exposed_port(6379)}/0'
 
         os.environ['POSTGRES_URL'] = app_dsn.render_as_string(hide_password=False)
         os.environ['ALEMBIC_DATABASE_URL'] = alembic_dsn.render_as_string(hide_password=False)
-        os.environ['REDIS_URL'] = f'redis://{redis.get_container_host_ip()}:{redis.port}/0'
+
+        os.environ['REDIS_URL'] = redis_url
+        os.environ['DRAMATIQ_BROKER_URL'] = redis_url
 
         for key, value in DEFAULT_ENV_VARS.items():
             os.environ.setdefault(key, value)
 
         get_settings.cache_clear()
+
+        # Rebuild the Dramatiq broker so the worker uses the test Redis instance.
+        from worker import (  # noqa: WPS433  Imported lazily for test env
+            actors as worker_actors,
+        )
+        from worker import broker as worker_broker  # noqa: WPS433
+
+        worker_actors.settings = get_settings()
+        new_broker = worker_broker.reset_broker()
+        worker_actors.broker = new_broker
+        worker_actors.process_upload.broker = new_broker
 
         if core_db._engine is not None:
             await core_db._engine.dispose()

@@ -35,7 +35,7 @@ To use the Llama parser (Llama Cloud / LlamaParse) as the default parser, follow
    Or use Llama-specific options:
 
    ```python
-   from src.parsers.llama import LlamaParserConfig
+   from vector.parser import LlamaParserConfig
    parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown"))
    ```
 

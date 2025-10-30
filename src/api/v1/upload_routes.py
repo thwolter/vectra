@@ -8,7 +8,6 @@ from tenauth.fastapi import require_access_context, require_auth
 from tenauth.schemas import AccessContext
 
 from core.deps import SessionDep
-from profiles.registry import ProcessingProfileSettings
 from protocols.services import UploadServiceProtocol
 from schemas.upload import (
     ContinueProcessingInput,
@@ -16,7 +15,7 @@ from schemas.upload import (
     StartUploadInput,
     UploadInitResponse,
 )
-from services.factory import get_profile_settings, get_upload_service
+from services.factory import get_upload_service
 from worker.dispatcher import enqueue_upload_processing
 
 from ..file import TemporaryUploadFile
@@ -41,7 +40,6 @@ router = APIRouter(
 async def upload_document(
     file: Annotated[UploadFile, File(description='Document to upload (PDF, DOCX, etc.)')],
     upload_service: UploadServiceProtocol = Depends(get_upload_service),
-    config: ProcessingProfileSettings = Depends(get_profile_settings),
     session: AsyncSession = Depends(SessionDep),
 ) -> UploadInitResponse:
     """Upload a document for ingestion.
@@ -59,7 +57,7 @@ async def upload_document(
     - Optional `hints` form field is accepted for backwards compatibility but ignored
     """
 
-    await check_file_type_size(file, config=config)
+    await check_file_type_size(file)
 
     tmp_file = TemporaryUploadFile.from_upload(file)
 

@@ -5,32 +5,31 @@ import pytest
 from fastapi import HTTPException
 
 from api.utils import check_file_type_size
-from profiles.registry import ProcessingProfileSettings
+from core.config import get_settings
 
 
-@pytest.mark.asyncio
 async def test_check_file_type_size_allows_supported_type():
-    config = ProcessingProfileSettings()
     file = SimpleNamespace(content_type='application/pdf', file=io.BytesIO(b'abc'))
+    await check_file_type_size(file)
 
-    await check_file_type_size(file, config=config)
 
-
-@pytest.mark.asyncio
 async def test_check_file_type_size_rejects_unsupported_type():
-    config = ProcessingProfileSettings()
+    get_settings.cache_clear()
+    settings = get_settings()
+    settings.allowed_upload_files.content_type = ['application/pdf']
     file = SimpleNamespace(content_type='image/png', file=io.BytesIO(b'abc'))
 
     with pytest.raises(HTTPException) as exc:
-        await check_file_type_size(file, config=config)
+        await check_file_type_size(file)
     assert exc.value.status_code == 415
 
 
-@pytest.mark.asyncio
 async def test_check_file_type_size_rejects_large_files():
-    config = ProcessingProfileSettings(max_upload_size=2)
+    get_settings.cache_clear()
+    settings = get_settings()
+    settings.allowed_upload_files.upload_size_limit = 1
     file = SimpleNamespace(content_type='application/pdf', file=io.BytesIO(b'abcde'))
 
     with pytest.raises(HTTPException) as exc:
-        await check_file_type_size(file, config=config)
+        await check_file_type_size(file)
     assert exc.value.status_code == 413

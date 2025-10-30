@@ -4,11 +4,12 @@ from fastapi import HTTPException
 from loguru import logger
 from starlette import status
 
-from profiles.registry import ProcessingProfileSettings
+from core.config import get_settings
 
 
-async def check_file_type_size(file, *, config: ProcessingProfileSettings):
-    if file.content_type not in config.allowed_upload_types:
+async def check_file_type_size(file):
+    settings = get_settings()
+    if file.content_type not in settings.allowed_upload_files.content_type:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=f'Unsupported content type: {file.content_type}',
@@ -21,8 +22,9 @@ async def check_file_type_size(file, *, config: ProcessingProfileSettings):
     except Exception as e:
         logger.warning(f'Failed to get file size: {e}')
         size = None
-    if size is not None and size > config.max_upload_size:
+    limit = settings.allowed_upload_files.upload_size_limit
+    if size is not None and size > limit:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f'File is {size} bytes; limit is {config.max_upload_size} bytes',
+            detail=f'File is {size} bytes; limit is {limit} bytes',
         )

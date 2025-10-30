@@ -88,22 +88,22 @@ def updated_at_field() -> Any:
 
 
 def created_by_field() -> Any:
-    """Created by user UUID sourced from PostgreSQL setting src.user_id."""
+    """Created by user UUID sourced from PostgreSQL setting app.user_id."""
     return Field(
         sa_column=Column(
             PGUUID(as_uuid=True),
             nullable=False,
-            server_default=text("current_setting('src.user_id', true)::uuid"),
+            server_default=text("current_setting('app.user_id', true)::uuid"),
         )
     )
 
 
 def updated_by_field() -> Any:
-    """Updated by user UUID sourced from PostgreSQL setting src.user_id."""
+    """Updated by user UUID sourced from PostgreSQL setting app.user_id."""
     return Field(
         sa_column=Column(
             PGUUID(as_uuid=True),
             nullable=True,
-            onupdate=text("current_setting('src.user_id', true)::uuid"),
+            onupdate=text("current_setting('app.user_id', true)::uuid"),
         )
     )

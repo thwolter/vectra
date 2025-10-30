@@ -14,14 +14,12 @@ from repositories import (
 from repositories.models import JobRecord
 from repositories.schemas import IngestionCreate, IngestionResult, IngestionVersion
 
-from .batching import BatchBuilder
+from .batching import batch_documents_by_tokens
 from .errors import EmbeddingsAlreadyExistError
 from .factory import get_vectorstore
-from .models import IngestorSettings
-from .protocols import IngestorProtocol
 
 
-class DocumentIngestor(IngestorProtocol):
+class DocumentIngestor:
     """
     Handles document ingestion and processing for vector storage.
     Collection is a plain `str`; tenant scoping is enforced by DB RLS.
@@ -32,14 +30,11 @@ class DocumentIngestor(IngestorProtocol):
         self,
         collection: str,
         *,
-        config: IngestorSettings,
         ingestion_repo: IngestionRepository | None = None,
         job_repo: JobRepository | None = None,
     ) -> None:
         """Initialize the ingestor with a collection and optional settings."""
         self.collection = collection
-        self.config = config
-        self.batcher = BatchBuilder(self.config)
         self._ingestion_repo = ingestion_repo or ingestion_repository
         self._job_repo = job_repo or job_repository
 
@@ -70,9 +65,9 @@ class DocumentIngestor(IngestorProtocol):
         if embeddings_exist:
             raise EmbeddingsAlreadyExistError(f'Embeddings already exist for digest {digest}.')
 
-        batches = self.batch_documents_by_tokens(docs)
+        batches = batch_documents_by_tokens(docs)
 
-        vs = get_vectorstore(collection=self.collection, tenant_id=session.info['tenant_id'], config=self.config)
+        vs = get_vectorstore(collection=self.collection, tenant_id=session.info['tenant_id'])
 
         total_ingested = 0
         for batch in batches:
@@ -104,12 +99,6 @@ class DocumentIngestor(IngestorProtocol):
                 }
             )
         return batch
-
-    def batch_documents_by_tokens(self, docs: List[Document]) -> List[List[Document]]:
-        return self.batcher.batch_documents_by_tokens(docs)
-
-    def plan_batches(self, docs: list[Document]) -> list[list[Document]]:
-        return self.batcher.batch_documents_by_tokens(docs)
 
     async def mark_ingestion(self, session: AsyncSession, *, job: JobRecord, digest: str) -> UUID:
         """Persist an ingestion version row for traceability and idempotency."""
