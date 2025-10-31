@@ -11,6 +11,7 @@ from sqlalchemy import engine_from_config, pool, text
 from sqlmodel import SQLModel
 
 from alembic import context
+from core.config import get_settings
 
 # Ensure project root is on sys.path so `src` package is importable when running `alembic` CLI
 project_root = Path(__file__).resolve().parent.parent
@@ -18,7 +19,6 @@ src_path = project_root / 'src'
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
-from core.config import get_settings
 
 settings = get_settings()
 
@@ -37,6 +37,7 @@ from repositories import (  # noqa: F401,E402  Ensure models import for metadata
 )
 
 target_metadata = SQLModel.metadata
+
 
 def _normalize_sync_url(url: str) -> str:
     # Trim accidental whitespace that can produce invalid DB names like "test "
