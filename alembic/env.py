@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from logging.config import fileConfig
 from pathlib import Path
 from typing import Any, cast
@@ -13,12 +12,7 @@ from sqlmodel import SQLModel
 from alembic import context
 from core.config import get_settings
 
-# Ensure project root is on sys.path so `src` package is importable when running `alembic` CLI
 project_root = Path(__file__).resolve().parent.parent
-src_path = project_root / 'src'
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
-
 
 settings = get_settings()
 

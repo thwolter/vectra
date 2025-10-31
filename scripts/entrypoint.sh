@@ -10,7 +10,7 @@ UVICORN_RELOAD=${UVICORN_RELOAD:-false}
 DRAMATIQ_WORKERS=${DRAMATIQ_WORKERS:-1}
 DRAMATIQ_THREADS=${DRAMATIQ_THREADS:-8}
 DEPLOY_SKIP_MIGRATIONS=${DEPLOY_SKIP_MIGRATIONS:-false}
-UVICORN_CMD=(uvicorn app.main:app --host 0.0.0.0 --port "${PORT}")
+UVICORN_CMD=(uvicorn src.main:app --host 0.0.0.0 --port "${PORT}")
 
 if [[ "${UVICORN_RELOAD}" == "true" ]]; then
   echo "[entrypoint] Uvicorn live reload enabled"
@@ -61,12 +61,12 @@ start_web() {
 
 start_worker() {
   echo "[entrypoint] Starting Dramatiq worker (processes=${DRAMATIQ_WORKERS}, threads=${DRAMATIQ_THREADS})"
-  exec dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
+  exec dramatiq src.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}"
 }
 
 start_both() {
   echo "[entrypoint] Starting BOTH: web and worker (reload=${UVICORN_RELOAD})"
-  dramatiq app.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
+  dramatiq src.worker.actors --processes "${DRAMATIQ_WORKERS}" --threads "${DRAMATIQ_THREADS}" &
   WORKER_PID=$!
   echo "[entrypoint] Dramatiq worker PID=${WORKER_PID}"
 

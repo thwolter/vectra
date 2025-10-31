@@ -118,18 +118,11 @@ async def _execute_sql_scripts(connection_url: URL, directory: Path) -> None:
         await engine.dispose()
 
 
-async def prepare_database(
-    base_url: URL,
-    *,
-    app_user: str = 'app_user',
-    app_password: str = 'app-password',
-    alembic_user: str = 'alembic_user',
-    alembic_password: str = 'alembic-password',
-) -> tuple[URL, URL]:
+async def prepare_database(base_url: URL) -> tuple[URL, URL]:
     await _execute_sql_scripts(base_url, INIT_SQL_DIR)
 
-    app_url = base_url.set(username=app_user, password=app_password)
-    alembic_url = base_url.set(username=alembic_user, password=alembic_password)
+    app_url = base_url.set(username='app_user', password='app-password')
+    alembic_url = base_url.set(username='alembic_user', password='alembic-password')
     return app_url, alembic_url
 
 

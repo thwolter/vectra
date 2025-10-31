@@ -15,5 +15,3 @@ BEGIN
   END IF;
 END;
 $vectra_roles$;
-
-COMMIT;

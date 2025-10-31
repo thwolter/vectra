@@ -48,7 +48,13 @@ FROM base AS runtime
 # Bring in the prebuilt virtualenv
 COPY --from=build /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
+ENV PYTHONPATH=/app/src \
+    HOST=0.0.0.0 \
+    PORT=8000
 
+WORKDIR /app
+
+EXPOSE 8000
 # Copy application code and assets late to maximise layer reuse.
 COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic

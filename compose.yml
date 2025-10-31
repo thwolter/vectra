@@ -59,16 +59,17 @@ services:
       otel-collector:
         condition: service_healthy
     environment:
-      POSTGRES_URL: postgresql://${VECTRA_USER:-vectra_user}:${VECTRA_PASSWORD:-vectra-password}@vectra-db:5432/vectra
-      ALEMBIC_DATABASE_URL: postgresql://${ALEMBIC_USER:-alembic_user}:${ALEMBIC_PASSWORD:-alembic-password}@vectra-db:5432/vectra
+      POSTGRES_URL: postgresql://app_user:app-password@vectra-db:5432/vectra
+      ALEMBIC_DATABASE_URL: postgresql://alembic_user:alembic-password@vectra-db:5432/vectra
       REDIS_URL: redis://:redispassword@redis:6379/0
       DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       AWS_REGION: ${AWS_REGION}
       DOCUMENT_STORE: local
-      LOCAL_FILE_PATH: /tmp/vectra/documents
+      LOCAL_FILE_PATH: ${LOCAL_FILE_PATH:-/tmp/vectra/documents}
       JWT_SECRET: ${JWT_SECRET}
       PORT: 8000
       START_WEB: 'true'
