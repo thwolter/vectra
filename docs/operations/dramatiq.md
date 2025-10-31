@@ -23,10 +23,10 @@ Use the stock `dramatiq` CLI to run workers once the environment variables are s
 ```bash
 DRAMATIQ_BROKER_URL=redis://redis:6379/0 \
 DRAMATIQ_QUEUE_NAME=upload-processing \
-dramatiq src.worker.actors
+uv run dramatiq src.worker.actors
 ```
 
-The module `app.worker.actors` auto-configures the broker (Redis + monitoring middleware) and exposes the `process_upload` actor.
+The module `src.worker.actors` configures the broker (Redis + monitoring middleware) and exposes the `process_upload` actor.
 
 ## Monitoring
 
@@ -63,9 +63,9 @@ Use this hook to integrate with Slack, PagerDuty, or any other incident channel.
 
 You can run the web API and the worker using the same image in different service definitions, or run both in a single container:
 
-- Web only (default): no extra env needed; container starts uvicorn.
-- Worker only: set `START_WORKER=true` and `START_WEB=false`.
-- Both in one container: set `DEPLOY_START_BOTH=true` (the worker is started in the background; the web server remains PID 1).
+- Web only (default): `START_WEB=true`, `START_WORKER=false`.
+- Worker only: `START_WEB=false`, `START_WORKER=true`.
+- Both in one container: leave both `true`; the entrypoint forks the worker before starting Uvicorn.
 
 Optional tuning:
 - `DRAMATIQ_WORKERS` (processes, default 1)

@@ -1,6 +1,6 @@
 # DocumentService
 
-`app/services/document_service.py`
+`src/services/document_service.py`
 
 Acts as the boundary between HTTP routes and document persistence. It wraps repository calls with storage-aware behavior.
 
@@ -18,14 +18,14 @@ from src.services.factory import get_document_service
 document_service = get_document_service()
 ```
 
-The default constructor wires the `default_store_provider('default')` and the shared `DocumentRepository`.
+The default constructor wires `store.providers.default_store_provider` (using the collection from settings) and the shared `DocumentRepository`.
 
 ## Key Methods
 
 | Method | Description |
 | --- | --- |
 | `ensure_canonical_document(session, data)` | Fetches or creates a document row, returning `(record, created_bool)`. |
-| `update_document_uris(session, document_id, original_key, markdown_key)` | Converts store keys to URIs (`store.local_store.make_uri`) and persists them. |
+| `update_document_uris(session, document_id, original_key, markdown_key)` | Converts store keys to URIs (`src/store/local_store.make_uri` or `src/store/s3_store.make_uri`) and persists them. |
 | `stream_file(document_id, which)` | Resolves the appropriate artifact, fetches metadata, and returns `(streamer, FileInfo, key)`. |
 | `get_document(session, document_id)` | Returns a `DocumentResponse` including collection, original filename, content type, size bytes, and artifact URIs. |
 | `list_documents(session, filters)` | Streams results from the repository and coerces them into `DocumentListResponse`. |

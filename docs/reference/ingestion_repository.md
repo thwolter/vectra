@@ -1,6 +1,6 @@
 # IngestionRepository
 
-`app/repositories/ingestion_repo.py`
+`src/repositories/ingestion_repo.py`
 
 Persists ingestion metadata for idempotency and audit trails.
 

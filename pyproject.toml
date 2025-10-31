@@ -87,6 +87,7 @@ dev = [
     "typer>=0.16.0",
     "pyrefly>=0.31.1",
     "testcontainers>=4.13.2",
+    "mkdocs>=1.6.1",
 ]
 
 [tool.pytest.ini_options]

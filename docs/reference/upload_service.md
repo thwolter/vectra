@@ -1,6 +1,6 @@
 # UploadService
 
-`app/services/upload_service.py`
+`src/services/upload_service.py`
 
 Coordinates ingestion from the HTTP edge to background execution. It owns the orchestration between the `DocumentService`, `JobService`, repositories, and the `UploadPipeline`.
 
@@ -19,7 +19,7 @@ from src.services.factory import get_upload_service
 service = get_upload_service()
 ```
 
-`get_upload_service` resolves the active processing profile, builds an `UploadPipeline` with the profile's parser/store/vector configuration, and injects it into `UploadService(collection=profile.collection, pipeline=pipeline)`.
+`get_upload_service` reads defaults from `Settings.embedding` (collection name) and constructs an `UploadPipeline` with the configured store provider (`src/services/factory.py`).
 
 ## Key Methods
 
@@ -39,6 +39,6 @@ service = get_upload_service()
 
 ## Background Context
 
-The Dramatiq actor (`app/worker/actors.py`) deserializes a `ContinueProcessingInput`, instantiates `UploadService`, and calls `continue_processing`. Tenant isolation is derived from the serialized `AccessContext`, which scopes the SQLModel session and vector store DSN.
+The Dramatiq actor (`src/worker/actors.py`) deserializes a `ContinueProcessingInput`, instantiates `UploadService`, and calls `continue_processing`. Tenant isolation is derived from the serialized `AccessContext`, which scopes the SQLModel session and vector store DSN.
 
 See also: [`UploadPipeline`](../ingestion.md) for step semantics.

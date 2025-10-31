@@ -1,6 +1,6 @@
 # JobService
 
-`app/services/job_service.py`
+`src/services/job_service.py`
 
 Encapsulates job lifecycle rules for uploads, keeping the repository focused on persistence.
 
@@ -40,7 +40,7 @@ await job_service.update_status(
 ## Progress Rules
 
 - Raising `ValueError` when invalid transitions occur protects against race conditions between worker steps.
-- `normalise_progress` (from `app/services/utils.py`) derives sensible defaults when setting terminal statuses (e.g., `percent=100` on `COMPLETED`).
+- `normalise_progress` (from `src/services/utils.py`) derives sensible defaults when setting terminal statuses (e.g., `percent=100` on `COMPLETED`).
 
 ## Cleanup
 

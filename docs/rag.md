@@ -17,24 +17,22 @@ Agents can combine these assets to retrieve context, ground responses, and prese
 
 ## Querying the Vector Store
 
-The vector store is instantiated with `app/vector/factory.get_vectorstore`, which returns a `langchain_postgres.PGVector` instance. In agent code you can reuse the same helper:
+Use the same helper the worker relies on: `vector.factory.get_vectorstore`. It returns a LangChain `PGVector` instance configured with the tenant’s schema.
 
 ```python
 from uuid import UUID
-from src.vector.factory import get_vectorstore
-from src.vector.models import IngestorSettings
+from vector.factory import get_vectorstore
 
-tenant_id = UUID("...")  # Usually from the access token / session
-vs = get_vectorstore(
-    collection="default",
-    tenant_id=tenant_id,
-    config=IngestorSettings(embed_model="text-embedding-3-large"),
-)
+tenant_id = UUID("8b9fb1a4-5f89-4f56-9ec4-9f2b8f5ce90c")
+vectorstore = get_vectorstore(collection="default", tenant_id=tenant_id)
 
-docs = vs.similarity_search("latest SEC 10-K revenue guidance", k=5)
+# Async API for agents running on asyncio stacks
+docs = await vectorstore.asimilarity_search("latest SEC 10-K revenue guidance", k=5)
+for doc in docs:
+    print(doc.metadata["digest"], doc.metadata.get("header_title"))
 ```
 
-All vector store connections include the tenant search path, so row-level security prevents cross-tenant leakage.
+When running synchronously, use `similarity_search` instead of `asimilarity_search`. All connections set `search_path` to the tenant schema and expose `app.tenant_id`, so Postgres RLS blocks cross-tenant access.
 
 ## Recommended Retrieval Pattern
 
@@ -43,6 +41,7 @@ All vector store connections include the tenant search path, so row-level securi
 3. **Re-rank (optional)** — apply domain-specific filters using `digest`, `chunk_id`, or custom metadata the parser emitted.
 4. **Augment prompt** — combine retrieved snippets with content streamed from `/v1/documents/{id}/file/markdown` to provide full sections when needed.
 5. **Answer generation** — feed the curated context into your LLM of choice, capturing the chunk metadata for citations.
+6. **Audit** — optionally stream the original artifact (`/file/original`) to attach PDFs or Markdown to analyst workflows.
 
 ## Keeping Agents Fresh
 

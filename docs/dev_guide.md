@@ -1,33 +1,36 @@
-# Developer Guide
+# Development Workflow
 
-This guide covers the development workflow for VecAPI: environment setup, code style, testing, and parser configuration.
+This guide covers local setup, coding standards, testing, and tips for working on VecAPI’s ingestion pipeline.
 
 ## Environment Setup
 
-!!! note
-    Database URL whitespace: Environment variables are trimmed defensively in the app and Alembic. If a DB URL accidentally has trailing spaces (e.g., ends with "/test "), connections may fail with errors like `database "test " does not exist`. Ensure there are no stray spaces in `.env`.
-
-1. Install system dependencies (Python 3.12, libpq, Redis if running workers locally).
-2. Sync the project environment:
+1. Install prerequisites:
+   - Python 3.12
+   - libpq / PostgreSQL client libraries
+   - Redis (optional but required for realistic worker tests)
+2. Create and populate `.env` (see [Configuration](configuration.md) for required variables).
+3. Install dependencies with [`uv`](https://github.com/astral-sh/uv):
 
    ```bash
    uv sync
    ```
 
-3. Copy `.env.example` to `.env` and populate secrets such as database URLs, Redis, AWS credentials, and parser API keys.
-4. Start the local stack:
+4. Launch the API and worker locally:
 
    ```bash
    scripts/run-dev.sh
    ```
 
-   The script launches both `uvicorn app.main:app --reload` and the Dramatiq worker with OpenTelemetry wiring.
+   The script starts Uvicorn (`uvicorn src.main:app`) and a single Dramatiq worker with OpenTelemetry instrumentation.
+
+5. Visit `http://localhost:8010/docs` for interactive Swagger docs.
 
 ## Coding Standards
 
-- Format code with `ruff fmt` and sort imports via `isort --profile=black` (enforced by pre-commit).
-- Target 120-character line length, four-space indentation, and snake_case naming for functions/modules.
-- Run the full suite of hooks before pushing:
+- Python 3.12, four-space indentation, 120-character lines (`tool.ruff.line-length`).
+- Format with `ruff fmt`, lint with `ruff check`, sort imports using `isort --profile=black`.
+- Commit using Commitizen scopes (`uv run cz commit`).
+- Before opening a PR:
 
   ```bash
   uv run pre-commit run --all-files
@@ -36,58 +39,56 @@ This guide covers the development workflow for VecAPI: environment setup, code s
 ## Testing
 
 - Unit tests: `uv run pytest -m "unit"`
-- Full suite: `uv run pytest`
-- Markers `integration`, `e2e`, and `slow` remain opt-in; provision external services (Postgres, AWS) before running them.
+- Full suite (excludes `integration`, `e2e`, `slow` markers by default): `uv run pytest`
+- Opt into broader coverage:
 
-## Debugging Workers
+  ```bash
+  uv run pytest -m "integration"
+  uv run pytest -m "e2e"
+  ```
 
-- Dramatiq workers log heartbeats to Redis when `REDIS_URL` is set; check keys `worker:<hostname>:<pid>`.
-- OpenTelemetry traces emitted by the worker use the service name `vecapi-worker`.
-- To replay an upload payload locally, serialize a `ContinueProcessingInput` and call `UploadService.continue_processing`.
+Provide required env vars (`POSTGRES_URL`, `AWS_*`, `OPENAI_API_KEY`) when running integration/e2e suites.
 
-## Parser Configuration
+## Debugging Tips
 
-To use the Llama parser (Llama Cloud / LlamaParse) as the default parser:
+- Use [`scripts/run-dev.sh`](../scripts/run-dev.sh) with `LOG_LEVEL=DEBUG` and `UVICORN_RELOAD=true` for rapid iteration.
+- Dramatiq worker emits Redis heartbeat keys (`worker:<hostname>:<pid>`) when `REDIS_URL` is configured.
+- Replay a payload inline during debugging:
 
-1. Add the API key to `.env`:
+  ```python
+  import asyncio
+  from services.factory import get_upload_service
+  from schemas.upload import ContinueProcessingInput
 
-   ```bash
-   LLAMA_CLOUD_API_KEY=llx-...your-key...
-   ```
+  payload = ContinueProcessingInput(...)
+  asyncio.run(get_upload_service().continue_processing(payload=payload))
+  ```
 
-2. The application reads this via `settings.llama_cloud_api_key`. No additional wiring is needed.
+- Traces are exported automatically when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; follow spans `process_upload_message` and `store_markdown` to inspect timing.
 
-3. Choose the parser provider by name wherever a parser is requested via the providers registry. The built-in providers are:
-   - `llama` (default)
-   - `docling` (install extras via `uv sync --extra docling` before enabling)
+## Customising the Pipeline
 
-   Example (Python):
+- `UploadPipeline.parse_document` currently instantiates `LlamaParser`. Swap implementations by subclassing `UploadPipeline` or by injecting a different parser in `services.factory.get_upload_service`.
+- Adjust storage providers by setting `DOCUMENT_STORE` (`s3` vs `local`) or by implementing the `StoreProtocol`.
+- To experiment with embeddings, override `vector.factory.get_vectorstore` via dependency injection or monkeypatching in tests.
 
-   ```python
-   from src.parsers.providers import parser_provider
-   from src.parsers.schemas import ParserConfig
+## Style Conventions
 
-   parser = parser_provider(name="llama", config=ParserConfig())
-   # or to use custom options for Llama:
-   from vector.parser import LlamaParserConfig
-   parser = parser_provider(name="llama", config=LlamaParserConfig(result_type="markdown"))
-   ```
+- Use type hints throughout; the project targets `mypy`-compatible code even though `mypy` is not enforced yet.
+- When adding modules, prefer colocating them under `src/<capability>/` (mirroring runtime responsibilities).
+- Write concise docstrings and targeted comments for complex logic; avoid restating obvious assignments.
 
-4. To make Llama the default across the app, update the processing profile or override the environment variable below.
+## Tooling Shortcuts
 
-!!! warning
-    Always set `LLAMA_CLOUD_API_KEY` before running ingestion when using the Llama parser, otherwise parsing will fail at runtime.
+- `uv run uvicorn src.main:app --reload --port 8010` — manual API launch.
+- `uv run dramatiq src.worker.actors --processes 1 --threads 4` — additional worker process.
+- `uv run alembic revision --autogenerate -m "feat: new table"` — create migrations (review before applying).
 
-## Switch Parser via Environment
+## Troubleshooting Checklist
 
-To switch the default parser globally without code changes, set the environment variable in your `.env`:
+- **DB connection errors** — confirm `POSTGRES_URL` uses `postgresql://` (lowercase `postgres://` is normalised automatically).
+- **RLS enforcement** — avoid superuser roles; API throws `RlsNotEnforcedError` on misconfiguration.
+- **Parser failures** — ensure `LLAMA_CLOUD__API_KEY` is set and `llama-parse` dependency is installed.
+- **Embeddings timeouts** — reduce `DRAMATIQ_THREADS` or upgrade your provider quota.
 
-```bash
-# Use Llama (default, lightweight install)
-DEFAULT_PARSER=llama
-
-# Opt into Docling (requires extras)
-DEFAULT_PARSER=docling
-```
-
-The profile registry reads `DEFAULT_PARSER` at startup to register the in-process default profile accordingly. You can still override the parser per-profile by setting the `parser` field in a custom profile configuration.
+Refer to the [Runbooks](operations/runbooks.md) for operational incidents and escalation paths.

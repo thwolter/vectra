@@ -1,6 +1,6 @@
 # S3Store
 
-`app/store/s3_store.py`
+`src/store/s3_store.py`
 
 Implements the `StoreProtocol` against Amazon S3, handling compression, metadata, and deletion for document artifacts.
 
@@ -39,4 +39,4 @@ Keys are constructed via the `StoreKeyHelpers` mixin.
 
 ## Local Development
 
-Switch to the filesystem-backed store by registering `LocalFileStore` (see `app/store/local_store.py`) via the store provider. URI conversion uses `file://` instead of `s3://`, but the service APIs remain identical.
+Switch to the filesystem-backed store by registering `LocalFileStore` (see `src/store/local_store.py`) via the store provider. URI conversion uses `file://` instead of `s3://`, but the service APIs remain identical.

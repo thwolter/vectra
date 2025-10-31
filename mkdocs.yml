@@ -13,22 +13,30 @@ plugins:
   - search
 nav:
   - Home: index.md
-  - API: api.md
-  - Ingestion: ingestion.md
-  - Parsers: parsers.md
-  - Vectorstore: vector.md
-  - RAG Agent: rag.md
-  - Dev Guide: dev_guide.md
-  - Observability:
-      - OpenTelemetry: opentelemetry.md
+  - Architecture:
+      - System Architecture: architecture.md
+      - Ingestion Pipeline: ingestion.md
+      - Parsers: parsers.md
+      - Vector Store: vector.md
+      - RAG Agent: rag.md
+  - API Guide: api.md
+  - Getting Started:
+      - Development Workflow: dev_guide.md
+      - Configuration: configuration.md
+  - Operations:
+      - Deployment: operations/deployment.md
       - Dramatiq Worker: operations/dramatiq.md
+      - Runbooks: operations/runbooks.md
+  - Observability:
+      - Overview: observability.md
+      - OpenTelemetry: opentelemetry.md
   - Reference:
-    - UploadService: reference/upload_service.md
-    - JobService: reference/job_service.md
-    - DocumentService: reference/document_service.md
-    - DocumentIngestor: reference/document_ingestor.md
-    - IngestionRepository: reference/ingestion_repository.md
-    - S3Store: reference/s3_store.md
+      - UploadService: reference/upload_service.md
+      - JobService: reference/job_service.md
+      - DocumentService: reference/document_service.md
+      - DocumentIngestor: reference/document_ingestor.md
+      - IngestionRepository: reference/ingestion_repository.md
+      - S3Store: reference/s3_store.md
 markdown_extensions:
   - admonition
   - tables

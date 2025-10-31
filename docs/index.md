@@ -1,42 +1,55 @@
 # VecAPI Documentation
 
-VecAPI is the ingestion and retrieval backend that powers Financials_RAG. It exposes a FastAPI service for uploads and read APIs, and coordinates background workers that normalize documents, persist artifacts, and embed content into a vector store.
-
-## System Overview
-
-- **FastAPI application (`app/`)** handles authenticated HTTP requests, orchestrates uploads, and exposes document metadata and streaming endpoints.
-- **Background workers (`app/worker/`)** execute heavy processing (parsing, storage, embedding) via Dramatiq jobs triggered from uploads.
-- **Persistence layer (`app/repositories/`)** wraps SQLModel repositories with domain-centric methods, isolating SQL from service logic.
-- **Object storage (`app/store/`)** persists originals and derived Markdown artifacts to S3 (or pluggable stores for local development).
-- **Vector pipeline (`app/vector/`)** batches parsed chunks, enriches metadata, and writes to the configured vector database.
+VecAPI is the ingestion backend for Financials_RAG. It receives uploads through FastAPI, pushes heavy work to Dramatiq, stores canonical documents and artifacts, and writes embeddings into PGVector so downstream RAG agents can search enriched content.
 
 ```mermaid
-flowchart LR
-    A[Client Upload] --> B[FastAPI /uploads]
-    B --> C[DocumentService.ensure_canonical_document]
-    C --> D[JobService.init_job]
-    D --> E[Dramatiq enqueue]
-    E --> F[UploadPipeline.store_original]
-    F --> G[UploadPipeline.parse_document]
-    G --> H[UploadPipeline.store_markdown]
-    H --> I[UploadPipeline.ingest_documents]
-    I --> J[DocumentService.update_document_uris]
-    J --> K[JobService.update_status -> completed]
+flowchart TD
+    Client((Client)) -->|POST /v1/uploads| API[FastAPI service]
+    API -->|hash & dedupe| DocSvc[DocumentService]
+    API -->|init job| JobSvc[JobService]
+    API -->|enqueue| Queue[(Redis / Dramatiq)]
+    Worker[Upload worker] -->|consume job| Queue
+    Worker -->|store originals/markdown| S3[(S3 or filesystem)]
+    Worker -->|embed chunks| PGV[(Postgres + PGVector)]
+    API -->|GET /v1/jobs/{id}| Client
+    API -->|stream originals/markdown| Client
 ```
 
-## Key Capabilities
+## What Lives Where
 
-- **Idempotent uploads** — files are hashed before processing to deduplicate work across runs and tenants.
-- **Pluggable parsing** — Docling, LlamaParse, and ChatDoc integrations are registered via parser providers; profiles choose the default.
-- **Collection-scoped storage** — each processing profile maps to a collection name, allowing multi-tenant isolation.
-- **Vector-ready ingestion** — metadata enrichment ensures every chunk carries a digest and deterministic chunk identifier.
-- **Observability** — OpenTelemetry exporters and Loguru logging provide distributed tracing and structured logs end-to-end.
+- `src/main.py` — FastAPI entrypoint, logging, and OpenTelemetry initialisation.
+- `src/api/v1/` — Upload, document, job, and streaming routes.
+- `src/services/` — Upload orchestration, job lifecycle, document helpers, and pipeline steps.
+- `src/repositories/` — SQLModel repositories for documents, jobs, and ingestion fingerprints.
+- `src/store/` — Store providers (S3 and filesystem) implementing the artifact protocol.
+- `src/vector/` — Batch chunking, embeddings, and PGVector integration.
+- `src/worker/` — Dramatiq broker setup, actors, and heartbeat logic.
 
-## Getting Started
+The documentation tree mirrors these responsibilities. Start with the [System Architecture](architecture.md) for a deep dive, then explore the API, operations, and reference guides as needed.
 
-1. Install dependencies with `uv sync`.
-2. Start the API and worker with `scripts/run-dev.sh` (loads `.env` automatically).
-3. Upload a document via `POST /v1/uploads` (see [`docs/api.md`](api.md)) and monitor job status through `GET /v1/jobs/{job_id}`.
-4. Use the streaming endpoints to retrieve originals or normalized Markdown once the job completes.
+## Features at a Glance
 
-Refer to the [Dev Guide](dev_guide.md) for parser configuration tips and the [Operations notes](operations/dramatiq.md) for worker deployment guidance.
+- **Idempotent ingestion** — uploads are hashed; duplicate runs reuse existing jobs or skip embedding when fingerprints match.
+- **Extensible parsing** — swap between LlamaParse, Docling, ChatDoc, or custom providers without touching pipeline code.
+- **Multi-tenant aware** — access contexts scope SQLModel sessions, vector connections, and object storage prefixes.
+- **Observability built-in** — OpenTelemetry spans, metrics, and Loguru logging for both the API and worker tiers.
+- **Automation ready** — REST endpoints expose job lifecycle, document metadata, and streaming endpoints for downstream services.
+
+## Quickstart
+
+1. Install dependencies:
+
+   ```bash
+   uv sync
+   ```
+
+2. Populate `.env` with secrets (Postgres, Redis, OpenAI, S3). See [Configuration](configuration.md).
+3. Launch API + worker:
+
+   ```bash
+   scripts/run-dev.sh
+   ```
+
+4. Upload a document via `POST /v1/uploads` (multipart). Track progress using `GET /v1/jobs/{job_id}` and download artifacts through the streaming routes.
+
+Explore the [API Guide](api.md) for endpoint details, [Development Workflow](dev_guide.md) for coding conventions, and [Deployment](operations/deployment.md) for production readiness.

@@ -1,36 +1,40 @@
 # Ingestion Pipeline
 
-The ingestion pipeline turns uploads into vectorized documents while preserving traceability. It is assembled by `app/services/factory.py` and executed in two phases: synchronous request handling and asynchronous background work.
+Uploads move through a two-phase pipeline that guarantees idempotency, tenant isolation, and traceability. `src/services/upload_service.UploadService` orchestrates both the synchronous HTTP work and the asynchronous background steps executed by the Dramatiq worker.
 
 ## Phase 1 — HTTP Request
 
-1. `POST /v1/uploads` receives a `UploadFile`.
-2. `UploadService.initiate_document_intake` hashes the file, ensures a canonical `DocumentRecord`, and initializes a `JobRecord`.
-3. A `ContinueProcessingInput` payload is published to Dramatiq together with the tenant-aware `AccessContext`.
+1. `POST /v1/uploads` receives the file as `UploadFile`.
+2. `UploadService.initiate_document_intake` hashes the file (`sha256_b64`), ensures a canonical `DocumentRecord`, and initialises or reuses a `JobRecord`.
+3. A `ContinueProcessingInput` payload is enqueued on Dramatiq alongside the caller’s `AccessContext` so the worker continues with the same tenant scope.
 
 ```mermaid
 sequenceDiagram
-    participant API as Upload API
+    participant Client
+    participant API as FastAPI
     participant DocSvc as DocumentService
     participant JobSvc as JobService
-    participant Broker as Dramatiq Broker
+    participant Broker as Dramatiq
+    Client->>API: POST /v1/uploads
     API->>DocSvc: ensure_canonical_document()
     API->>JobSvc: init_job()
     API->>Broker: enqueue ContinueProcessingInput
+    API-->>Client: UploadInitResponse
 ```
 
 ## Phase 2 — Background Processing
 
-The worker picks up the job and executes the `UploadPipeline` steps in order:
+The worker executes `UploadPipeline` (`src/services/upload_steps.py`) in sequence. Each step reports progress through `JobService.update_progress`.
 
-1. **`store_original`** — uses the configured `StoreProtocol` (S3 by default) to upload the raw file and returns the storage key.
-2. **`parse_document`** — runs the selected parser (Docling, LlamaParse, …) to produce LangChain `Document` objects and normalized Markdown.
-3. **`store_markdown`** — uploads Markdown to object storage.
-4. **`ingest_documents`** — batches parsed documents, enriches metadata (`digest`, `chunk_id`, `source`), and writes them into the vector store via `DocumentIngestor`.
-5. **`update_document_uris`** — generates store-specific URIs and persists them to the `DocumentRecord`.
-6. **`JobService.update_status`** — marks the job as `COMPLETED` or `FAILED`.
+| Step | Implementation | Description |
+| --- | --- | --- |
+| `store_original` | `StoreProtocol.save_original` | Streams the file into S3 or the filesystem, returning the storage key. |
+| `parse_document` | `vector.parser.LlamaParser` (default) | Produces LangChain `Document` objects, normalises metadata, and renders Markdown. |
+| `store_markdown` | `StoreProtocol.save_markdown` | Persists Markdown; warnings are logged if no Markdown is produced. |
+| `ingest_documents` | `vector.ingestor.DocumentIngestor` | Batches documents, enriches metadata (`digest`, `chunk_id`), writes embeddings via PGVector, and records an ingestion fingerprint. |
+| `update_document_uris` | `DocumentService.update_document_uris` | Generates URIs (`s3://` or `file://`) and persists them on the document. |
 
-If any step raises an exception, `JobService.fail_job` captures the failure, persists the last successful step, and stops further processing.
+Any exception fails the job via `JobService.fail_job`, preserving the last successful step for diagnostics.
 
 ```mermaid
 flowchart TD
@@ -39,19 +43,23 @@ flowchart TD
     C --> D[store_markdown]
     D --> E[ingest_documents]
     E --> F[update_document_uris]
-    F --> G[JobService.update_status]
+    F --> G[JobService.update_status -> COMPLETED]
 ```
 
-## Idempotency & Deduplication
+## Idempotency Guarantees
 
-- Upload hashing ensures repeated files reuse the same `DocumentRecord`.
-- `UploadService` checks `IngestionRepository` for an existing `IngestionVersion` fingerprint before re-ingesting vectors.
-- Vector ingestion raises `EmbeddingsAlreadyExistError` when embeddings already exist for the digest and collection.
+- **Digest reuse** — duplicate files resolve to the same `DocumentRecord` (`digest` + `collection`). Upload responses include `status=DUPLICATED` when embeddings already exist.
+- **Ingestion fingerprints** — `IngestionRepository` stores `IngestionVersion` fingerprints based on collection + configuration. Replays skip embedding unless the fingerprint changes (e.g., new parser model).
+- **Job reuse** — active jobs are reused; the API signals `already_running=true` when work is still in-flight.
 
-## Persistence Model
+## Storage & Metadata
 
-- **Documents** — `app/repositories/document_repo.py` stores canonical metadata, URIs, and job relationships.
-- **Jobs** — `app/repositories/job_repo.py` tracks status, percent, and failure reasons.
-- **Ingestions** — `app/repositories/ingestion_repo.py` records successful vector ingest runs, enforcing idempotency.
+- `DocumentService` persists canonical metadata, artifact URIs, and exposure flags.
+- `JobService` handles lifecycle transitions (`QUEUED → PROCESSING → COMPLETED/FAILED`) and enforces monotonic progress.
+- `StoreProtocol` implementations (`src/store/s3_store.py`, `src/store/local_store.py`) manage compression, MIME metadata, and URI generation.
 
-Refer to the [Upload Service reference](reference/upload_service.md) for method-level details.
+For class-level documentation see:
+
+- [UploadService](reference/upload_service.md)
+- [DocumentIngestor](reference/document_ingestor.md)
+- [IngestionRepository](reference/ingestion_repository.md)
