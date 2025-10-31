@@ -2,13 +2,13 @@ from functools import lru_cache
 from typing import Any, List, Literal
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr, field_validator
+from pydantic_settings import SettingsConfigDict
 
-from .utils import load_version, parse_cors_origins
+from .utils import ValidatedModel, ValidatedSettings, load_version, parse_cors_origins
 
 
-class AllowedUploadFiles(BaseModel):
+class AllowedUploadFiles(ValidatedModel):
     allowed_extensions: list[str] = ['pdf', 'docx', 'doc', 'txt', 'html', 'htm', 'md', 'rst', 'json', 'yaml', 'yml']
     upload_size_limit: int = 100 * 1024 * 1024
     content_type: List[str] = [
@@ -25,7 +25,9 @@ class AllowedUploadFiles(BaseModel):
     ]
 
 
-class LlamaCloudSettings(BaseModel):
+class LlamaCloudSettings(ValidatedModel):
+    required_keys = ['api_key']
+
     api_key: SecretStr | None = None
     parse_mode: str = 'parse_page_with_agent'
     high_res_ocr: bool = True
@@ -34,22 +36,13 @@ class LlamaCloudSettings(BaseModel):
     output_tables_as_HTML: bool = True
     model: str = 'openai-gpt-5-mini'
 
-    @field_validator('api_key')
-    @classmethod
-    def require_api_key_in_prod(cls, v):
-        import os
 
-        if os.getenv('ENV') == 'prod' and v is None:
-            raise ValueError('LLAMA_CLOUD__API_KEY required in production')
-        return v
-
-
-class TextSplitterSettings(BaseModel):
+class TextSplitterSettings(ValidatedModel):
     min_heading_level: int = 1
     max_heading_level: int = 6
 
 
-class EmbeddingSettings(BaseModel):
+class EmbeddingSettings(ValidatedModel):
     version: str = '1'
     collection: str = 'default'
     model: str = 'text-embedding-3-small'
@@ -58,7 +51,18 @@ class EmbeddingSettings(BaseModel):
     max_docs_per_batch: int = 100
 
 
-class Settings(BaseSettings):
+class AWSSettings(ValidatedModel):
+    required_keys = ['access_key_id', 'secret_access_key']
+    access_key_id: SecretStr | None = None
+    secret_access_key: SecretStr | None = None
+    region: str = 'eu-west-1'
+    s3_bucket: str = 'vecapi-documents'
+    s3_path: str = 'documents'
+
+
+class Settings(ValidatedSettings):
+    required_keys = ['postgres_url', 'redis_url', 'openai_api_key', 'dramatiq_broker_url']
+
     model_config = SettingsConfigDict(env_nested_delimiter='__')
 
     env: Literal['development', 'production', 'testing'] = 'production'
@@ -70,8 +74,8 @@ class Settings(BaseSettings):
     default_profile: str = 'default'
     default_parser: Literal['docling', 'llama', 'test'] = 'llama'
 
-    postgres_url: SecretStr
-    redis_url: SecretStr
+    postgres_url: SecretStr | None = None
+    redis_url: SecretStr | None = None
     db_schema: str = 'vectra'
 
     # ChatDoc API configuration
@@ -79,24 +83,20 @@ class Settings(BaseSettings):
     chatdoc_api_url: str = 'https://api.chatdoc.com'
 
     # Parser and Text splitter configuration
-    llama_cloud: LlamaCloudSettings = LlamaCloudSettings()  # type: ignore[assignment]
+    llama_cloud: LlamaCloudSettings = LlamaCloudSettings()
     text_splitter: TextSplitterSettings = TextSplitterSettings()
 
     allowed_upload_files: AllowedUploadFiles = AllowedUploadFiles()
     embedding: EmbeddingSettings = EmbeddingSettings()
 
     # OpenAI API configuration for embeddings
-    openai_api_key: SecretStr
+    openai_api_key: SecretStr | None = None
 
     document_store: Literal['local', 's3'] = 's3'
     local_file_path: str = '../documents'
 
     # AWS S3 configuration
-    aws_access_key_id: SecretStr
-    aws_secret_access_key: SecretStr
-    aws_region: str = 'eu-west-1'
-    aws_s3_bucket: str = 'vecapi-documents'
-    aws_s3_path: str = 'documents'
+    aws: AWSSettings = AWSSettings()
 
     # JWT configuration
     jwt_secret: SecretStr = SecretStr('dev-secret-change-me')
@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     jwt_ttl_seconds: int = 3600
 
     # Dramatiq task processing
-    dramatiq_broker_url: SecretStr
+    dramatiq_broker_url: SecretStr | None = None
     dramatiq_queue_name: str = 'upload-processing'
     dramatiq_time_limit_ms: int = 15 * 60 * 1000
     dramatiq_max_retries: int = 3
@@ -152,6 +152,8 @@ class Settings(BaseSettings):
 
     @property
     def async_postgres_url(self) -> SecretStr:
+        if not self.postgres_url:
+            return SecretStr('')
         dsn = self.postgres_url.get_secret_value()
         if dsn.startswith('postgresql://'):
             dsn = dsn.replace('postgresql://', 'postgresql+asyncpg://', 1)
@@ -163,4 +165,6 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     load_dotenv()
-    return Settings()  # type: ignore[missing-argument]
+    settings = Settings()
+    settings.check_missing_keys()
+    return settings

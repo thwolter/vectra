@@ -92,7 +92,7 @@ markers = [
   "e2e: end-to-end tests",
   "slow: slow-running tests",
   "requires_env(*vars): skip test if these env vars are missing",
-  "needs_aws: shorthand for requires_env('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET')",
+  "needs_aws: shorthand for requires_env('AWS__ACCESS_KEY_ID', 'AWS__SECRET_ACCESS_KEY', 'AWS__S3_BUCKET')",
   "needs_openai: shorthand for requires_env('OPENAI_API_KEY')",
 ]
 

@@ -47,7 +47,7 @@ This guide covers local setup, coding standards, testing, and tips for working o
   uv run pytest -m "e2e"
   ```
 
-Provide required env vars (`POSTGRES_URL`, `AWS_*`, `OPENAI_API_KEY`) when running integration/e2e suites.
+Provide required env vars (`POSTGRES_URL`, `AWS__*`, `OPENAI_API_KEY`) when running integration/e2e suites.
 
 ## Debugging Tips
 

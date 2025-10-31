@@ -64,7 +64,7 @@ def pytest_runtest_setup(item: pytest.Item):
         return [v for v in vars_ if not os.environ.get(v)]
 
     if item.get_closest_marker('needs_aws'):
-        missing = _missing(['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_S3_BUCKET'])
+        missing = _missing(['AWS__ACCESS_KEY_ID', 'AWS__SECRET_ACCESS_KEY', 'AWS__S3_BUCKET'])
         if missing:
             pytest.skip(f'skipped: missing env vars for AWS/S3: {", ".join(missing)}')
 

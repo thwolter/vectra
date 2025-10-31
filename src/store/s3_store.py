@@ -21,17 +21,26 @@ settings = get_settings()
 
 def get_client():
     session = aioboto3.Session()
-    return session.client('s3', region_name=settings.aws_region)
+    aws_access_key_id = settings.aws.access_key_id.get_secret_value() if settings.aws.access_key_id else None
+    awx_secret_access_key = (
+        settings.aws.secret_access_key.get_secret_value() if settings.aws.secret_access_key else None
+    )
+    return session.client(
+        service_name='s3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=awx_secret_access_key,
+        region_name=settings.aws.region,
+    )
 
 
 class S3Store(StoreKeyHelpers):
     def __init__(self, collection: str, *, base_path: str | Path | None = None):
         self.collection = collection
-        self.base_path = str(base_path or settings.aws_s3_path)
+        self.base_path = str(base_path or settings.aws.s3_path)
         self.client_factory = get_client
 
     def make_uri(self, key: str) -> str:
-        return f's3://{settings.aws_s3_bucket}/{key}'
+        return f's3://{settings.aws.s3_bucket}/{key}'
 
     async def save_original(
         self,
@@ -79,7 +88,7 @@ class S3Store(StoreKeyHelpers):
 
                         # We own the buffer; upload from it
                         tmp.seek(0)
-                        await s3.upload_fileobj(tmp, settings.aws_s3_bucket, key, ExtraArgs=extra_args)
+                        await s3.upload_fileobj(tmp, settings.aws.s3_bucket, key, ExtraArgs=extra_args)
                     finally:
                         try:
                             tmp.close()
@@ -138,7 +147,7 @@ class S3Store(StoreKeyHelpers):
                 buf = BytesIO(md_text.encode('utf-8'))
                 extra_args = {'ContentType': 'text/markdown; charset=utf-8'}
 
-                await s3.upload_fileobj(buf, settings.aws_s3_bucket, key, ExtraArgs=extra_args)
+                await s3.upload_fileobj(buf, settings.aws.s3_bucket, key, ExtraArgs=extra_args)
                 logger.success(
                     'Markdown uploaded to S3',
                     extra={'key': key, 'document_id': str(document_id)},
@@ -188,7 +197,7 @@ class S3Store(StoreKeyHelpers):
         async with self.client_factory() as s3:
             try:
                 # List objects under prefix
-                resp = await s3.list_objects_v2(Bucket=settings.aws_s3_bucket, Prefix=prefix)
+                resp = await s3.list_objects_v2(Bucket=settings.aws.s3_bucket, Prefix=prefix)
                 contents = resp.get('Contents', [])
                 if not contents:
                     return True
@@ -205,7 +214,7 @@ class S3Store(StoreKeyHelpers):
                 if not to_delete:
                     return True
                 await s3.delete_objects(
-                    Bucket=settings.aws_s3_bucket,
+                    Bucket=settings.aws.s3_bucket,
                     Delete={'Objects': to_delete, 'Quiet': True},
                 )
                 logger.success(
@@ -234,7 +243,7 @@ class S3Store(StoreKeyHelpers):
         """
         async with self.client_factory() as s3:
             try:
-                resp = await s3.get_object(Bucket=settings.aws_s3_bucket, Key=key)
+                resp = await s3.get_object(Bucket=settings.aws.s3_bucket, Key=key)
                 body = await resp['Body'].read()
                 return body
             except Exception as e:
@@ -244,7 +253,7 @@ class S3Store(StoreKeyHelpers):
     async def head(self, key: str) -> FileInfo:
         """Return object metadata as FileInfo for a given key."""
         async with self.client_factory() as s3:
-            resp = await s3.head_object(Bucket=settings.aws_s3_bucket, Key=key)
+            resp = await s3.head_object(Bucket=settings.aws.s3_bucket, Key=key)
             last_modified = resp.get('LastModified')
             lm_iso = last_modified.isoformat() if hasattr(last_modified, 'isoformat') else None
             return FileInfo(
@@ -261,7 +270,7 @@ class S3Store(StoreKeyHelpers):
 
         async def _gen() -> AsyncIterator[bytes]:
             async with self.client_factory() as s3:
-                resp = await s3.get_object(Bucket=settings.aws_s3_bucket, Key=key)
+                resp = await s3.get_object(Bucket=settings.aws.s3_bucket, Key=key)
                 body = resp['Body']  # aioboto3 streaming body
                 try:
                     while True:
@@ -285,7 +294,7 @@ class S3Store(StoreKeyHelpers):
         prefix = self._prefix(tenant_id=tenant_id, digest=digest)
         async with self.client_factory() as s3:
             try:
-                resp = await s3.list_objects_v2(Bucket=settings.aws_s3_bucket, Prefix=prefix)
+                resp = await s3.list_objects_v2(Bucket=settings.aws.s3_bucket, Prefix=prefix)
                 contents = resp.get('Contents', [])
                 files: list[FileInfo] = []
                 for o in contents:

@@ -32,7 +32,7 @@ logger.bind(component='worker').info('WORKER_STARTUP: OpenTelemetry initialised 
 
 # Optional liveness heartbeat (visible to the web src via Redis keys)
 def _start_heartbeat() -> None:
-    redis_url = settings.redis_url.get_secret_value()
+    redis_url = settings.redis_url.get_secret_value() if settings.redis_url else None
     if not redis_url:
         logger.bind(component='worker').info('WORKER_HEARTBEAT: REDIS_URL not set; skipping liveness beacons')
         return

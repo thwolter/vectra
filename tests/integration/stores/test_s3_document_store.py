@@ -44,7 +44,6 @@ def test_local_store_conforms_runtime(tmp_path):
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_save_original_and_delete_success(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     saved = await store.save_original(
@@ -70,7 +69,6 @@ async def test_save_original_and_delete_success(store, file, tenant_id, document
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_save_markdown_then_load_and_delete_success(store, tenant_id, document_digest):
     content = '# Title\nHello world'
     document_id = uuid.uuid4()
@@ -111,7 +109,6 @@ async def test_save_markdown_then_load_and_delete_success(store, tenant_id, docu
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_info_with_both_files_success(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     await store.save_original(
@@ -146,7 +143,6 @@ async def test_info_with_both_files_success(store, file, tenant_id, document_dig
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_load_failure_nonexistent_key_raises(store):
     with pytest.raises(Exception):
         await store.load('tests/nonexistent/key.txt')
@@ -154,13 +150,12 @@ async def test_load_failure_nonexistent_key_raises(store):
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
     # Create a store with valid base_prefix but force an invalid bucket name to trigger error
 
     monkeypatch.setattr(
-        module.settings,
-        'aws_s3_bucket',
+        module.settings.aws,
+        's3_bucket',
         'definitely-nonexistent-bucket-vecapi-tests-12345',
         raising=False,
     )
@@ -175,13 +170,12 @@ async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_report_first_page_upload: UploadFile):
     # Force invalid bucket to cause save operations to fail
 
     monkeypatch.setattr(
-        module.settings,
-        'aws_s3_bucket',
+        module.settings.aws,
+        's3_bucket',
         'definitely-nonexistent-bucket-vecapi-tests-67890',
         raising=False,
     )
@@ -210,7 +204,6 @@ async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_repo
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_head_returns_expected_metadata_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     saved_orig = await store.save_original(
@@ -259,7 +252,6 @@ async def test_head_returns_expected_metadata_s3(store, file, tenant_id, documen
 
 @pytest.mark.integration
 @pytest.mark.needs_aws
-@pytest.mark.asyncio
 async def test_stream_matches_load_for_both_files_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     saved_orig = await store.save_original(

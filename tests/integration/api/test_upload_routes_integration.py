@@ -45,7 +45,7 @@ async def test_upload_creates_job_and_sends_to_worker(
 ):
     api_client = auth_client
     settings = get_settings()
-    redis_url = settings.dramatiq_broker_url.get_secret_value()
+    redis_url = settings.dramatiq_broker_url.get_secret_value() if settings.dramatiq_broker_url else ''
     redis_queue_key = f'dramatiq:{settings.dramatiq_queue_name}'
     redis_client = Redis.from_url(redis_url)
     try:

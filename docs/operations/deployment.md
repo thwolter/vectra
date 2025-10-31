@@ -52,9 +52,9 @@ services:
       POSTGRES_URL: ${POSTGRES_URL}
       REDIS_URL: ${REDIS_URL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS__ACCESS_KEY_ID: ${AWS__ACCESS_KEY_ID}
+      AWS__SECRET_ACCESS_KEY: ${AWS__SECRET_ACCESS_KEY}
+      AWS__S3_BUCKET: ${AWS__S3_BUCKET}
     ports:
       - "8010:8000"
   worker:
@@ -65,9 +65,9 @@ services:
       POSTGRES_URL: ${POSTGRES_URL}
       REDIS_URL: ${REDIS_URL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS__ACCESS_KEY_ID: ${AWS__ACCESS_KEY_ID}
+      AWS__SECRET_ACCESS_KEY: ${AWS__SECRET_ACCESS_KEY}
+      AWS__S3_BUCKET: ${AWS__S3_BUCKET}
     depends_on:
       - web
 ```
@@ -109,8 +109,8 @@ uv run alembic downgrade -1  # rollback one revision
 
 ## Storage Considerations
 
-- S3 paths: `s3://{AWS_S3_BUCKET}/{collection}/{document_uuid}/`.
-- To rotate buckets or migrate tenants, update `AWS_S3_BUCKET` and redeploy; URIs regenerate on future ingestions.
+- S3 paths: `s3://{AWS__S3_BUCKET}/{collection}/{document_uuid}/`.
+- To rotate buckets or migrate tenants, update `AWS__S3_BUCKET` and redeploy; URIs regenerate on future ingestions.
 - Local filesystem backing (`DOCUMENT_STORE=local`) is suitable only for tests or ephemeral environments.
 
 ## Disaster Recovery

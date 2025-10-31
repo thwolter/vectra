@@ -15,7 +15,8 @@ async def enqueue_upload_processing(payload: ContinueProcessingInput) -> None:
 
     inline_fallback = getattr(process_upload, 'inline_fallback', False)
 
-    if not settings.dramatiq_broker_url.get_secret_value() or inline_fallback:
+    url = settings.dramatiq_broker_url.get_secret_value() if settings.dramatiq_broker_url else None
+    if not url or inline_fallback:
         logger.debug('No Dramatiq broker configured; executing upload job %s inline.', payload.job_id)
         upload_service = get_upload_service()
         await upload_service.continue_processing(payload=payload)

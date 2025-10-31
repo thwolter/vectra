@@ -9,7 +9,7 @@ VecAPI reads configuration from environment variables via `src/core/config.Setti
 | `POSTGRES_URL` | SQLModel + PGVector connection string (e.g. `postgresql://user:pass@host:5432/vectra`). |
 | `REDIS_URL` | Redis broker URL for Dramatiq (e.g. `redis://redis:6379/0`). |
 | `OPENAI_API_KEY` | API key for the default embeddings provider. Required unless you override embeddings. |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET` | Credentials for storing artifacts in S3 when `DOCUMENT_STORE=s3`. |
+| `AWS__ACCESS_KEY_ID`, `AWS__SECRET_ACCESS_KEY`, `AWS__REGION`, `AWS__S3_BUCKET` | Credentials for storing artifacts in S3 when `DOCUMENT_STORE=s3`. |
 
 Local development can switch to the filesystem provider with `DOCUMENT_STORE=local`, which removes the AWS dependency.
 
@@ -40,11 +40,11 @@ Sessions are wrapped by `tenauth` so tenant metadata is injected into the connec
 | --- | --- | --- |
 | `DOCUMENT_STORE` | `s3` | Switch to `local` for filesystem storage under `LOCAL_FILE_PATH`. |
 | `LOCAL_FILE_PATH` | `../documents` | Root directory when using the local store. |
-| `AWS_ACCESS_KEY_ID` | **required when `DOCUMENT_STORE=s3`** | IAM credentials for S3. |
-| `AWS_SECRET_ACCESS_KEY` | **required** | Secret key for S3. |
-| `AWS_REGION` | `eu-west-1` | Region used when building the S3 client. |
-| `AWS_S3_BUCKET` | `vecapi-documents` | Bucket name storing originals and Markdown. |
-| `AWS_S3_PATH` | `documents` | Prefix for generated keys. |
+| `AWS__ACCESS_KEY_ID` | **required when `DOCUMENT_STORE=s3`** | IAM credentials for S3. |
+| `AWS__SECRET_ACCESS_KEY` | **required** | Secret key for S3. |
+| `AWS__REGION` | `eu-west-1` | Region used when building the S3 client. |
+| `AWS__S3_BUCKET` | `vecapi-documents` | Bucket name storing originals and Markdown. |
+| `AWS__S3_PATH` | `documents` | Prefix for generated keys. |
 
 Both stores place artifacts under `{collection}/{document_uuid}/`.
 

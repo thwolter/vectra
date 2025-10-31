@@ -100,7 +100,7 @@ await doc_service.delete(session, document_id=<uuid>)
 ## Rotating S3 Buckets or Changing Collection Names
 
 1. Drain the worker queue to avoid in-flight jobs.
-2. Update environment variables (`AWS_S3_BUCKET`, `EMBEDDING__COLLECTION`).
+2. Update environment variables (`AWS__S3_BUCKET`, `EMBEDDING__COLLECTION`).
 3. Redeploy web and worker services.
 4. Validate by uploading a smoke-test document and confirming URIs return the new bucket path.
 
