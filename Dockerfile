@@ -17,7 +17,7 @@ RUN apt-get update \
       libpq5 ca-certificates git curl wget \
  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /build
 
 # ---------- Builder: compilers + headers ----------
 FROM python:${PYTHON_VERSION}-slim AS build
@@ -49,19 +49,12 @@ FROM base AS runtime
 COPY --from=build /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 
-# App code late to keep cache hot
-COPY src ./app
-COPY scripts ./scripts
-COPY alembic.ini .
+# Copy application code and assets late to maximise layer reuse.
+COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic
+COPY src ./src
+COPY scripts/entrypoint.sh ./scripts/entrypoint.sh
+RUN chmod +x ./scripts/entrypoint.sh
 
-# Ensure entrypoint is executable and set permissions before dropping root
-RUN chmod +x /src/scripts/entrypoint.sh && \
-    useradd -m appuser && \
-    chown -R appuser:appuser /src /opt/venv
-USER appuser
+ENTRYPOINT ["./scripts/entrypoint.sh"]
 
-ENTRYPOINT ["/app/scripts/entrypoint.sh"]
-# Examples:
-#   START_WEB=true START_WORKER=false
-#   START_WEB=false START_WORKER=true

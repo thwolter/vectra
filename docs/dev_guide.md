@@ -51,7 +51,7 @@ Provide required env vars (`POSTGRES_URL`, `AWS_*`, `OPENAI_API_KEY`) when runni
 
 ## Debugging Tips
 
-- Use [`scripts/run-dev.sh`](../scripts/run-dev.sh) with `LOG_LEVEL=DEBUG` and `UVICORN_RELOAD=true` for rapid iteration.
+- Use `scripts/run-dev.sh` with `LOG_LEVEL=DEBUG` and `UVICORN_RELOAD=true` for rapid iteration.
 - Dramatiq worker emits Redis heartbeat keys (`worker:<hostname>:<pid>`) when `REDIS_URL` is configured.
 - Replay a payload inline during debugging:
 

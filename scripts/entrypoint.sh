@@ -10,8 +10,8 @@ UVICORN_RELOAD=${UVICORN_RELOAD:-false}
 DRAMATIQ_WORKERS=${DRAMATIQ_WORKERS:-1}
 DRAMATIQ_THREADS=${DRAMATIQ_THREADS:-8}
 DEPLOY_SKIP_MIGRATIONS=${DEPLOY_SKIP_MIGRATIONS:-false}
-
 UVICORN_CMD=(uvicorn app.main:app --host 0.0.0.0 --port "${PORT}")
+
 if [[ "${UVICORN_RELOAD}" == "true" ]]; then
   echo "[entrypoint] Uvicorn live reload enabled"
   UVICORN_CMD+=(--reload)

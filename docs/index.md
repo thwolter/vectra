@@ -11,7 +11,7 @@ flowchart TD
     Worker[Upload worker] -->|consume job| Queue
     Worker -->|store originals/markdown| S3[(S3 or filesystem)]
     Worker -->|embed chunks| PGV[(Postgres + PGVector)]
-    API -->|GET /v1/jobs/{id}| Client
+    API -->|"GET /v1/jobs/{id}"| Client
     API -->|stream originals/markdown| Client
 ```
 

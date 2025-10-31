@@ -11,14 +11,19 @@ from sqlalchemy import engine_from_config, pool, text
 from sqlmodel import SQLModel
 
 from alembic import context
+
+# Ensure project root is on sys.path so `src` package is importable when running `alembic` CLI
+project_root = Path(__file__).resolve().parent.parent
+src_path = project_root / 'src'
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
 from core.config import get_settings
 
 settings = get_settings()
 
-# Ensure project root is on sys.path so `src` package is importable when running `alembic` CLI
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+migration_env_path = project_root / '.env'
+env_values = dotenv_values(migration_env_path) if migration_env_path.exists() else {}
 
 # This is the Alembic Config object, which provides access to the values within the .ini file in use.
 config = context.config
@@ -33,17 +38,6 @@ from repositories import (  # noqa: F401,E402  Ensure models import for metadata
 
 target_metadata = SQLModel.metadata
 
-
-def _collect_env() -> dict[str, str]:
-    merged: dict[str, str] = {}
-    candidate = _PROJECT_ROOT / '.env'
-    if candidate.exists():
-        for key, value in dotenv_values(candidate).items():
-            if value is not None:
-                merged[key] = value
-    return merged
-
-
 def _normalize_sync_url(url: str) -> str:
     # Trim accidental whitespace that can produce invalid DB names like "test "
     url = url.strip()
@@ -53,8 +47,6 @@ def _normalize_sync_url(url: str) -> str:
         url = url.replace('postgresql+asyncpg://', 'postgresql+psycopg2://', 1)
     return url
 
-
-env_values = _collect_env()
 
 alembic_url = os.getenv('ALEMBIC_DATABASE_URL') or env_values.get('ALEMBIC_DATABASE_URL')
 if alembic_url is None:

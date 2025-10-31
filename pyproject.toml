@@ -9,7 +9,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.1",
     "uvicorn>=0.35.0",
-    "langchain>=0.3.27",
+    "langchain>=1.0.3",
     "langchain-openai>=0.3.28",
     "langchain-postgres>=0.0.15",
     "langchain-community>=0.3.27",
@@ -43,17 +43,6 @@ dependencies = [
     "tenauth>=0.1.2",
 ]
 
-[project.optional-dependencies]
-docling = [
-    "langchain-docling>=1.0.0",
-    "docling>=2.44.0",
-    "easyocr>=1.7.2",
-    "torch>=2.8.0",
-    "torchvision>=0.23.0",
-    "opencv-python-headless>=4.11.0.86",
-    "tiktoken>=0.7.0",
-]
-
 [tool.pyrefly]
 project-includes = ["**/*"]
 project-excludes = [
@@ -69,6 +58,7 @@ version_scheme = "pep440"
 version_provider = "uv"
 update_changelog_on_bump = true
 major_version_zero = true
+
 [dependency-groups]
 dev = [
     "dill>=0.4.0",
