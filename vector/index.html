@@ -1,0 +1,1276 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="FastAPI backend for Financials_RAG — ingestion, storage (S3), vector, and RAG agents.">
+      
+      
+      
+      
+        <link rel="prev" href="../parsers/">
+      
+      
+        <link rel="next" href="../rag/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
+    
+    
+      
+        <title>Vector Store - VecAPI Backend Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#vector-store-integration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="VecAPI Backend Docs" class="md-header__button md-logo" aria-label="VecAPI Backend Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VecAPI Backend Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Vector Store
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="VecAPI Backend Docs" class="md-nav__button md-logo" aria-label="VecAPI Backend Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    VecAPI Backend Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    System Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ingestion Pipeline
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../parsers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Parsers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Vector Store
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Vector Store
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#documentingestor-srcvectoringestorpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      DocumentIngestor (src/vector/ingestor.py)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="DocumentIngestor (src/vector/ingestor.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metadata-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      Metadata Contract
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vector-store-factory-srcvectorfactorypy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Vector Store Factory (src/vector/factory.py)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Vector Store Factory (src/vector/factory.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#supplying-custom-embeddings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Supplying Custom Embeddings
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batching-strategy-srcvectorbatchingpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Batching Strategy (src/vector/batching.py)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#utilities-srcvectorutilspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utilities (src/vector/utils.py)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#querying-embeddings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Querying Embeddings
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Failure Handling
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RAG Agent
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dev_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development Workflow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Operations
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Operations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deployment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/dramatiq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Dramatiq Worker
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/runbooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Runbooks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Observability
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Observability
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../opentelemetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    OpenTelemetry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/upload_service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    UploadService
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/job_service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    JobService
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/document_service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DocumentService
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/document_ingestor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DocumentIngestor
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/ingestion_repository/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IngestionRepository
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/s3_store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    S3Store
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#documentingestor-srcvectoringestorpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      DocumentIngestor (src/vector/ingestor.py)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="DocumentIngestor (src/vector/ingestor.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metadata-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      Metadata Contract
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vector-store-factory-srcvectorfactorypy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Vector Store Factory (src/vector/factory.py)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Vector Store Factory (src/vector/factory.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#supplying-custom-embeddings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Supplying Custom Embeddings
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batching-strategy-srcvectorbatchingpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Batching Strategy (src/vector/batching.py)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#utilities-srcvectorutilspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utilities (src/vector/utils.py)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#querying-embeddings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Querying Embeddings
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Failure Handling
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="vector-store-integration">Vector Store Integration</h1>
+<p>Embedding and retrieval are handled by the <code>src/vector</code> package. The worker transforms parsed documents into embeddings, writes them to PGVector, and records ingestion fingerprints to prevent duplicates. This page explains how the components fit together and how to extend them.</p>
+<h2 id="documentingestor-srcvectoringestorpy">DocumentIngestor (<code>src/vector/ingestor.py</code>)</h2>
+<ul>
+<li>Loads the owning job to resolve the document digest and tenant context.</li>
+<li>Skips ingestion when no documents are provided (e.g., parser returned nothing).</li>
+<li>Checks for existing embeddings by computing an <code>IngestionVersion</code> fingerprint (<code>collection + settings snapshot</code>). If present, raises <code>EmbeddingsAlreadyExistError</code>.</li>
+<li>Batches documents with <code>batch_documents_by_tokens</code>, updates metadata (<code>chunk_id</code>, <code>digest</code>), and calls <code>PGVector.aadd_documents</code>.</li>
+<li>Records the run via <code>IngestionRepository.create</code>, storing the job id and configuration fingerprint.</li>
+</ul>
+<h3 id="metadata-contract">Metadata Contract</h3>
+<p>Every chunk is augmented with:</p>
+<ul>
+<li><code>digest</code> — SHA-256 hash of the original file.</li>
+<li><code>chunk_id</code> — Monotonically increasing integer per document.</li>
+<li>Optional heading metadata (<code>header_title</code>, <code>header_level</code>, <code>header_index</code>) when provided by the parser.</li>
+</ul>
+<p>These fields enable deterministic re-ingestion and downstream citations.</p>
+<h2 id="vector-store-factory-srcvectorfactorypy">Vector Store Factory (<code>src/vector/factory.py</code>)</h2>
+<p><code>get_vectorstore(collection, tenant_id, embeddings=None)</code> builds a <code>langchain_postgres.PGVector</code> instance:</p>
+<ul>
+<li>Uses the async DSN (<code>postgresql+asyncpg</code>) from settings.</li>
+<li>Injects tenant metadata into server settings (<code>app.tenant_id</code>, <code>search_path</code>).</li>
+<li>Defaults to <code>OpenAIEmbeddings(model=settings.embedding.model)</code>, but callers can supply any LangChain <code>Embeddings</code> implementation.</li>
+<li>Does not create extensions automatically (<code>create_extension=False</code>); ensure <code>pgvector</code> is installed via migrations.</li>
+</ul>
+<h3 id="supplying-custom-embeddings">Supplying Custom Embeddings</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_openai</span><span class="w"> </span><span class="kn">import</span> <span class="n">AzureOpenAIEmbeddings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vector.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_vectorstore</span>
+
+<span class="n">embeddings</span> <span class="o">=</span> <span class="n">AzureOpenAIEmbeddings</span><span class="p">(</span>
+    <span class="n">azure_endpoint</span><span class="o">=</span><span class="s2">&quot;https://...openai.azure.com&quot;</span><span class="p">,</span>
+    <span class="n">azure_deployment</span><span class="o">=</span><span class="s2">&quot;text-embed&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">vs</span> <span class="o">=</span> <span class="n">get_vectorstore</span><span class="p">(</span><span class="s2">&quot;financials&quot;</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="n">tenant_uuid</span><span class="p">,</span> <span class="n">embeddings</span><span class="o">=</span><span class="n">embeddings</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="batching-strategy-srcvectorbatchingpy">Batching Strategy (<code>src/vector/batching.py</code>)</h2>
+<ul>
+<li>Respects two limits from <code>Settings.embedding</code>:</li>
+<li><code>max_tokens_per_request</code></li>
+<li><code>max_docs_per_batch</code></li>
+<li>Drops documents that exceed the token limit individually, logging a warning but allowing the job to complete.</li>
+<li>Uses <code>estimate_text_tokens</code> (≈4 chars/token heuristic) to avoid counting tokens client-side.</li>
+</ul>
+<p>Tune these parameters per deployment to match provider quotas. For OpenAI <code>text-embedding-3-small</code>, the defaults (300 000 tokens / 100 docs) are safe for most uploads.</p>
+<h2 id="utilities-srcvectorutilspy">Utilities (<code>src/vector/utils.py</code>)</h2>
+<ul>
+<li><code>validate_docs</code> filters out empty documents and reports reasons, simplifying parser testing.</li>
+<li><code>estimate_docs_tokens</code> aggregates token counts across the batch for quick diagnostics.</li>
+</ul>
+<h2 id="querying-embeddings">Querying Embeddings</h2>
+<p>Downstream consumers can reuse the same factory used by the worker:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">uuid</span><span class="w"> </span><span class="kn">import</span> <span class="n">UUID</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vector.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_vectorstore</span>
+
+<span class="n">tenant_id</span> <span class="o">=</span> <span class="n">UUID</span><span class="p">(</span><span class="s2">&quot;8b9fb1a4-5f89-4f56-9ec4-9f2b8f5ce90c&quot;</span><span class="p">)</span>
+<span class="n">vectorstore</span> <span class="o">=</span> <span class="n">get_vectorstore</span><span class="p">(</span><span class="n">collection</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="n">tenant_id</span><span class="p">)</span>
+<span class="n">documents</span> <span class="o">=</span> <span class="k">await</span> <span class="n">vectorstore</span><span class="o">.</span><span class="n">asimilarity_search</span><span class="p">(</span><span class="s2">&quot;revenue guidance&quot;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</code></pre></div>
+<p>All queries honour tenant scoping because the connection sets <code>app.tenant_id</code> and the search path.</p>
+<h2 id="failure-handling">Failure Handling</h2>
+<ul>
+<li>Embedding errors bubble up; Dramatiq retries the actor up to <code>DRAMATIQ_MAX_RETRIES</code>.</li>
+<li>Network hiccups (Postgres or OpenAI) manifest as exceptions. Monitor <code>dramatiq_task_duration_seconds</code> and job failures to decide on additional retry logic or circuit breakers.</li>
+<li>When embeddings already exist, <code>EmbeddingsAlreadyExistError</code> is raised to prevent double writes. <code>UploadPipeline</code> catches this and treats the step as skipped.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.tracking", "content.code.copy", "content.code.select"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../assets/javascripts/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

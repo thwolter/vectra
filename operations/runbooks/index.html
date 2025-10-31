@@ -1,0 +1,1272 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="FastAPI backend for Financials_RAG — ingestion, storage (S3), vector, and RAG agents.">
+      
+      
+      
+      
+        <link rel="prev" href="../dramatiq/">
+      
+      
+        <link rel="next" href="../../observability/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
+    
+    
+      
+        <title>Runbooks - VecAPI Backend Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#runbooks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VecAPI Backend Docs" class="md-header__button md-logo" aria-label="VecAPI Backend Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VecAPI Backend Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Runbooks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VecAPI Backend Docs" class="md-nav__button md-logo" aria-label="VecAPI Backend Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    VecAPI Backend Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    System Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingestion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Ingestion Pipeline
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../parsers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Parsers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../vector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Vector Store
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RAG Agent
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development Workflow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Operations
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Operations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deployment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dramatiq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Dramatiq Worker
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Runbooks
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Runbooks
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#job-stuck-in-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Stuck in PROCESSING
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upload-returns-409-or-statusduplicated" class="md-nav__link">
+    <span class="md-ellipsis">
+      Upload Returns 409 or status=DUPLICATED
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s3_client-errors-or-missing-artifacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      s3_client Errors or Missing Artifacts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openai-rate-limiting" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenAI Rate Limiting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#postgres-rls-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      Postgres RLS Failures
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clearing-a-failed-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      Clearing a Failed Job
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rotating-s3-buckets-or-changing-collection-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rotating S3 Buckets or Changing Collection Names
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#emergency-disablement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Emergency Disablement
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Observability
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Observability
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../opentelemetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    OpenTelemetry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/upload_service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    UploadService
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/job_service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    JobService
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/document_service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DocumentService
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/document_ingestor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DocumentIngestor
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ingestion_repository/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IngestionRepository
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/s3_store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    S3Store
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#job-stuck-in-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Job Stuck in PROCESSING
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upload-returns-409-or-statusduplicated" class="md-nav__link">
+    <span class="md-ellipsis">
+      Upload Returns 409 or status=DUPLICATED
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s3_client-errors-or-missing-artifacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      s3_client Errors or Missing Artifacts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openai-rate-limiting" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenAI Rate Limiting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#postgres-rls-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      Postgres RLS Failures
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clearing-a-failed-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      Clearing a Failed Job
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rotating-s3-buckets-or-changing-collection-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rotating S3 Buckets or Changing Collection Names
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#emergency-disablement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Emergency Disablement
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="runbooks">Runbooks</h1>
+<p>This page captures common operational scenarios and the steps to diagnose and recover VecAPI. Pair these runbooks with telemetry dashboards described in <a href="../../observability/">Observability</a>.</p>
+<h2 id="job-stuck-in-processing">Job Stuck in <code>PROCESSING</code></h2>
+<p><strong>Symptoms</strong>
+- <code>/v1/jobs/{id}</code> reports <code>status=PROCESSING</code> for &gt;15 minutes.
+- <code>dramatiq_tasks_in_progress</code> remains non-zero with no completions.</p>
+<p><strong>Checklist</strong>
+1. Inspect worker logs for the job id (<code>JOB_ID=&lt;uuid&gt;</code>).
+2. Look for parser or embeddings timeouts. OpenAI rate limits surface as 429 or 5xx errors.
+3. Confirm Redis connectivity; heartbeat keys (<code>worker:&lt;host&gt;:&lt;pid&gt;</code>) should refresh every 10 seconds.
+4. If the process crashed, Dramatiq retries up to <code>DRAMATIQ_MAX_RETRIES</code>. Requeue manually if needed by constructing a fresh <code>ContinueProcessingInput</code> and calling <code>worker.dispatcher.enqueue_upload_processing</code> from an admin shell.</p>
+<ol>
+<li>If the job is irrecoverable, mark it failed for client visibility:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">services.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_job_service</span>
+<span class="n">job_service</span> <span class="o">=</span> <span class="n">get_job_service</span><span class="p">()</span>
+<span class="k">await</span> <span class="n">job_service</span><span class="o">.</span><span class="n">fail_job</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">job_id</span><span class="o">=&lt;</span><span class="n">uuid</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">exc</span><span class="o">=</span><span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;manual&quot;</span><span class="p">),</span> <span class="n">last_step</span><span class="o">=</span><span class="s2">&quot;manual_override&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="upload-returns-409-or-statusduplicated">Upload Returns <code>409</code> or <code>status=DUPLICATED</code></h2>
+<p><strong>Cause</strong>: The SHA-256 digest already exists in the collection and a completed ingestion record is present.</p>
+<p><strong>Actions</strong>
+1. Confirm this is expected (user re-uploading the same file). No action needed; the existing vectors remain valid.
+2. To force reprocessing (e.g., changed parser), delete the ingestion record and re-upload:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">repositories</span><span class="w"> </span><span class="kn">import</span> <span class="n">ingestion_repository</span>
+<span class="k">await</span> <span class="n">ingestion_repository</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">ingestion_id</span><span class="o">=&lt;</span><span class="n">uuid</span><span class="o">&gt;</span><span class="p">)</span>
+</code></pre></div>
+<p>Then retry the upload; the pipeline will run end-to-end.</p>
+<h2 id="s3_client-errors-or-missing-artifacts"><code>s3_client</code> Errors or Missing Artifacts</h2>
+<p><strong>Symptoms</strong>
+- Worker logs: <code>Failed to update document URIs</code> or <code>botocore.exceptions</code>.
+- Streaming routes (<code>/file/original</code>) return HTTP 404.</p>
+<p><strong>Steps</strong>
+1. Verify AWS credentials and IAM permissions (PutObject/GetObject/DeleteObject).
+2. Check bucket name/region — mismatches cause signature or redirect errors.
+3. Inspect S3 for the expected key: <code>{collection}/{document_id}/original</code>.
+4. If the object never reached S3, rerun the job:</p>
+<div class="highlight"><pre><span></span><code><span class="k">await</span> <span class="n">upload_service</span><span class="o">.</span><span class="n">continue_processing</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</code></pre></div>
+<p>(Enqueue through Dramatiq in production; only run inline during maintenance.)</p>
+<h2 id="openai-rate-limiting">OpenAI Rate Limiting</h2>
+<p><strong>Symptoms</strong>
+- Worker logs show HTTP 429 from embeddings or parser requests.
+- <code>dramatiq_tasks_queue_depth</code> grows rapidly.</p>
+<p><strong>Mitigation</strong>
+1. Reduce concurrency: lower <code>DRAMATIQ_THREADS</code> temporarily.
+2. Upgrade your OpenAI quota or switch to a self-hosted embeddings provider by injecting a custom <code>Embeddings</code> instance.
+3. Implement exponential backoff around embeddings calls if limits persist (roadmap item).</p>
+<h2 id="postgres-rls-failures">Postgres RLS Failures</h2>
+<p><strong>Symptoms</strong>
+- API startup crashes with <code>RlsNotEnforcedError</code>.
+- Queries fail with <code>permission denied for relation documents</code>.</p>
+<p><strong>Resolution</strong>
+1. Do not run the app with a superuser role. Create a dedicated role with RLS enabled.
+2. Ensure migrations set up the schema and RLS policies:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>alembic<span class="w"> </span>upgrade<span class="w"> </span>head
+</code></pre></div>
+<ol>
+<li>Verify the tenant id on the session (<code>SELECT current_setting('app.tenant_id');</code>). If empty, confirm <code>X-Tenant-Id</code> header reaches the API.</li>
+</ol>
+<h2 id="clearing-a-failed-job">Clearing a Failed Job</h2>
+<p>When a job fails and cannot be retried automatically:</p>
+<ol>
+<li>Investigate root cause via logs and traces.</li>
+<li>Soft-delete the document if the uploaded file is invalid:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">services.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_document_service</span>
+<span class="n">doc_service</span> <span class="o">=</span> <span class="n">get_document_service</span><span class="p">()</span>
+<span class="k">await</span> <span class="n">doc_service</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">document_id</span><span class="o">=&lt;</span><span class="n">uuid</span><span class="o">&gt;</span><span class="p">)</span>
+</code></pre></div>
+<ol>
+<li>Notify the client; they can re-upload once the underlying issue is resolved.</li>
+</ol>
+<h2 id="rotating-s3-buckets-or-changing-collection-names">Rotating S3 Buckets or Changing Collection Names</h2>
+<ol>
+<li>Drain the worker queue to avoid in-flight jobs.</li>
+<li>Update environment variables (<code>AWS_S3_BUCKET</code>, <code>EMBEDDING__COLLECTION</code>).</li>
+<li>Redeploy web and worker services.</li>
+<li>Validate by uploading a smoke-test document and confirming URIs return the new bucket path.</li>
+</ol>
+<h2 id="emergency-disablement">Emergency Disablement</h2>
+<p>To pause ingestion without shutting the API down:</p>
+<ol>
+<li>Scale the worker deployment to zero or set <code>START_WORKER=false</code> and redeploy.</li>
+<li>The API will continue to accept uploads but queue them. Communicate expected delay to end users.</li>
+<li>Bring the worker back online and monitor queue depth until whittled down.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.tracking", "content.code.copy", "content.code.select"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>
