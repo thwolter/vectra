@@ -1250,9 +1250,9 @@ docker<span class="w"> </span>push<span class="w"> </span>ghcr.io/finrag/vecapi:
 <span class="w">      </span><span class="nt">POSTGRES_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${POSTGRES_URL}</span>
 <span class="w">      </span><span class="nt">REDIS_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${REDIS_URL}</span>
 <span class="w">      </span><span class="nt">OPENAI_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${OPENAI_API_KEY}</span>
-<span class="w">      </span><span class="nt">AWS_ACCESS_KEY_ID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_ACCESS_KEY_ID}</span>
-<span class="w">      </span><span class="nt">AWS_SECRET_ACCESS_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_SECRET_ACCESS_KEY}</span>
-<span class="w">      </span><span class="nt">AWS_S3_BUCKET</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_S3_BUCKET}</span>
+<span class="w">      </span><span class="nt">AWS__ACCESS_KEY_ID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS__ACCESS_KEY_ID}</span>
+<span class="w">      </span><span class="nt">AWS__SECRET_ACCESS_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS__SECRET_ACCESS_KEY}</span>
+<span class="w">      </span><span class="nt">AWS__S3_BUCKET</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS__S3_BUCKET}</span>
 <span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;8010:8000&quot;</span>
 <span class="w">  </span><span class="nt">worker</span><span class="p">:</span>
@@ -1263,9 +1263,9 @@ docker<span class="w"> </span>push<span class="w"> </span>ghcr.io/finrag/vecapi:
 <span class="w">      </span><span class="nt">POSTGRES_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${POSTGRES_URL}</span>
 <span class="w">      </span><span class="nt">REDIS_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${REDIS_URL}</span>
 <span class="w">      </span><span class="nt">OPENAI_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${OPENAI_API_KEY}</span>
-<span class="w">      </span><span class="nt">AWS_ACCESS_KEY_ID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_ACCESS_KEY_ID}</span>
-<span class="w">      </span><span class="nt">AWS_SECRET_ACCESS_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_SECRET_ACCESS_KEY}</span>
-<span class="w">      </span><span class="nt">AWS_S3_BUCKET</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_S3_BUCKET}</span>
+<span class="w">      </span><span class="nt">AWS__ACCESS_KEY_ID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS__ACCESS_KEY_ID}</span>
+<span class="w">      </span><span class="nt">AWS__SECRET_ACCESS_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS__SECRET_ACCESS_KEY}</span>
+<span class="w">      </span><span class="nt">AWS__S3_BUCKET</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS__S3_BUCKET}</span>
 <span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">web</span>
 </code></pre></div>
@@ -1305,8 +1305,8 @@ uv<span class="w"> </span>run<span class="w"> </span>alembic<span class="w"> </s
 </ul>
 <h2 id="storage-considerations">Storage Considerations</h2>
 <ul>
-<li>S3 paths: <code>s3://{AWS_S3_BUCKET}/{collection}/{document_uuid}/</code>.</li>
-<li>To rotate buckets or migrate tenants, update <code>AWS_S3_BUCKET</code> and redeploy; URIs regenerate on future ingestions.</li>
+<li>S3 paths: <code>s3://{AWS__S3_BUCKET}/{collection}/{document_uuid}/</code>.</li>
+<li>To rotate buckets or migrate tenants, update <code>AWS__S3_BUCKET</code> and redeploy; URIs regenerate on future ingestions.</li>
 <li>Local filesystem backing (<code>DOCUMENT_STORE=local</code>) is suitable only for tests or ephemeral environments.</li>
 </ul>
 <h2 id="disaster-recovery">Disaster Recovery</h2>

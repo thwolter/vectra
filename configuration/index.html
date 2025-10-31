@@ -1207,7 +1207,7 @@
 <td>API key for the default embeddings provider. Required unless you override embeddings.</td>
 </tr>
 <tr>
-<td><code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_REGION</code>, <code>AWS_S3_BUCKET</code></td>
+<td><code>AWS__ACCESS_KEY_ID</code>, <code>AWS__SECRET_ACCESS_KEY</code>, <code>AWS__REGION</code>, <code>AWS__S3_BUCKET</code></td>
 <td>Credentials for storing artifacts in S3 when <code>DOCUMENT_STORE=s3</code>.</td>
 </tr>
 </tbody>
@@ -1304,27 +1304,27 @@
 <td>Root directory when using the local store.</td>
 </tr>
 <tr>
-<td><code>AWS_ACCESS_KEY_ID</code></td>
+<td><code>AWS__ACCESS_KEY_ID</code></td>
 <td><strong>required when <code>DOCUMENT_STORE=s3</code></strong></td>
 <td>IAM credentials for S3.</td>
 </tr>
 <tr>
-<td><code>AWS_SECRET_ACCESS_KEY</code></td>
+<td><code>AWS__SECRET_ACCESS_KEY</code></td>
 <td><strong>required</strong></td>
 <td>Secret key for S3.</td>
 </tr>
 <tr>
-<td><code>AWS_REGION</code></td>
+<td><code>AWS__REGION</code></td>
 <td><code>eu-west-1</code></td>
 <td>Region used when building the S3 client.</td>
 </tr>
 <tr>
-<td><code>AWS_S3_BUCKET</code></td>
+<td><code>AWS__S3_BUCKET</code></td>
 <td><code>vecapi-documents</code></td>
 <td>Bucket name storing originals and Markdown.</td>
 </tr>
 <tr>
-<td><code>AWS_S3_PATH</code></td>
+<td><code>AWS__S3_PATH</code></td>
 <td><code>documents</code></td>
 <td>Prefix for generated keys.</td>
 </tr>

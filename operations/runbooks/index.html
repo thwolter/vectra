@@ -1204,7 +1204,7 @@
 <h2 id="rotating-s3-buckets-or-changing-collection-names">Rotating S3 Buckets or Changing Collection Names</h2>
 <ol>
 <li>Drain the worker queue to avoid in-flight jobs.</li>
-<li>Update environment variables (<code>AWS_S3_BUCKET</code>, <code>EMBEDDING__COLLECTION</code>).</li>
+<li>Update environment variables (<code>AWS__S3_BUCKET</code>, <code>EMBEDDING__COLLECTION</code>).</li>
 <li>Redeploy web and worker services.</li>
 <li>Validate by uploading a smoke-test document and confirming URIs return the new bucket path.</li>
 </ol>
