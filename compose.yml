@@ -1,17 +1,4 @@
 services:
-  otel-collector:
-    image: otel/opentelemetry-collector:latest
-    command: ["--config=/etc/otelcol/config.yaml"]
-    volumes:
-      - ./docker/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
-    healthcheck:
-      test: [ "CMD", "/otelcol", "validate", "--config=/etc/otelcol/config.yaml" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    ports:
-      - "4318:4318"
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -26,6 +13,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    networks:
+      - vectra-net
     volumes:
       - redis-data:/data
 
@@ -43,6 +32,8 @@ services:
       retries: 5
     ports:
       - '5432:5432'
+    networks:
+      - vectra-net
     volumes:
       - ./docker/init:/docker-entrypoint-initdb.d:ro
       - vectra-db-data:/var/lib/postgresql/data
@@ -56,33 +47,17 @@ services:
         condition: service_healthy
       vectra-db:
         condition: service_healthy
-      otel-collector:
-        condition: service_healthy
     environment:
       POSTGRES_URL: postgresql://app_user:app-password@vectra-db:5432/vectra
       ALEMBIC_DATABASE_URL: postgresql://alembic_user:alembic-password@vectra-db:5432/vectra
       REDIS_URL: redis://:redispassword@redis:6379/0
       DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      LLAMA_CLOUD__API_KEY: ${LLAMA_CLOUD__API_KEY}
-      AWS__ACCESS_KEY_ID: ${AWS__ACCESS_KEY_ID}
-      AWS__SECRET_ACCESS_KEY: ${AWS__SECRET_ACCESS_KEY}
-      AWS__S3_BUCKET: ${AWS__S3_BUCKET}
-      AWS__REGION: ${AWS__REGION}
-      DOCUMENT_STORE: local
-      LOCAL_FILE_PATH: ${LOCAL_FILE_PATH:-/tmp/vectra/documents}
-      JWT_SECRET: ${JWT_SECRET}
-      PORT: 8000
-      START_WEB: 'true'
-      START_WORKER: 'true'
-      DEPLOY_SKIP_MIGRATIONS: 'false'
-      LOG_LEVEL: INFO
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
-      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
-      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-otlp}
-      OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-otlp}
+    env_file:
+      - .env
+    networks:
+      - vectra-net
     ports:
-      - '8002:8000'
+      - '8000:8000'
     volumes:
       - /tmp/vectra/documents:/tmp/vectra/documents
     develop:
@@ -107,3 +82,7 @@ services:
 volumes:
   redis-data:
   vectra-db-data:
+
+networks:
+  vectra-net:
+    driver: bridge

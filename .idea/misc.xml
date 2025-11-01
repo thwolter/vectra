@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="uv (llama_parser)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="uv (vectra)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.12.12 Docker Compose (vectra)" project-jdk-type="Python SDK" />
 </project>
