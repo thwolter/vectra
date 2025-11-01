@@ -9,7 +9,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.idea/dataSources" />
       <excludeFolder url="file://$MODULE_DIR$/.idea/httpRequests" />
     </content>
-    <orderEntry type="jdk" jdkName="Remote Python 3.12.12 Docker Compose (vectra)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="uv (vectra)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

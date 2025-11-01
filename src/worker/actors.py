@@ -60,6 +60,20 @@ def _start_heartbeat() -> None:
 _start_heartbeat()
 
 
+# Maintain a long-lived asyncio event loop per worker thread so the async PG pool
+# stays bound to a stable loop instead of the short-lived ones created by asyncio.run.
+_thread_local = threading.local()
+
+
+def _get_event_loop() -> asyncio.AbstractEventLoop:
+    loop = getattr(_thread_local, 'loop', None)
+    if loop is None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        _thread_local.loop = loop
+    return loop
+
+
 def _run_pipeline(payload: dict) -> None:
     tracer = get_tracer('dramatiq.upload')
     with tracer.start_as_current_span('prepare_payload'):
@@ -67,7 +81,8 @@ def _run_pipeline(payload: dict) -> None:
     with tracer.start_as_current_span('process_upload_message'):
         upload_service = get_upload_service()
         logger.bind(component='worker').info('WORKER_MESSAGE: processing upload job {}', parsed_payload.job_id)
-        asyncio.run(upload_service.continue_processing(payload=parsed_payload))
+        loop = _get_event_loop()
+        loop.run_until_complete(upload_service.continue_processing(payload=parsed_payload))
 
 
 @dramatiq.actor(

@@ -68,8 +68,9 @@ class JobRepository:
         record = await update_record(record, data=job)
 
         try:
-            await session.commit()
+            await session.flush()
             await session.refresh(record)
+            await session.commit()
         except Exception as e:
             await session.rollback()
             logger.error(f'Failed to update progress for job {job.id}: {e}')

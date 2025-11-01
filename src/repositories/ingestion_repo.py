@@ -45,8 +45,10 @@ class IngestionRepository:
         )
         session.add(record)
         try:
-            await session.commit()
+            await session.flush()
+            # Refresh before commit so RLS still sees tenant-scoped row.
             await session.refresh(record)
+            await session.commit()
         except Exception as e:
             await session.rollback()
             raise Exception(f'Failed to create ingestion: {e}')
