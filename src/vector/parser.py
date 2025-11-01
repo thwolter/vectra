@@ -65,13 +65,24 @@ class LlamaParser:
                         logger.debug('LlamaParse: loading data from %s', self._file)
 
                         def _load_sync() -> List[Document]:
-                            # llama-parse returns a list of "Document" objects (LlamaIndex),
-                            # we normalize to langchain Documents.
-                            nodes = self._parser.load_data(self._file)
+                            # llama-parse returns a result object; convert its markdown documents
+                            # into LangChain Documents so the rest of the pipeline can stay generic.
+                            result = self._parser.parse(self._file)
+                            try:
+                                nodes = result.get_markdown_documents() or []
+                            except AttributeError as exc:  # pragma: no cover - defensive guard
+                                raise AttributeError('LlamaParse result missing get_markdown_documents()') from exc
+
                             docs: List[Document] = []
-                            for i, n in enumerate(nodes):
-                                content = getattr(n, 'text', None) or getattr(n, 'page_content', '')
-                                metadata = dict(getattr(n, 'metadata', {}) or {})
+                            for i, node in enumerate(nodes):
+                                content = (
+                                    getattr(node, 'text', None)
+                                    or getattr(node, 'page_content', None)
+                                    or getattr(node, 'markdown', None)
+                                )
+                                if content is None:
+                                    content = str(node)
+                                metadata = dict(getattr(node, 'metadata', {}) or {})
                                 metadata.update({'parser': 'LlamaParser', 'node_index': i})
                                 docs.append(Document(page_content=content or '', metadata=metadata))
                             return docs

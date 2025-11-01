@@ -1,4 +1,5 @@
 import pytest
+from langchain_core.documents import Document
 from tenauth.schemas import AccessContext
 
 from api.file import TemporaryUploadFile
@@ -11,7 +12,19 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-async def job_uploaded(auth_session, apple_report_first_page_upload):
+async def job_uploaded(auth_session, apple_report_first_page_upload, monkeypatch):
+    class _FakeParser:
+        def __init__(self, *args, **kwargs):
+            self._docs = [Document(page_content='stub-chunk', metadata={'parser': 'LlamaParser'})]
+
+        async def parse(self, file: str):
+            return list(self._docs)
+
+        async def to_markdown(self) -> str:
+            return '\n\n'.join(doc.page_content for doc in self._docs if doc.page_content)
+
+    monkeypatch.setattr('services.upload_steps.LlamaParser', _FakeParser)
+
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
     service = get_upload_service()
 

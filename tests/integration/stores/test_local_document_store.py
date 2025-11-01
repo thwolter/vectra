@@ -47,7 +47,6 @@ def test_local_store_conforms_runtime(tmp_path):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_save_original_and_delete_success(
     base_prefix,
     apple_report_first_page_upload,
@@ -82,7 +81,6 @@ async def test_save_original_and_delete_success(
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_save_markdown_then_load_and_delete_success(base_prefix, tenant_id, document_digest):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=str(base_prefix))
 
@@ -161,7 +159,6 @@ async def test_info_with_both_files_success(
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_load_failure_nonexistent_key_raises(base_prefix):
     store = LocalFileStore(CollectionEnum.DEFAULT.value, base_path=base_prefix)
 
@@ -170,7 +167,6 @@ async def test_load_failure_nonexistent_key_raises(base_prefix):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_make_uri_returns_file_scheme(
     base_prefix,
     apple_report_first_page_upload,
@@ -193,7 +189,6 @@ async def test_make_uri_returns_file_scheme(
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_head_returns_expected_metadata(
     base_prefix,
     apple_report_first_page_upload,
@@ -250,7 +245,6 @@ async def test_head_returns_expected_metadata(
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_stream_markdown_and_original_success(
     base_prefix,
     apple_report_first_page_upload,

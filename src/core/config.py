@@ -155,6 +155,8 @@ class Settings(ValidatedSettings):
     @field_validator('postgres_url', mode='before')
     @classmethod
     def _normalise_postgres_url(cls, url) -> SecretStr:
+        if not url:
+            return SecretStr('')
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
         return SecretStr(url)

@@ -2,28 +2,51 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, AsyncIterator, cast
 from uuid import uuid4
 
 import pytest
 from langchain_core.documents import Document
+from sqlmodel.ext.asyncio.session import AsyncSession
 
+from api.file import TemporaryUploadFile
 from repositories.schemas import IngestionVersion
 from schemas.jobs import JobCtx
 from services.upload_steps import UploadPipeline
+from store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
 
 class DummyStore:
     """Minimal store stub for UploadPipeline tests."""
 
-    async def save_original(self, *args, **kwargs):  # pragma: no cover - not used in these tests
+    async def save_original(self, *args, **kwargs) -> ArtifactInfo:  # pragma: no cover - not used in these tests
         raise AssertionError('save_original should not be called')
 
-    async def save_markdown(self, *args, **kwargs):  # pragma: no cover - not used in these tests
+    async def save_markdown(self, *args, **kwargs) -> ArtifactInfo:  # pragma: no cover - not used in these tests
         raise AssertionError('save_markdown should not be called')
 
+    async def delete(self, *args, **kwargs) -> bool:  # pragma: no cover - not used in these tests
+        raise AssertionError('delete should not be called')
 
-def _build_ctx(*, plan, docs: list[Document] | None = None, existing_ingestion=None) -> JobCtx:
-    file_stub = SimpleNamespace(filename='unit.pdf', content_type='application/pdf', path=Path(__file__))
+    def stream(self, *args, **kwargs) -> AsyncIterator[bytes]:  # pragma: no cover - not used in these tests
+        async def _generator() -> AsyncIterator[bytes]:
+            raise AssertionError('stream should not be called')
+            yield b''  # Unreachable but keeps the function an async generator
+
+        return _generator()
+
+    async def head(self, *args, **kwargs) -> FileInfo:  # pragma: no cover - not used in these tests
+        raise AssertionError('head should not be called')
+
+    async def info(self, *args, **kwargs) -> StoredFiles:  # pragma: no cover - not used in these tests
+        raise AssertionError('info should not be called')
+
+    def make_uri(self, *args, **kwargs) -> str:  # pragma: no cover - not used in these tests
+        raise AssertionError('make_uri should not be called')
+
+
+def _build_ctx(*, plan, docs: list[Document] | None = None, existing_ingestion: Any = None) -> JobCtx:
+    file_stub = TemporaryUploadFile(path=Path(__file__), filename='unit.pdf', content_type='application/pdf')
     return JobCtx(
         job_id=uuid4(),
         tenant_id=uuid4(),
@@ -32,7 +55,7 @@ def _build_ctx(*, plan, docs: list[Document] | None = None, existing_ingestion=N
         document_id=uuid4(),
         digest='digest',
         docs=list(docs or []),
-        existing_ingestion=existing_ingestion,
+        existing_ingestion=cast(Any, existing_ingestion),
         run_parser=plan.run_parser,
         run_chunker=plan.run_chunker,
         run_embedding=plan.run_embedding,
@@ -43,7 +66,7 @@ def _build_ctx(*, plan, docs: list[Document] | None = None, existing_ingestion=N
 @pytest.mark.asyncio
 async def test_pipeline_skips_when_plan_matches(monkeypatch: pytest.MonkeyPatch):
     version = IngestionVersion(collection='c', parser_fp='p', chunker_fp='c', embedding_fp='e')
-    record = SimpleNamespace(parser_fp='p', chunker_fp='c', embedding_fp='e')
+    record = cast(Any, SimpleNamespace(parser_fp='p', chunker_fp='c', embedding_fp='e'))
     plan = version.plan_for(record)
 
     pipeline = UploadPipeline(store=DummyStore())
@@ -94,7 +117,7 @@ async def test_pipeline_skips_when_plan_matches(monkeypatch: pytest.MonkeyPatch)
     ctx_after_chunk = await pipeline.chunk_documents(ctx_after_parse)
     assert ctx_after_chunk is ctx_after_parse
 
-    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session=None)
+    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session=cast(AsyncSession, None))
     assert ctx_after_ingest.skip_embed is True
 
 
@@ -102,7 +125,7 @@ async def test_pipeline_skips_when_plan_matches(monkeypatch: pytest.MonkeyPatch)
 @pytest.mark.asyncio
 async def test_pipeline_runs_all_steps_when_parser_changes(monkeypatch: pytest.MonkeyPatch):
     version = IngestionVersion(collection='c', parser_fp='p', chunker_fp='c', embedding_fp='e')
-    record = SimpleNamespace(parser_fp='other', chunker_fp='c', embedding_fp='e')
+    record = cast(Any, SimpleNamespace(parser_fp='other', chunker_fp='c', embedding_fp='e'))
     plan = version.plan_for(record)
 
     pipeline = UploadPipeline(store=DummyStore())
@@ -163,7 +186,7 @@ async def test_pipeline_runs_all_steps_when_parser_changes(monkeypatch: pytest.M
     monkeypatch.setattr('services.upload_steps.embeddings_repository.delete', fake_delete)
     monkeypatch.setattr('services.upload_steps.job_repository.update', fake_job_update)
 
-    existing_ingestion = SimpleNamespace(id=uuid4())
+    existing_ingestion = cast(Any, SimpleNamespace(id=uuid4()))
     ctx = _build_ctx(plan=plan, existing_ingestion=existing_ingestion)
 
     ctx_after_parse = await pipeline.parse_document(ctx)
@@ -175,7 +198,8 @@ async def test_pipeline_runs_all_steps_when_parser_changes(monkeypatch: pytest.M
     assert chunk_calls['called'] is True
     assert ctx_after_chunk.docs and ctx_after_chunk.docs[0].page_content == 'chunked'
 
-    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session='session')
+    session_stub = cast(AsyncSession, 'session')
+    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session=session_stub)
     assert delete_calls['count'] == 1
     assert len(ingest_calls) == 1
     assert ctx_after_ingest.skip_embed is False
@@ -185,7 +209,7 @@ async def test_pipeline_runs_all_steps_when_parser_changes(monkeypatch: pytest.M
 @pytest.mark.asyncio
 async def test_pipeline_runs_chunker_and_embedding_when_only_chunker_changes(monkeypatch: pytest.MonkeyPatch):
     version = IngestionVersion(collection='c', parser_fp='p', chunker_fp='c', embedding_fp='e')
-    record = SimpleNamespace(parser_fp='p', chunker_fp='other', embedding_fp='e')
+    record = cast(Any, SimpleNamespace(parser_fp='p', chunker_fp='other', embedding_fp='e'))
     plan = version.plan_for(record)
 
     pipeline = UploadPipeline(store=DummyStore())
@@ -245,7 +269,7 @@ async def test_pipeline_runs_chunker_and_embedding_when_only_chunker_changes(mon
     assert chunk_calls['called'] is True
     assert ctx_after_chunk.docs and ctx_after_chunk.docs[0].page_content == 'chunked'
 
-    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session=None)
+    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session=cast(AsyncSession, None))
     assert ingest_calls, 'Embedding should run when chunker changes'
     assert ctx_after_ingest.skip_embed is False
 
@@ -254,7 +278,7 @@ async def test_pipeline_runs_chunker_and_embedding_when_only_chunker_changes(mon
 @pytest.mark.asyncio
 async def test_pipeline_runs_only_embedding_when_embedding_changes(monkeypatch: pytest.MonkeyPatch):
     version = IngestionVersion(collection='c', parser_fp='p', chunker_fp='c', embedding_fp='e')
-    record = SimpleNamespace(parser_fp='p', chunker_fp='c', embedding_fp='other')
+    record = cast(Any, SimpleNamespace(parser_fp='p', chunker_fp='c', embedding_fp='other'))
     plan = version.plan_for(record)
 
     pipeline = UploadPipeline(store=DummyStore())
@@ -310,6 +334,6 @@ async def test_pipeline_runs_only_embedding_when_embedding_changes(monkeypatch: 
     ctx_after_chunk = await pipeline.chunk_documents(ctx_after_parse)
     assert ctx_after_chunk is ctx_after_parse
 
-    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session=None)
+    ctx_after_ingest = await pipeline.ingest_documents(ctx_after_chunk, session=cast(AsyncSession, None))
     assert ingest_calls, 'Embedding should run when embedding changes'
     assert ctx_after_ingest.skip_embed is False
