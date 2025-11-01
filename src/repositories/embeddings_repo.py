@@ -89,5 +89,43 @@ class EmbeddingsRepository:
 
         logger.success(f"Deleted embeddings for digest='{digest}'")
 
+    async def update_source(
+        self,
+        session: AsyncSession,
+        *,
+        collection: str,
+        digest: str,
+        source: str,
+    ) -> int:
+        """Update the `source` field in embedding metadata for the given collection + digest."""
+        if not source:
+            raise ValueError('source must be a non-empty string')
+
+        sql = f"""
+            UPDATE {_LC_EMBEDDING} e
+            SET cmetadata = jsonb_set(
+                e.cmetadata,
+                '{{source}}',
+                to_jsonb(CAST(:source AS text)),
+                true
+            )
+            FROM {_LC_COLLECTION} c
+            WHERE e.collection_id = c.uuid
+              AND c.name = :collection
+              AND e.cmetadata->>'digest' = :digest
+        """
+        params = {'collection': collection, 'digest': digest, 'source': source}
+        stmt: Any = text(sql)
+        result = await session.exec(stmt, params=params)  # type: ignore[arg-type]
+        await session.commit()
+        rowcount = result.rowcount if result is not None else 0
+        logger.info(
+            "Updated embedding sources for collection='{collection}' digest='{digest}' (rows={rows})",
+            collection=collection,
+            digest=digest,
+            rows=rowcount,
+        )
+        return rowcount
+
 
 embeddings_repository = EmbeddingsRepository()

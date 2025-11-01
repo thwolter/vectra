@@ -27,6 +27,7 @@ class DocumentCreate(BaseModel):
 class DocumentUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
+    original_filename: str | None = None
     original_uri: str | None = None
     markdown_uri: str | None = None
     store: str | None = None

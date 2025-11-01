@@ -74,9 +74,12 @@ Returns `JobStatusResponse` with progress metadata:
 | --- | --- | --- |
 | `GET` | `/v1/documents/` | List documents with optional filters (`digest`, `collection`, pagination). |
 | `GET` | `/v1/documents/{document_id}` | Fetch metadata, artifact URIs, status flags, and timestamps. |
+| `PATCH` | `/v1/documents/{document_id}/filename` | Update the canonical filename and sync embedding metadata across stored vectors. |
 | `DELETE` | `/v1/documents/{document_id}` | Soft-delete metadata and dissociate artifacts (upstream services should handle S3 cleanup if required). |
 
 `DocumentService` handles URI generation by calling the configured store provider (`s3://` or `file://`). Pagination parameters mirror FastAPI defaults (`limit`, `offset`).
+
+Renaming a document via the PATCH route replaces the `original_filename` stored on the document row and rewrites the `source` field in PGVector metadata for every embedding associated with the same digest.
 
 ### Streaming Artifacts
 

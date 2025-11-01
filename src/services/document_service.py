@@ -5,7 +5,12 @@ from uuid import UUID
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from repositories import DocumentRepository, document_repository
+from repositories import (
+    DocumentRepository,
+    EmbeddingsRepository,
+    document_repository,
+    embeddings_repository,
+)
 from repositories.models import DocumentRecord
 from repositories.schemas import DocumentCreate, DocumentUpdate
 from schemas.documents import (
@@ -23,8 +28,10 @@ class DocumentService:
         self,
         *,
         repo: DocumentRepository | None = None,
+        embeddings_repo: EmbeddingsRepository | None = None,
     ) -> None:
         self.repo = repo or document_repository
+        self.embeddings_repo = embeddings_repo or embeddings_repository
 
     async def ensure_canonical_document(self, session, *, data: DocumentCreate) -> Tuple[DocumentRecord, bool]:
         return await self.repo.get_or_create(session, data=data)
@@ -104,6 +111,27 @@ class DocumentService:
     async def get_document(self, session: AsyncSession, *, document_id: UUID) -> DocumentResponse:
         doc = await self.repo.get(session, document_id=document_id)
         return DocumentResponse.model_validate(doc)
+
+    async def update_original_filename(
+        self,
+        session: AsyncSession,
+        *,
+        document_id: UUID,
+        original_filename: str,
+    ) -> DocumentResponse:
+        record = await self.repo.update(
+            session,
+            document=DocumentUpdate(id=document_id, original_filename=original_filename),
+        )
+
+        await self.embeddings_repo.update_source(
+            session,
+            collection=record.collection,
+            digest=record.digest,
+            source=original_filename,
+        )
+
+        return DocumentResponse.model_validate(record)
 
     async def get_document_by_digest(self, session: AsyncSession, *, digest: str, collection: str) -> DocumentResponse:
         doc = await self.repo.get_for_digest(session, digest=digest, collection=collection)

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, ClassVar, Dict, List, Literal, Optional
+from typing import Annotated, Any, ClassVar, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from schemas.embedding import DocumentChunk, DocumentContent
 from utils.types import SHA256B64
@@ -77,6 +77,16 @@ class DocumentListFilters(BaseModel):
 class DocumentListResponse(BaseModel):
     items: List[DocumentResponse] = Field(default_factory=list)
     next_page_token: str | None = None
+
+
+OriginalFilename = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+class DocumentFilenameUpdateRequest(BaseModel):
+    original_filename: OriginalFilename = Field(
+        ...,
+        description='New filename to persist on the document and embedding metadata',
+    )
 
 
 class ReparseRequest(BaseModel):

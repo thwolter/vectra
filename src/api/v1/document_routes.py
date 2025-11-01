@@ -9,6 +9,7 @@ from tenauth.fastapi import require_auth
 
 from core.deps import SessionDep
 from schemas.documents import (
+    DocumentFilenameUpdateRequest,
     DocumentListFilters,
     DocumentListResponse,
     DocumentResponse,
@@ -51,3 +52,18 @@ async def delete_document(
     """Delete a document and its associated vectors and artifacts."""
     await document_service.delete(session, document_id=document_id)
     return Response(status_code=204)
+
+
+@router.patch('/{document_id}/filename', response_model=DocumentResponse, tags=['documents'])
+async def update_document_filename(
+    document_id: UUID,
+    payload: DocumentFilenameUpdateRequest,
+    document_service: DocumentService = Depends(get_document_service),
+    session: AsyncSession = Depends(SessionDep),
+) -> DocumentResponse:
+    """Update the canonical filename and sync embedding metadata."""
+    return await document_service.update_original_filename(
+        session,
+        document_id=document_id,
+        original_filename=payload.original_filename,
+    )
