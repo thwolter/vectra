@@ -1,14 +1,14 @@
 # Vector Store Integration
 
-Embedding and retrieval are handled by the `src/vector` package. The worker transforms parsed documents into embeddings, writes them to PGVector, and records ingestion fingerprints to prevent duplicates. This page explains how the components fit together and how to extend them.
+Embedding and retrieval are handled by the `src/vector` package. The worker transforms parsed documents into embeddings, writes them to PGVector, and records parser/chunker/embedding fingerprints to detect duplicates. This page explains how the components fit together and how to extend them.
 
 ## DocumentIngestor (`src/vector/ingestor.py`)
 
 - Loads the owning job to resolve the document digest and tenant context.
 - Skips ingestion when no documents are provided (e.g., parser returned nothing).
-- Checks for existing embeddings by computing an `IngestionVersion` fingerprint (`collection + settings snapshot`). If present, raises `EmbeddingsAlreadyExistError`.
+- Checks for existing embeddings by computing the current `IngestionVersion` (parser/chunker/embedding fingerprints). If present, raises `EmbeddingsAlreadyExistError`.
 - Batches documents with `batch_documents_by_tokens`, updates metadata (`chunk_id`, `digest`), and calls `PGVector.aadd_documents`.
-- Records the run via `IngestionRepository.create`, storing the job id and configuration fingerprint.
+- Records the run via `IngestionRepository.create`, storing the job id and the parser/chunker/embedding fingerprints that produced the embeddings.
 
 ### Metadata Contract
 

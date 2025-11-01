@@ -29,9 +29,10 @@ The worker executes `UploadPipeline` (`src/services/upload_steps.py`) in sequenc
 | Step | Implementation | Description |
 | --- | --- | --- |
 | `store_original` | `StoreProtocol.save_original` | Streams the file into S3 or the filesystem, returning the storage key. |
-| `parse_document` | `vector.parser.LlamaParser` (default) | Produces LangChain `Document` objects, normalises metadata, and renders Markdown. |
-| `store_markdown` | `StoreProtocol.save_markdown` | Persists Markdown; warnings are logged if no Markdown is produced. |
-| `ingest_documents` | `vector.ingestor.DocumentIngestor` | Batches documents, enriches metadata (`digest`, `chunk_id`), writes embeddings via PGVector, and records an ingestion fingerprint. |
+| `parse_document` | `vector.parser.LlamaParser` (default) | Produces LangChain `Document` objects, normalises metadata, and renders Markdown (reuses cached Markdown when the parser version is unchanged). |
+| `chunk_documents` | `vector.chunker.chunk_documents_by_headings` | Applies semantic chunking when the parser or chunker fingerprints have changed. |
+| `store_markdown` | `StoreProtocol.save_markdown` | Persists Markdown when a fresh parse ran; cached Markdown is reused otherwise. |
+| `ingest_documents` | `vector.ingestor.DocumentIngestor` | Batches documents, enriches metadata (`digest`, `chunk_id`), writes embeddings via PGVector, and records parser/chunker/embedding fingerprints for version tracking. |
 | `update_document_uris` | `DocumentService.update_document_uris` | Generates URIs (`s3://` or `file://`) and persists them on the document. |
 
 Any exception fails the job via `JobService.fail_job`, preserving the last successful step for diagnostics.
@@ -40,16 +41,17 @@ Any exception fails the job via `JobService.fail_job`, preserving the last succe
 flowchart TD
     A[ContinueProcessingInput] --> B[store_original]
     B --> C[parse_document]
-    C --> D[store_markdown]
-    D --> E[ingest_documents]
-    E --> F[update_document_uris]
-    F --> G[JobService.update_status -> COMPLETED]
+    C --> D[chunk_documents]
+    D --> E[store_markdown]
+    E --> F[ingest_documents]
+    F --> G[update_document_uris]
+    G --> H[JobService.update_status -> COMPLETED]
 ```
 
 ## Idempotency Guarantees
 
 - **Digest reuse** — duplicate files resolve to the same `DocumentRecord` (`digest` + `collection`). Upload responses include `status=DUPLICATED` when embeddings already exist.
-- **Ingestion fingerprints** — `IngestionRepository` stores `IngestionVersion` fingerprints based on collection + configuration. Replays skip embedding unless the fingerprint changes (e.g., new parser model).
+- **Ingestion versioning** — `IngestionRepository` stores parser/chunker/embedding fingerprints with each `IngestionVersion`. Replays skip parsing, chunking, and embedding unless the relevant fingerprint changes.
 - **Job reuse** — active jobs are reused; the API signals `already_running=true` when work is still in-flight.
 
 ## Storage & Metadata

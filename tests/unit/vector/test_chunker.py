@@ -1,52 +1,30 @@
 from types import SimpleNamespace
-from typing import List
 
 import pytest
 from langchain_core.documents import Document
 
+from core.config import get_settings
 from vector.chunker import chunk_documents_by_headings
-from vector.parser import LlamaParser
 
 
-class _DummyLoader:
-    def __init__(self, docs):
-        self._docs = docs
+def _stub_text_splitter(monkeypatch: pytest.MonkeyPatch, **overrides) -> None:
+    """Copy current text splitter settings and override provided values."""
 
-    async def aload(self):
-        return self._docs
-
-
-@pytest.mark.asyncio
-async def test_parse_success(tiny_pdf):
-    """Test parsing a real PDF file using a mocked Llama loader."""
-
-    loader = _DummyLoader([Document(page_content='Hello Llama', metadata={'source': 'unit://doc/llama/1'})])
-    parser = LlamaParser(loader=loader)
-
-    assert parser.loader == loader
-    assert parser._parsed_docs is None
-
-    result = await parser.parse(file=tiny_pdf)
-
-    # Verify that documents were parsed
-    assert isinstance(result, List)
-    assert len(result) == 1
-
-    # Verify that each document has the expected structure
-    for doc in result:
-        assert isinstance(doc, Document)
-        assert doc.metadata['parser'] == 'LlamaParser'  # Parser should be set
-
-    # Verify that the documents were cached
-    assert parser._parsed_docs is not None
-    assert parser._parsed_docs == result
+    settings = get_settings()
+    text_splitter = settings.text_splitter
+    stub_settings = SimpleNamespace(
+        text_splitter=SimpleNamespace(
+            min_heading_level=overrides.get('min_heading_level', text_splitter.min_heading_level),
+            max_heading_level=overrides.get('max_heading_level', text_splitter.max_heading_level),
+        )
+    )
+    monkeypatch.setattr('vector.chunker.get_settings', lambda: stub_settings)
 
 
 def test_chunk_documents_by_headings(monkeypatch: pytest.MonkeyPatch):
     """Chunk documents with headings while leaving blank and heading-less docs untouched."""
 
-    stub_settings = SimpleNamespace(text_splitter=SimpleNamespace(min_heading_level=2))
-    monkeypatch.setattr('vector.parser.get_settings', lambda: stub_settings)
+    _stub_text_splitter(monkeypatch, min_heading_level=2)
 
     docs = [
         Document(page_content='## Alpha\nAlpha body line', metadata={'source': 'unit://doc/alpha'}),
@@ -85,8 +63,7 @@ def test_chunk_documents_by_headings(monkeypatch: pytest.MonkeyPatch):
 def test_chunk_documents_by_headings_min_level_three(monkeypatch: pytest.MonkeyPatch):
     """Ensure only H3 sections create chunks when the minimum heading level is 3."""
 
-    stub_settings = SimpleNamespace(text_splitter=SimpleNamespace(min_heading_level=3))
-    monkeypatch.setattr('vector.parser.get_settings', lambda: stub_settings)
+    _stub_text_splitter(monkeypatch, min_heading_level=3)
 
     docs = [
         Document(
@@ -122,9 +99,10 @@ def test_chunk_documents_by_headings_min_level_three(monkeypatch: pytest.MonkeyP
     assert chunked[1].metadata == docs[1].metadata
 
 
-@pytest.mark.asyncio
-async def test_heading_chunking_splits_sections(tiny_pdf):
-    """Llama parser should split markdown into chunks by section headings (## and deeper)."""
+def test_heading_chunking_splits_sections(monkeypatch: pytest.MonkeyPatch):
+    """Chunk markdown headings according to current splitter settings."""
+
+    _stub_text_splitter(monkeypatch)
 
     md = (
         '# Document Title\n\n'
@@ -137,17 +115,13 @@ async def test_heading_chunking_splits_sections(tiny_pdf):
         'Content B line 1.\n'
     )
 
-    loader = _DummyLoader([Document(page_content=md, metadata={'source': 'unit://doc/llama/2'})])
-    parser = LlamaParser(loader=loader)
+    docs = [Document(page_content=md, metadata={'source': 'unit://doc/llama/2'})]
 
-    result = await parser.parse(file=tiny_pdf)
-    assert isinstance(result, List)
+    chunked = chunk_documents_by_headings(docs)
 
-    assert len(result) == 4
+    assert len(chunked) == 4
 
-    first, second, *_ = result
-    assert first.metadata['parser'] == 'LlamaParser'
-    assert second.metadata['parser'] == 'LlamaParser'
+    first, second, third, fourth = chunked
 
     assert first.metadata.get('header_title') == 'Document Title'
     assert first.metadata.get('header_level') == 1
@@ -156,3 +130,11 @@ async def test_heading_chunking_splits_sections(tiny_pdf):
     assert second.metadata.get('header_title') == 'Section One'
     assert second.metadata.get('header_level') == 2
     assert second.page_content.lstrip().startswith('## Section One')
+
+    assert third.metadata.get('header_title') == 'Sub A'
+    assert third.metadata.get('header_level') == 3
+    assert third.page_content.lstrip().startswith('### Sub A')
+
+    assert fourth.metadata.get('header_title') == 'Section Two'
+    assert fourth.metadata.get('header_level') == 2
+    assert fourth.page_content.lstrip().startswith('## Section Two')

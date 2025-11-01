@@ -4,7 +4,7 @@ import pytest
 
 from repositories import ingestion_repository
 from repositories.exceptions import RecordNotFoundError
-from repositories.schemas import IngestionCreate
+from repositories.schemas import IngestionCreate, IngestionVersion
 
 
 async def test_can_create_ingestion(auth_session, ingestion_created):
@@ -19,24 +19,31 @@ async def test_get_nonexistent_raises(auth_session):
 
 
 async def test_exists_true_when_present(auth_session, ingestion_created):
+    version = IngestionVersion(
+        collection=ingestion_created.collection,
+        parser_fp=ingestion_created.parser_fp,
+        chunker_fp=ingestion_created.chunker_fp,
+        embedding_fp=ingestion_created.embedding_fp,
+    )
     assert (
         await ingestion_repository.exists(
             auth_session,
-            fingerprint=ingestion_created.fingerprint,
             collection=ingestion_created.collection,
             digest=ingestion_created.digest,
+            version=version,
         )
         is True
     )
 
 
 async def test_exists_false_when_absent(auth_session, digest_random):
+    version = IngestionVersion.from_settings(collection='default')
     assert (
         await ingestion_repository.exists(
             auth_session,
-            fingerprint='',
             collection='default',
             digest=digest_random,
+            version=version,
         )
         is False
     )

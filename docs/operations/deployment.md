@@ -116,5 +116,5 @@ uv run alembic downgrade -1  # rollback one revision
 ## Disaster Recovery
 
 - Store Postgres backups (point-in-time or nightly) and S3 versioning to recover lost documents.
-- Replay ingestion by re-uploading files; **ingestion fingerprints** (`IngestionVersion`) prevent duplicate embeddings when settings match.
+- Replay ingestion by re-uploading files; **ingestion versions** (parser/chunker/embedding fingerprints) prevent duplicate embeddings when settings match.
 - Monitor `dramatiq_alerts_total` to receive proactive notifications of pipeline failures.

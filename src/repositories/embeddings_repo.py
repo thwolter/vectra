@@ -1,5 +1,6 @@
 from typing import Any, overload
 
+from langchain_core.documents import Document
 from loguru import logger
 from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -49,6 +50,29 @@ class EmbeddingsRepository:
         stmt: Any = text(sql)
         result = await session.exec(stmt, params=params)  # type: ignore[arg-type]
         return bool(result.scalar())
+
+    async def fetch_documents(self, session: AsyncSession, *, collection: str, digest: str) -> list[Document]:
+        """Return stored documents for a given collection + digest from PGVector metadata."""
+        sql = f"""
+            SELECT e.document, e.cmetadata
+            FROM {_LC_EMBEDDING} e
+            JOIN {_LC_COLLECTION} c ON e.collection_id = c.uuid
+            WHERE c.name = :collection AND e.cmetadata->>'digest' = :digest
+            ORDER BY COALESCE((e.cmetadata->>'chunk_id')::int, 0)
+        """
+        params = {'collection': collection, 'digest': digest}
+        stmt: Any = text(sql)
+        result = await session.exec(stmt, params=params)  # type: ignore[arg-type]
+        rows = result.all()
+
+        documents: list[Document] = []
+        for row in rows:
+            mapping = row._mapping if hasattr(row, '_mapping') else {'document': row[0], 'cmetadata': row[1]}
+            content = mapping.get('document') or ''
+            metadata = mapping.get('cmetadata') or {}
+            meta_dict = dict(metadata)
+            documents.append(Document(page_content=content, metadata=meta_dict))
+        return documents
 
     async def delete(self, session: AsyncSession, *, digest: SHA256B64) -> None:
         """Delete all embeddings for a given logical document id (metadata.digest)."""

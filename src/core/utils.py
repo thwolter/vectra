@@ -1,10 +1,11 @@
+import hashlib
 import json
 import os
 import pathlib
 import tomllib
 import warnings
 from functools import lru_cache
-from typing import ClassVar
+from typing import ClassVar, Sequence
 
 from pydantic import BaseModel, SecretStr
 from pydantic_settings import BaseSettings
@@ -87,3 +88,37 @@ class ValidatedModel(BaseModel):
 
     def check_missing_keys(self) -> list[str]:
         return _check_missing_keys(self)
+
+
+class FingerprintMixin(BaseModel):
+    """Mixin to generate a deterministic SHA-256 fingerprint from model data."""
+
+    fingerprint_keys: ClassVar[Sequence[str] | None] = None
+    fingerprint_exclude: ClassVar[Sequence[str] | None] = None
+
+    def get_fingerprint(self) -> str:
+        include_set = set(self.fingerprint_keys) if self.fingerprint_keys is not None else None
+        exclude_set = set(self.fingerprint_exclude) if self.fingerprint_exclude is not None else None
+
+        if include_set and exclude_set:
+            overlap = include_set & exclude_set
+            if overlap:
+                joined = ', '.join(sorted(overlap))
+                raise ValueError(f'Fingerprint keys appear in both include and exclude: {joined}')
+
+        model_fields = set(type(self).model_fields)
+        if include_set is not None:
+            invalid_includes = include_set - model_fields
+            if invalid_includes:
+                joined = ', '.join(sorted(invalid_includes))
+                raise ValueError(f'Fingerprint include references unknown fields: {joined}')
+
+        if exclude_set is not None:
+            invalid_excludes = exclude_set - model_fields
+            if invalid_excludes:
+                joined = ', '.join(sorted(invalid_excludes))
+                raise ValueError(f'Fingerprint exclude references unknown fields: {joined}')
+
+        payload = self.model_dump(include=include_set, exclude=exclude_set, mode='json')
+        canonical = json.dumps(payload, sort_keys=True, separators=(',', ':'))
+        return hashlib.sha256(canonical.encode()).hexdigest()

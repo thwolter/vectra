@@ -48,7 +48,7 @@ Content-Type: multipart/form-data; boundary=---boundary
 - Error responses:
   - `413 Payload Too Large` — file exceeds `upload_size_limit`.
   - `415 Unsupported Media Type` — disallowed MIME type.
-  - `409 Conflict` — existing ingestion fingerprint detected.
+  - `409 Conflict` — existing ingestion version (parser/chunker/embedding fingerprints) detected.
 
 ## Job Status (`GET /v1/jobs/{job_id}`)
 

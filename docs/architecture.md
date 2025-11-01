@@ -8,7 +8,7 @@ VecAPI is an asynchronous FastAPI backend that ingests unstructured files, norma
 - **Service layer (`src/services/`)** — orchestrates domain workflows. `UploadService` coordinates hashing, dedupe, job management, and the asynchronous pipeline. `DocumentService` and `JobService` encapsulate persistence and business rules for their respective aggregates.
 - **Repositories (`src/repositories/`)** — thin SQLModel wrappers that persist rich domain types (documents, jobs, ingestions) and hide SQL from service logic. They enforce uniqueness and convert database rows into typed schemas.
 - **Object store adapters (`src/store/`)** — fulfil the `StoreProtocol` for `s3://` or local filesystem URIs. Storage providers are selected at runtime via `store.providers.default_store_provider`.
-- **Vector stack (`src/vector/`)** — embeds parsed chunks with LangChain’s `PGVector` integration. `DocumentIngestor` batches documents, enriches metadata, and records ingestion fingerprints for idempotency.
+- **Vector stack (`src/vector/`)** — embeds parsed chunks with LangChain’s `PGVector` integration. `DocumentIngestor` batches documents, enriches metadata, and records parser/chunker/embedding fingerprints for idempotency.
 - **Monitoring (`src/monitoring/`)** — provides middleware, metrics instruments, and alerting hooks shared by the worker and API.
 - **Worker runtime (`src/worker/`)** — Dramatiq actors consume upload jobs, execute the `UploadPipeline`, send OpenTelemetry spans, and emit liveness heartbeats to Redis.
 
@@ -36,7 +36,7 @@ flowchart LR
 | Services | Orchestrate multi-step workflows, enforce dedupe, progress updates, and repository invariants. | `src/services/upload_service.py`, `src/services/upload_steps.py`, `src/services/document_service.py`, `src/services/job_service.py` |
 | Persistence | Encapsulate SQLModel sessions, build queries, handle conflict retries, and return typed DTOs. | `src/repositories/*` |
 | Worker | Execute ingestion pipeline, manage heartbeats, emit OpenTelemetry spans/metrics, and send alerts on failure. | `src/worker/actors.py`, `src/worker/broker.py`, `src/monitoring/middleware.py` |
-| Vector | Provide embeddings providers, batching, ingestion fingerprints, and PGVector configuration. | `src/vector/factory.py`, `src/vector/ingestor.py`, `src/vector/batching.py` |
+| Vector | Provide embeddings providers, batching, ingestion version tracking, and PGVector configuration. | `src/vector/factory.py`, `src/vector/ingestor.py`, `src/vector/batching.py` |
 | Storage | Persist originals/Markdown, generate URIs, manage S3 prefixes, or mirror to the local filesystem. | `src/store/s3_store.py`, `src/store/local_store.py`, `src/store/providers.py` |
 
 ## Tenancy and Access Context

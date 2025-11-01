@@ -19,7 +19,6 @@ from repositories.fields import (
     updated_by_field,
     uuid_pk,
 )
-from utils.types import SHA256B64
 
 APP_SCHEMA = get_settings().db_schema
 
@@ -44,7 +43,7 @@ class DocumentRecord(BaseSQLModel, table=True):
     tenant_id: UUID = tenant_id_field()
 
     collection: str = Field(index=True)
-    digest: SHA256B64 = Field(index=True)
+    digest: str = Field(max_length=44, index=True)
     original_filename: str | None = None
     content_type: str | None = None
     size_bytes: int | None = None
@@ -145,8 +144,10 @@ class IngestionRecord(BaseSQLModel, table=True):
     embed_model_version: str
     embed_dim: int
     collection: str
-    digest: SHA256B64 = Field(index=True)
-    fingerprint: str = Field(index=True)
+    digest: str = Field(max_length=44, index=True)
+    parser_fp: str = Field(index=True)
+    chunker_fp: str = Field(index=True)
+    embedding_fp: str = Field(index=True)
     num_chunks: int
 
     created_at: datetime = created_at_field()

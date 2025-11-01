@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import SettingsConfigDict
 
+from core.utils import FingerprintMixin
+
 from .utils import ValidatedModel, ValidatedSettings, load_version, parse_cors_origins
 
 
@@ -25,8 +27,9 @@ class AllowedUploadFiles(ValidatedModel):
     ]
 
 
-class LlamaCloudSettings(ValidatedModel):
+class LlamaCloudSettings(ValidatedModel, FingerprintMixin):
     required_keys = ['api_key']
+    fingerprint_exclude = ['api_key']
 
     api_key: SecretStr | None = None
     parse_mode: str = 'parse_page_with_agent'
@@ -35,14 +38,20 @@ class LlamaCloudSettings(ValidatedModel):
     outlined_table_extraction: bool = True
     output_tables_as_HTML: bool = True
     model: str = 'openai-gpt-5-mini'
+    extract_layout: bool = True
+    continuous_mode: bool = True
 
 
-class TextSplitterSettings(ValidatedModel):
+class TextSplitterSettings(ValidatedModel, FingerprintMixin):
+    chunker: str = 'MarkdownHeaderTextSplitter'
+    version: str = '1'
     min_heading_level: int = 1
     max_heading_level: int = 6
 
 
-class EmbeddingSettings(ValidatedModel):
+class EmbeddingSettings(ValidatedModel, FingerprintMixin):
+    fingerprint_exclude = ['max_tokens_per_request', 'max_docs_per_batch']
+
     version: str = '1'
     collection: str = 'default'
     model: str = 'text-embedding-3-small'

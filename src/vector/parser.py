@@ -8,8 +8,6 @@ from loguru import logger
 
 from core.config import get_settings
 
-from .chunker import chunk_documents_by_headings
-
 
 class LoaderProtocol(Protocol):
     async def aload(self) -> List[Document]: ...
@@ -52,6 +50,8 @@ class LlamaParser:
                     adaptive_long_table=settings.llama_cloud.adaptive_long_table,
                     outlined_table_extraction=settings.llama_cloud.outlined_table_extraction,
                     output_tables_as_HTML=settings.llama_cloud.output_tables_as_HTML,
+                    extract_layout=settings.llama_cloud.extract_layout,
+                    continuous_mode=settings.llama_cloud.continuous_mode,
                 )
 
                 class _AsyncLoader:
@@ -90,25 +90,12 @@ class LlamaParser:
             logger.debug('Parsing document with LlamaParser...')
             loader = self.loader(file) if callable(self.loader) else self.loader
             docs = await loader.aload()
-            logger.success(f'Parsed {len(docs)} document chunks.')
+            logger.success(f'Parsed {len(docs)} documents.')
 
             if docs:
                 for doc in docs:
                     # Ensure parser metadata is set in case custom loader omitted it
                     doc.metadata.update({'parser': 'LlamaParser'})
-
-            # Apply semantic chunking by headings for markdown outputs
-            try:
-                chunked = chunk_documents_by_headings(docs)
-                if len(chunked) != len(docs):
-                    logger.debug(
-                        'LlamaParser: heading chunking split %d -> %d chunks',
-                        len(docs),
-                        len(chunked),
-                    )
-                docs = chunked
-            except Exception as e:
-                logger.warning(f'LlamaParser: heading chunking skipped due to error: {e}')
 
             self._parsed_docs = docs
             return docs

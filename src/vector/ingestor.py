@@ -76,7 +76,7 @@ class DocumentIngestor:
             total_ingested += len(batch)
             logger.debug(f"Added {len(batch)} docs with digest {digest}) to collection '{self.collection}'")
 
-        ingestion_id = await self.mark_ingestion(session=session, job=job, digest=digest)
+        ingestion_id = await self.mark_ingestion(session=session, job=job, digest=digest, num_chunks=total_ingested)
 
         logger.success(f"Ingested {total_ingested} documents into collection '{self.collection}'")
         return IngestionResult(
@@ -100,18 +100,24 @@ class DocumentIngestor:
             )
         return batch
 
-    async def mark_ingestion(self, session: AsyncSession, *, job: JobRecord, digest: str) -> UUID:
+    async def mark_ingestion(self, session: AsyncSession, *, job: JobRecord, digest: str, num_chunks: int) -> UUID:
         """Persist an ingestion version row for traceability and idempotency."""
         payload = IngestionCreate.create(
             collection=self.collection,
             digest=digest,
             document_id=job.document_id,
             job_id=job.id,
+            num_chunks=num_chunks,
         )
         record = await self._ingestion_repo.create(session=session, data=payload)
         return record.id
 
     async def embeddings_exist(self, session: AsyncSession, *, digest: str) -> bool:
         """Check if embeddings exist for a given digest."""
-        fp = IngestionVersion.from_settings(collection=self.collection).fingerprint()
-        return await self._ingestion_repo.exists(session, fingerprint=fp, collection=self.collection, digest=digest)
+        version = IngestionVersion.from_settings(collection=self.collection)
+        return await self._ingestion_repo.exists(
+            session,
+            collection=self.collection,
+            digest=digest,
+            version=version,
+        )

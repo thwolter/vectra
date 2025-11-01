@@ -19,8 +19,8 @@ Optional repositories (`ingestion_repo`, `job_repo`) can be injected for testing
 1. Loads the job to retrieve the owning document ID and digest.
 2. Short-circuits when `docs` is empty, returning an `IngestionResult` flagged `skipped=True`.
 3. Checks for existing embeddings via `embeddings_exist`:
-   - Computes an `IngestionVersion` fingerprint from settings + collection.
-   - Delegates to `IngestionRepository.exists`.
+   - Computes an `IngestionVersion` (parser/chunker/embedding fingerprints + collection).
+   - Delegates to `IngestionRepository.exists` to detect configuration matches.
 4. When embeddings are absent:
    - Builds batches using `batch_documents_by_tokens`.
    - Enriches metadata (`digest`, `chunk_id`) for each chunk.
@@ -36,7 +36,7 @@ Any `EmbeddingsAlreadyExistError` propagates to the caller; `UploadPipeline` tre
 | `enrich_metadata(batch, digest, offset)` | Mutates each document's metadata to include `chunk_id` and `digest`. |
 | `batch_documents_by_tokens(docs)` | Uses `vector.batching.batch_documents_by_tokens` to honour token/doc limits. |
 | `mark_ingestion(session, job, digest)` | Creates an ingestion record and returns its UUID. |
-| `embeddings_exist(session, digest)` | Uses `IngestionRepository.exists` with the collection fingerprint. |
+| `embeddings_exist(session, digest)` | Uses `IngestionRepository.exists` with the current ingestion version. |
 
 ## Tenant Awareness
 

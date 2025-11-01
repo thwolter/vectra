@@ -20,7 +20,7 @@ flowchart TD
 - `src/main.py` — FastAPI entrypoint, logging, and OpenTelemetry initialisation.
 - `src/api/v1/` — Upload, document, job, and streaming routes.
 - `src/services/` — Upload orchestration, job lifecycle, document helpers, and pipeline steps.
-- `src/repositories/` — SQLModel repositories for documents, jobs, and ingestion fingerprints.
+- `src/repositories/` — SQLModel repositories for documents, jobs, and ingestion version metadata.
 - `src/store/` — Store providers (S3 and filesystem) implementing the artifact protocol.
 - `src/vector/` — Batch chunking, embeddings, and PGVector integration.
 - `src/worker/` — Dramatiq broker setup, actors, and heartbeat logic.
@@ -29,7 +29,7 @@ The documentation tree mirrors these responsibilities. Start with the [System Ar
 
 ## Features at a Glance
 
-- **Idempotent ingestion** — uploads are hashed; duplicate runs reuse existing jobs or skip embedding when fingerprints match.
+- **Idempotent ingestion** — uploads are hashed; duplicate runs reuse existing jobs or skip parser/chunker/embedding work when version fingerprints match.
 - **Extensible parsing** — swap between LlamaParse, Docling, ChatDoc, or custom providers without touching pipeline code.
 - **Multi-tenant aware** — access contexts scope SQLModel sessions, vector connections, and object storage prefixes.
 - **Observability built-in** — OpenTelemetry spans, metrics, and Loguru logging for both the API and worker tiers.

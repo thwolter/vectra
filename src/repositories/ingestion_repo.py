@@ -12,7 +12,7 @@ from utils.types import SHA256B64
 
 from .exceptions import RecordNotFoundError
 from .models import IngestionRecord
-from .schemas import IngestionCreate
+from .schemas import IngestionCreate, IngestionVersion
 
 
 class IngestionRepository:
@@ -36,7 +36,9 @@ class IngestionRepository:
             embed_model_version=data.embed_model_version,
             embed_dim=data.embed_dim,
             digest=data.digest,
-            fingerprint=data.fingerprint(),
+            parser_fp=data.parser_fp,
+            chunker_fp=data.chunker_fp,
+            embedding_fp=data.embedding_fp,
             num_chunks=data.num_chunks,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
@@ -75,19 +77,24 @@ class IngestionRepository:
         self,
         session: AsyncSession,
         *,
-        fingerprint: str,
         collection: str,
         digest: SHA256B64,
+        version: IngestionVersion | None = None,
     ) -> IngestionRecord | None:
         statement = (
             select(IngestionRecord)
             .where(
-                IngestionRecord.fingerprint == fingerprint,
                 IngestionRecord.collection == collection,
                 IngestionRecord.digest == digest,
             )
             .limit(1)
         )
+        if version is not None:
+            statement = statement.where(
+                IngestionRecord.parser_fp == version.parser_fp,
+                IngestionRecord.chunker_fp == version.chunker_fp,
+                IngestionRecord.embedding_fp == version.embedding_fp,
+            )
         result = await session.exec(statement)
         return result.first()
 
@@ -95,11 +102,11 @@ class IngestionRepository:
         self,
         session: AsyncSession,
         *,
-        fingerprint: str,
         collection: str,
         digest: SHA256B64,
+        version: IngestionVersion,
     ) -> bool:
-        record = await self.find(session, fingerprint=fingerprint, collection=collection, digest=digest)
+        record = await self.find(session, collection=collection, digest=digest, version=version)
         return record is not None
 
 

@@ -6,7 +6,7 @@
 ![Commitizen](https://img.shields.io/badge/Commitizen-conventional-orange?logo=git&logoColor=white)
 ![Gitleaks](https://img.shields.io/badge/Gitleaks-secrets%20safe-critical?logo=git-lfs&logoColor=white)
 
-VecAPI is the ingestion and vectorization backend that powers Financials_RAG. The FastAPI service accepts customer documents, fingerprints and deduplicates them, pushes heavy processing to Dramatiq workers, and writes enriched chunks into Postgres + PGVector so downstream Retrieval-Augmented Generation (RAG) agents can search trusted content.
+VecAPI is the ingestion and vectorization backend that powers Financials_RAG. The FastAPI service accepts customer documents, tracks parser/chunker/embedding fingerprints to deduplicate them, pushes heavy processing to Dramatiq workers, and writes enriched chunks into Postgres + PGVector so downstream Retrieval-Augmented Generation (RAG) agents can search trusted content.
 
 ## Highlights
 

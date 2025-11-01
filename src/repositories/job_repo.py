@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from loguru import logger
@@ -16,6 +16,9 @@ from schemas.upload import JOBS_PENDING
 from .document_repo import DocumentRepository, document_repository
 from .exceptions import RecordNotFoundError
 from .utils import update_record
+
+if TYPE_CHECKING:
+    from repositories.schemas import IngestionVersion
 
 
 class JobRepository:
@@ -86,19 +89,21 @@ class JobRepository:
             logger.error(f'Failed to delete job {job_id}: {e}')
             return False
 
-    async def get_for_fingerprint(
+    async def get_for_version(
         self,
         session: AsyncSession,
         *,
         document_id: UUID,
-        fingerprint: str,
+        version: 'IngestionVersion',
     ) -> JobRecord | None:
         stmt = (
             select(JobRecord)
             .join(IngestionRecord, IngestionRecord.job_id == JobRecord.id)  # type: ignore[bad-argument-type]
             .where(
                 JobRecord.document_id == document_id,
-                IngestionRecord.fingerprint == fingerprint,
+                IngestionRecord.parser_fp == version.parser_fp,
+                IngestionRecord.chunker_fp == version.chunker_fp,
+                IngestionRecord.embedding_fp == version.embedding_fp,
             )
         )
         result = await session.exec(stmt)

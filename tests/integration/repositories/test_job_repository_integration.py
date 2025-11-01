@@ -2,7 +2,7 @@ import pytest
 
 from repositories import job_repository
 from repositories.exceptions import RecordNotFoundError
-from repositories.schemas import JobCreate, JobUpdate
+from repositories.schemas import IngestionVersion, JobCreate, JobUpdate
 from schemas.upload import JobStatus
 
 
@@ -73,11 +73,17 @@ async def test_correctly_sets_users(job_created, session_another_user):
 
 
 @pytest.mark.needs_postgres
-async def test_get_for_fingerprint(auth_session, ingestion_created):
+async def test_get_for_version(auth_session, ingestion_created):
     document_id = ingestion_created.document_id
-    fingerprint = ingestion_created.fingerprint
-    job = await job_repository.get_for_fingerprint(auth_session, document_id=document_id, fingerprint=fingerprint)
+    version = IngestionVersion(
+        collection=ingestion_created.collection,
+        parser_fp=ingestion_created.parser_fp,
+        chunker_fp=ingestion_created.chunker_fp,
+        embedding_fp=ingestion_created.embedding_fp,
+    )
+    job = await job_repository.get_for_version(auth_session, document_id=document_id, version=version)
     assert job is not None
 
-    job2 = await job_repository.get_for_fingerprint(auth_session, document_id=document_id, fingerprint='foo')
+    mismatch_version = version.model_copy(update={'embedding_fp': 'different'})
+    job2 = await job_repository.get_for_version(auth_session, document_id=document_id, version=mismatch_version)
     assert job2 is None

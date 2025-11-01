@@ -36,7 +36,6 @@ def test_missing_required_value_errors_outside_testing_env(monkeypatch):
     monkeypatch.delenv('ENV', raising=False)
 
 
-
 def test_missing_required_field_warns_in_testing_env(monkeypatch):
     monkeypatch.setenv('ENV', 'testing')
 

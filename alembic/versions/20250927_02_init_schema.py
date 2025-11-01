@@ -36,7 +36,7 @@ def upgrade() -> None:
             server_default=sa.text("current_setting('app.tenant_id', true)::uuid"),
         ),
         sa.Column('collection', sa.Text(), nullable=False),
-        sa.Column('digest', sa.Text(), nullable=False),
+        sa.Column('digest', sa.String(length=44), nullable=False),
         sa.Column('original_filename', sa.Text(), nullable=True),
         sa.Column('content_type', sa.Text(), nullable=True),
         sa.Column('size_bytes', sa.Integer(), nullable=True),
@@ -143,8 +143,10 @@ def upgrade() -> None:
         sa.Column('embed_model_version', sa.Text(), nullable=False),
         sa.Column('embed_dim', sa.Integer(), nullable=False),
         sa.Column('collection', sa.Text(), nullable=False),
-        sa.Column('digest', sa.Text(), nullable=False),
-        sa.Column('fingerprint', sa.Text(), nullable=False),
+        sa.Column('digest', sa.String(length=44), nullable=False),
+        sa.Column('parser_fp', sa.Text(), nullable=False),
+        sa.Column('chunker_fp', sa.Text(), nullable=False),
+        sa.Column('embedding_fp', sa.Text(), nullable=False),
         sa.Column('num_chunks', sa.Integer(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
@@ -159,7 +161,11 @@ def upgrade() -> None:
         schema=APP_SCHEMA,
     )
     op.create_index('ix_ingestions_digest', 'ingestion_versions', ['digest'], unique=False, schema=APP_SCHEMA)
-    op.create_index('ix_ingestions_fingerprint', 'ingestion_versions', ['fingerprint'], unique=False, schema=APP_SCHEMA)
+    op.create_index('ix_ingestions_parser_fp', 'ingestion_versions', ['parser_fp'], unique=False, schema=APP_SCHEMA)
+    op.create_index('ix_ingestions_chunker_fp', 'ingestion_versions', ['chunker_fp'], unique=False, schema=APP_SCHEMA)
+    op.create_index(
+        'ix_ingestions_embedding_fp', 'ingestion_versions', ['embedding_fp'], unique=False, schema=APP_SCHEMA
+    )
 
     # Now add the circular foreign keys after both tables exist
     op.create_foreign_key(
@@ -190,7 +196,9 @@ def downgrade() -> None:
     op.drop_index('ix_jobs_status', table_name='upload_jobs', schema=APP_SCHEMA)
     op.drop_table('upload_jobs', schema=APP_SCHEMA)
 
-    op.drop_index('ix_ingestions_fingerprint', table_name='ingestion_versions', schema=APP_SCHEMA)
+    op.drop_index('ix_ingestions_embedding_fp', table_name='ingestion_versions', schema=APP_SCHEMA)
+    op.drop_index('ix_ingestions_chunker_fp', table_name='ingestion_versions', schema=APP_SCHEMA)
+    op.drop_index('ix_ingestions_parser_fp', table_name='ingestion_versions', schema=APP_SCHEMA)
     op.drop_index('ix_ingestions_digest', table_name='ingestion_versions', schema=APP_SCHEMA)
     op.drop_table('ingestion_versions', schema=APP_SCHEMA)
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from dataclasses import replace as dc_replace
 from functools import partial
 from typing import Awaitable, Callable
 from uuid import UUID
@@ -75,16 +76,22 @@ class UploadService:
             ),
         )
 
-    def _ingestion_fingerprint(self) -> str:
-        return IngestionVersion.from_settings(collection=self.collection).fingerprint()
+    def _current_version(self) -> IngestionVersion:
+        return IngestionVersion.from_settings(collection=self.collection)
 
-    async def _find_existing_ingestion(self, session: AsyncSession, *, digest: str):
-        fingerprint = self._ingestion_fingerprint()
+    async def _find_matching_ingestion(
+        self,
+        session: AsyncSession,
+        *,
+        digest: str,
+        version: IngestionVersion | None = None,
+    ):
+        version = version or self._current_version()
         return await self.ingestion_repo.find(
             session,
-            fingerprint=fingerprint,
             collection=self.collection,
             digest=digest,
+            version=version,
         )
 
     async def _fetch_job_by_id(self, session: AsyncSession, *, job_id: UUID | None) -> JobRecord | None:
@@ -106,7 +113,8 @@ class UploadService:
         if job:
             return job, True
 
-        ingestion = await self._find_existing_ingestion(session, digest=digest)
+        version = self._current_version()
+        ingestion = await self._find_matching_ingestion(session, digest=digest, version=version)
         if ingestion and ingestion.job_id:
             job = await self._fetch_job_by_id(session, job_id=ingestion.job_id)
             if job and JobStatus(job.status) in {JobStatus.QUEUED, JobStatus.PROCESSING}:
@@ -122,10 +130,11 @@ class UploadService:
         """
 
         digest = await payload.file.sha256_b64()
+        current_version = self._current_version()
         document, created = await self._ensure_document(session, payload=payload, digest=digest)
 
         if not created:
-            ingestion = await self._find_existing_ingestion(session, digest=digest)
+            ingestion = await self._find_matching_ingestion(session, digest=digest, version=current_version)
             if ingestion:
                 existing_job = (
                     await self._fetch_job_by_id(session, job_id=ingestion.job_id) if ingestion.job_id else None
@@ -191,11 +200,29 @@ class UploadService:
             session_factory=session_factory,
             access_context=payload.access_context,
         ) as session:
+            current_version = self._current_version()
+            existing_ingestion = await self.ingestion_repo.find(
+                session,
+                collection=self.collection,
+                digest=ctx.digest,
+            )
+            plan = current_version.plan_for(existing_ingestion)
+            ctx = dc_replace(
+                ctx,
+                ingestion_version=current_version,
+                ingestion_plan=plan,
+                existing_ingestion=existing_ingestion,
+                run_parser=plan.run_parser,
+                run_chunker=plan.run_chunker,
+                run_embedding=plan.run_embedding,
+            )
+
             steps: list[_Step] = [
                 _Step(10, 'store_original', pipeline.store_original),
                 _Step(30, 'parse', pipeline.parse_document),
-                _Step(50, 'store_markdown', pipeline.store_markdown),
-                _Step(70, 'ingest', partial(pipeline.ingest_documents, session=session)),
+                _Step(50, 'chunk', pipeline.chunk_documents),
+                _Step(60, 'store_markdown', pipeline.store_markdown),
+                _Step(80, 'ingest', partial(pipeline.ingest_documents, session=session)),
                 _Step(90, 'update_s3_uris', partial(pipeline.update_document_uris, session=session)),
             ]
 

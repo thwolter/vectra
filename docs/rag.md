@@ -45,7 +45,7 @@ When running synchronously, use `similarity_search` instead of `asimilarity_sear
 
 ## Keeping Agents Fresh
 
-- Re-run uploads through VecAPI whenever the underlying source data changes. The ingestion fingerprint (`IngestionVersion`) guarantees idempotent reprocessing.
+- Re-run uploads through VecAPI whenever the underlying source data changes. The recorded parser/chunker/embedding fingerprints (`IngestionVersion`) guarantee idempotent reprocessing.
 - Use `GET /v1/jobs/{job_id}` to monitor long-running ingestions and display progress to analysts.
 - Schedule periodic scrapes or document sync tasks that call VecAPI programmatically; the API is built to be automation-friendly.
 
