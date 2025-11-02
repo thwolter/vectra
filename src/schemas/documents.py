@@ -83,7 +83,7 @@ OriginalFilename = Annotated[str, StringConstraints(strip_whitespace=True, min_l
 
 
 class DocumentFilenameUpdateRequest(BaseModel):
-    original_filename: OriginalFilename = Field(
+    filename: OriginalFilename = Field(
         ...,
         description='New filename to persist on the document and embedding metadata',
     )

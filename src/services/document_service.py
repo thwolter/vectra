@@ -117,18 +117,18 @@ class DocumentService:
         session: AsyncSession,
         *,
         document_id: UUID,
-        original_filename: str,
+        new_filename: str,
     ) -> DocumentResponse:
         record = await self.repo.update(
             session,
-            document=DocumentUpdate(id=document_id, original_filename=original_filename),
+            document=DocumentUpdate(id=document_id, original_filename=new_filename),
         )
 
         await self.embeddings_repo.update_source(
             session,
             collection=record.collection,
             digest=record.digest,
-            source=original_filename,
+            source=new_filename,
         )
 
         return DocumentResponse.model_validate(record)

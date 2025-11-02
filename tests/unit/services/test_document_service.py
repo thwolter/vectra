@@ -57,7 +57,7 @@ async def test_update_original_filename_updates_repositories():
     response = await service.update_original_filename(
         session,
         document_id=document_id,
-        original_filename='renamed.pdf',
+        new_filename='renamed.pdf',
     )
 
     repo.update.assert_awaited_once()

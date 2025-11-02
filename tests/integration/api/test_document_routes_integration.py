@@ -48,7 +48,7 @@ async def test_update_document_filename_updates_embeddings(auth_client, auth_ses
     new_filename = 'updated-name.pdf'
     response = await auth_client.patch(
         f'/api/v1/documents/{document_created.id}/filename',
-        json={'original_filename': new_filename},
+        json={'filename': new_filename},
     )
 
     assert response.status_code == 200, response.text

@@ -65,5 +65,5 @@ async def update_document_filename(
     return await document_service.update_original_filename(
         session,
         document_id=document_id,
-        original_filename=payload.original_filename,
+        new_filename=payload.filename,
     )
