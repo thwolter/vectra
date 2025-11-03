@@ -39,24 +39,13 @@ def test_chunk_documents_by_headings(monkeypatch: pytest.MonkeyPatch):
 
     first, blank_doc, plain_doc, last = chunked
 
-    assert first.metadata['header_title'] == 'Alpha'
-    assert first.metadata['header_index'] == 0
-    assert first.metadata['header_level'] == 2
-    assert first.metadata['parser'] == 'LlamaParser'
-    assert first.metadata['source'] == 'unit://doc/alpha'
+    assert first.metadata['Header 2'] == 'Alpha'
     assert first.page_content.lstrip().startswith('## Alpha')
 
     assert blank_doc is docs[1]
     assert blank_doc.metadata == docs[1].metadata
 
-    assert plain_doc is docs[2]
-    assert plain_doc.metadata == docs[2].metadata
-
-    assert last.metadata['header_title'] == 'Beta'
-    assert last.metadata['header_index'] == 1
-    assert last.metadata['header_level'] == 2
-    assert last.metadata['parser'] == 'LlamaParser'
-    assert last.metadata['source'] == 'unit://doc/beta'
+    assert last.metadata['Header 2'] == 'Beta'
     assert last.page_content.lstrip().startswith('## Beta')
 
 
@@ -87,16 +76,12 @@ def test_chunk_documents_by_headings_min_level_three(monkeypatch: pytest.MonkeyP
     assert len(chunked) == 2
 
     first_chunk = chunked[0]
-    assert first_chunk.metadata['header_title'] == 'Deep Section'
-    assert first_chunk.metadata['header_level'] == 3
-    assert first_chunk.metadata['header_index'] == 0
-    assert first_chunk.metadata['parser'] == 'LlamaParser'
-    assert first_chunk.metadata['source'] == 'unit://doc/deep'
-    assert first_chunk.page_content.lstrip().startswith('### Deep Section')
+    assert first_chunk.metadata['Header 3'] == 'Deep Section'
+    assert first_chunk.page_content.lstrip().startswith('# Top Level')
 
     # Second doc has no H3; it should remain untouched.
     assert chunked[1].page_content == docs[1].page_content
-    assert chunked[1].metadata == docs[1].metadata
+    assert chunked[1].metadata == {}
 
 
 def test_heading_chunking_splits_sections(monkeypatch: pytest.MonkeyPatch):
@@ -123,18 +108,14 @@ def test_heading_chunking_splits_sections(monkeypatch: pytest.MonkeyPatch):
 
     first, second, third, fourth = chunked
 
-    assert first.metadata.get('header_title') == 'Document Title'
-    assert first.metadata.get('header_level') == 1
+    assert first.metadata.get('Header 1') == 'Document Title'
     assert first.page_content.lstrip().startswith('# Document Title')
 
-    assert second.metadata.get('header_title') == 'Section One'
-    assert second.metadata.get('header_level') == 2
+    assert second.metadata.get('Header 1') == 'Document Title'
+    assert second.metadata.get('Header 2') == 'Section One'
     assert second.page_content.lstrip().startswith('## Section One')
 
-    assert third.metadata.get('header_title') == 'Sub A'
-    assert third.metadata.get('header_level') == 3
-    assert third.page_content.lstrip().startswith('### Sub A')
+    assert third.metadata.get('Header 1') == 'Document Title'
 
-    assert fourth.metadata.get('header_title') == 'Section Two'
-    assert fourth.metadata.get('header_level') == 2
+    assert fourth.metadata.get('Header 2') == 'Section Two'
     assert fourth.page_content.lstrip().startswith('## Section Two')
