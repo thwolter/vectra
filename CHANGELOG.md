@@ -1,3 +1,9 @@
+## 0.4.0 (2025-11-17)
+
+### Feat
+
+- **api + services**: add chunk search API with retrieval service integration
+
 ## 0.3.1 (2025-11-03)
 
 ### Refactor
