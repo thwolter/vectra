@@ -7,9 +7,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from tenauth.fastapi import require_access_context, require_auth
 
 from core.deps import SessionDep
-from protocols.services import JobServiceProtocol
 from schemas.upload import JobStatusResponse
 from services.factory import get_job_service
+from services.job_service import JobService
 
 router = APIRouter(
     prefix='/v1',
@@ -22,7 +22,7 @@ router = APIRouter(
 async def get_job(
     job_id: UUID,
     session: AsyncSession = Depends(SessionDep),
-    job_service: JobServiceProtocol = Depends(get_job_service),
+    job_service: JobService = Depends(get_job_service),
 ) -> JobStatusResponse:
     """Get the status of an ingestion job by ID.
 

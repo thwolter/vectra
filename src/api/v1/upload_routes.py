@@ -8,7 +8,6 @@ from tenauth.fastapi import require_access_context, require_auth
 from tenauth.schemas import AccessContext
 
 from core.deps import SessionDep
-from protocols.services import UploadServiceProtocol
 from schemas.upload import (
     ContinueProcessingInput,
     JobStatus,
@@ -16,6 +15,7 @@ from schemas.upload import (
     UploadInitResponse,
 )
 from services.factory import get_upload_service
+from services.upload_service import UploadService
 from worker.dispatcher import enqueue_upload_processing
 
 from ..file import TemporaryUploadFile
@@ -39,7 +39,7 @@ router = APIRouter(
 )
 async def upload_document(
     file: Annotated[UploadFile, File(description='Document to upload (PDF, DOCX, etc.)')],
-    upload_service: UploadServiceProtocol = Depends(get_upload_service),
+    upload_service: UploadService = Depends(get_upload_service),
     session: AsyncSession = Depends(SessionDep),
 ) -> UploadInitResponse:
     """Upload a document for ingestion.

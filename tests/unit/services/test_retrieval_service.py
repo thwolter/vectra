@@ -11,7 +11,6 @@ from schemas.search import ChunkSearchRequest
 from services.retrieval_service import RetrievalService
 
 
-@pytest.mark.asyncio
 async def test_search_builds_filters_and_filters_scores(monkeypatch):
     vectorstore = AsyncMock()
     vectorstore.asimilarity_search_with_score.return_value = [

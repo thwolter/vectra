@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="pytest in thomas" type="tests" factoryName="py.test" nameIsGenerated="true">
+  <configuration default="false" name="pytest /" type="tests" factoryName="py.test">
     <module name="llama_parser" />
     <option name="ENV_FILES" value="$PROJECT_DIR$/.env" />
     <option name="INTERPRETER_OPTIONS" value="" />

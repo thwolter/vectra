@@ -8,7 +8,7 @@ from utils.types import SHA256B64
 
 
 class ChunkSearchRequest(BaseModel):
-    collection: str = Field(..., min_length=1, max_length=255, description='Vector collection name')
+    collection: str = Field(default='default', min_length=1, max_length=255, description='Vector collection name')
     query: str = Field(..., min_length=1, description='Natural language query to embed')
     digest: SHA256B64
     limit: int = Field(default=10, ge=1, le=64)
