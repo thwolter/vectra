@@ -1,3 +1,41 @@
+x-vectra-common: &vectra-common
+  build:
+    context: ./
+  depends_on:
+    redis:
+      condition: service_healthy
+    vectra-db:
+      condition: service_healthy
+  environment: &vectra-env
+    POSTGRES_URL: postgresql://app_user:app-password@vectra-db:5432/vectra
+    ALEMBIC_DATABASE_URL: postgresql://alembic_user:alembic-password@vectra-db:5432/vectra
+    REDIS_URL: redis://:redispassword@redis:6379/0
+    DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
+  env_file:
+    - .env
+  networks:
+    - vectra-net
+  volumes:
+    - /tmp/vectra/documents:/tmp/vectra/documents
+  develop:
+    watch:
+      - action: sync
+        path: src
+        target: /src/src
+      - action: sync
+        path: ./scripts
+        target: /src/scripts
+      - action: sync
+        path: ./alembic
+        target: /src/alembic
+      - action: sync
+        path: ./alembic.ini
+        target: /src/alembic.ini
+      - action: rebuild
+        path: ./pyproject.toml
+      - action: rebuild
+        path: ./uv.lock
+
 services:
   redis:
     image: redis:7-alpine
@@ -38,46 +76,21 @@ services:
       - ./docker/init:/docker-entrypoint-initdb.d:ro
       - vectra-db-data:/var/lib/postgresql/data
 
-
-  vectra:
-    build:
-      context: ./
-    depends_on:
-      redis:
-        condition: service_healthy
-      vectra-db:
-        condition: service_healthy
+  vectra-app:
+    <<: *vectra-common
     environment:
-      POSTGRES_URL: postgresql://app_user:app-password@vectra-db:5432/vectra
-      ALEMBIC_DATABASE_URL: postgresql://alembic_user:alembic-password@vectra-db:5432/vectra
-      REDIS_URL: redis://:redispassword@redis:6379/0
-      DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
-    env_file:
-      - .env
-    networks:
-      - vectra-net
+      <<: *vectra-env
+      START_WORKER: 'false'
+      PORT: 8000
     ports:
       - '8000:8000'
-    volumes:
-      - /tmp/vectra/documents:/tmp/vectra/documents
-    develop:
-      watch:
-        - action: sync
-          path: src
-          target: /src/src
-        - action: sync
-          path: ./scripts
-          target: /src/scripts
-        - action: sync
-          path: ./alembic
-          target: /src/alembic
-        - action: sync
-          path: ./alembic.ini
-          target: /src/alembic.ini
-        - action: rebuild
-          path: ./pyproject.toml
-        - action: rebuild
-          path: ./uv.lock
+
+  vectra-worker:
+    <<: *vectra-common
+    environment:
+      <<: *vectra-env
+      START_WEB: 'false'
+      DEPLOY_SKIP_MIGRATIONS: 'true'
 
 volumes:
   redis-data:

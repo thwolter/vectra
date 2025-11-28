@@ -4,13 +4,30 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, gettempdir
 from typing import Final
 
 from fastapi import UploadFile
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from utils.types import SHA256B64
+
+_UPLOAD_TMP_DIR = os.getenv('UPLOAD_TMP_DIR', '/tmp/vectra/documents')
+
+
+def _resolve_tmp_dir() -> Path:
+    """Choose a temporary directory that is shared with the worker container."""
+    candidate = Path(_UPLOAD_TMP_DIR)
+    try:
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except Exception:
+        fallback = Path(gettempdir())
+        fallback.mkdir(parents=True, exist_ok=True)
+        return fallback
+
+
+UPLOAD_TMP_DIR: Final[Path] = _resolve_tmp_dir()
 
 _CHUNK_SIZE: Final[int] = 1024 * 1024  # 1 MB
 
@@ -32,7 +49,11 @@ class TemporaryUploadFile:
         if not file.content_type:
             raise ValueError('Missing content_type')
 
-        with NamedTemporaryFile(delete=False, suffix=Path(file.filename or '').suffix) as tmp:
+        with NamedTemporaryFile(
+            delete=False,
+            suffix=Path(file.filename or '').suffix,
+            dir=UPLOAD_TMP_DIR,
+        ) as tmp:
             file.file.seek(0)
             shutil.copyfileobj(file.file, tmp)  # type: ignore[assignment]
             path = Path(tmp.name)
