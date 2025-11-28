@@ -48,3 +48,7 @@ class ChunkSearchResult(BaseModel):
 
 class ChunkSearchResponse(BaseModel):
     results: list[ChunkSearchResult] = Field(default_factory=list, description='Ordered matches')
+    collection_exists: bool = Field(
+        default=True,
+        description='False when the requested collection does not exist for the current tenant',
+    )

@@ -49,3 +49,4 @@ async def test_search_builds_filters_and_filters_scores(monkeypatch):
     match = response.results[0]
     assert match.chunk_id == '1'
     assert match.metadata['page'] == 2
+    assert response.collection_exists is True

@@ -51,6 +51,22 @@ class EmbeddingsRepository:
         result = await session.exec(stmt, params=params)  # type: ignore[arg-type]
         return bool(result.scalar())
 
+    async def collection_exists(self, session: AsyncSession, *, collection: str) -> bool:
+        if not collection:
+            raise ValueError('collection must be a non-empty string')
+
+        sql = f"""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM {_LC_COLLECTION}
+                    WHERE name = :collection
+                )
+            """
+        params = {'collection': collection}
+        stmt: Any = text(sql)
+        result = await session.exec(stmt, params=params)  # type: ignore[arg-type]
+        return bool(result.scalar())
+
     async def fetch_documents(self, session: AsyncSession, *, collection: str, digest: str) -> list[Document]:
         """Return stored documents for a given collection + digest from PGVector metadata."""
         sql = f"""

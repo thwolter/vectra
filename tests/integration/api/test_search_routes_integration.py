@@ -67,6 +67,7 @@ async def test_search_chunks_filters_results(auth_client, auth_session, digest_f
         assert response.status_code == 200, response.text
         payload = response.json()
         assert len(payload['results']) == 1
+        assert payload['collection_exists'] is True
 
         match = payload['results'][0]
         assert match['chunk_id'] == '1'
@@ -97,5 +98,27 @@ async def test_search_chunks_minimal_payload(auth_client, auth_session, digest_f
         payload = response.json()
         assert len(payload['results']) == 2
         assert {result['chunk_id'] for result in payload['results']} == {'1', '2'}
+        assert payload['collection_exists'] is True
     finally:
         await embeddings_repository.delete(auth_session, digest=digest)
+
+
+async def test_search_chunks_missing_collection(auth_client, auth_session, digest_from):
+    missing_collection = 'missing-collection'
+    digest = digest_from(missing_collection)
+
+    exists_before = await embeddings_repository.collection_exists(auth_session, collection=missing_collection)
+    assert exists_before is False
+
+    response = await auth_client.post(
+        '/api/v1/search/chunks',
+        json={'collection': missing_collection, 'query': 'anything', 'digest': digest},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload['results'] == []
+    assert payload['collection_exists'] is False
+
+    exists_after = await embeddings_repository.collection_exists(auth_session, collection=missing_collection)
+    assert exists_after is False
