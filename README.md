@@ -68,6 +68,16 @@ Use the `/healthz` and `/readyz` endpoints to confirm service status.
 - A pgBouncer sidecar (transaction pooling on port `6432`) fronts Postgres; `POSTGRES_URL` now targets pgBouncer while Alembic continues to point at the primary instance.
 - Database pooling is tuned for pgBouncer (`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`) and prepared-statement caches are disabled to keep transaction pooling safe.
 
+### pgBouncer Credentials
+
+Set `PGBOUNCER_AUTH_PASSWORD` in `.env`, then render the credentials file once (or whenever you rotate the secret):
+
+```bash
+scripts/generate_pgbouncer_userlist.py
+```
+
+The script writes `docker/pgbouncer/userlist.txt` with a fresh SCRAM secret; the file stays out of git but is still mounted into the pgBouncer container.
+
 ## Testing & Quality Gates
 
 - Unit tests: `uv run pytest -m "unit"`

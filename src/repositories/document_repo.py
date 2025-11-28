@@ -8,8 +8,7 @@ from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from tenauth.schemas import AccessContext
-
+from core.db import ensure_access_context
 from repositories.exceptions import RecordAlreadyExistsError
 from utils.types import SHA256B64
 
@@ -23,7 +22,7 @@ class DocumentRepository:
 
     async def create(self, session: AsyncSession, *, data: DocumentCreate) -> DocumentRecord:
         """Insert or update a canonical document. Returns the document id and a boolean (True if created)"""
-        access_ctx = AccessContext.from_session(session)
+        access_ctx = await ensure_access_context(session)
 
         record = DocumentRecord(
             created_by=access_ctx.user_id,
@@ -58,6 +57,7 @@ class DocumentRepository:
             return record, True
 
     async def get(self, session: AsyncSession, *, document_id: UUID) -> DocumentRecord:
+        await ensure_access_context(session, verify=False)
         rec: DocumentRecord | None = await session.get(DocumentRecord, document_id)
         if rec is None:
             raise RecordNotFoundError('Document row not found for given id')
@@ -65,7 +65,7 @@ class DocumentRepository:
 
     async def get_for_digest(self, session: AsyncSession, *, digest: SHA256B64, collection: str) -> DocumentRecord:
         """Fetch a document by digest scoped to the current tenant."""
-        access_ctx = AccessContext.from_session(session)
+        access_ctx = await ensure_access_context(session, verify=False)
         statement = (
             select(DocumentRecord)
             .where(
@@ -112,11 +112,12 @@ class DocumentRepository:
 
     async def exists(self, session: AsyncSession, *, document_id: UUID) -> bool:
         """Alias for exist(); provided for ergonomic/consistency purposes."""
+        await ensure_access_context(session, verify=False)
         rec: DocumentRecord | None = await session.get(DocumentRecord, document_id)
         return rec is not None
 
     async def get_many(self, session: AsyncSession, *, filters: dict) -> dict[str, Any]:
-        access_ctx = AccessContext.from_session(session)
+        access_ctx = await ensure_access_context(session, verify=False)
         offset = int(filters.get('offset', 0) or 0)
         limit = int(filters.get('limit', 20) or 20)
         query = filters.get('query')

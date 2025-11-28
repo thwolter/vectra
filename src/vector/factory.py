@@ -25,6 +25,8 @@ def get_vectorstore(
     if not embeddings:
         embeddings = OpenAIEmbeddings(model=settings.embedding.model)
 
+    search_path = f'{settings.db_schema},public'
+
     engine_args = {
         'pool_size': settings.db_pool_size,
         'max_overflow': settings.db_max_overflow,
@@ -33,7 +35,7 @@ def get_vectorstore(
         'connect_args': {
             'server_settings': {
                 'app.tenant_id': str(tenant_id),
-                'search_path': f'{settings.db_schema},public',
+                'search_path': search_path,
             },
             'statement_cache_size': 0,
         },
@@ -47,4 +49,6 @@ def get_vectorstore(
         create_extension=False,
         distance_strategy=DistanceStrategy.COSINE,
         engine_args=engine_args,
+        tenant_id=tenant_id,
+        search_path=search_path,
     )

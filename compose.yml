@@ -66,6 +66,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_MAX_CONNECTIONS: 80
+      PGBOUNCER_AUTH_PASSWORD: ${PGBOUNCER_AUTH_PASSWORD}
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d vectra']
       interval: 10s
@@ -80,17 +81,17 @@ services:
       - vectra-db-data:/var/lib/postgresql/data
 
   pgbouncer:
-    image: edoburu/pgbouncer:1.22.1
+    image: edoburu/pgbouncer:1.22.1-p0
     restart: unless-stopped
     depends_on:
       vectra-db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://app_user:app-password@vectra-db:5432/vectra
+      DATABASE_URL: postgres://pgbouncer_auth:${PGBOUNCER_AUTH_PASSWORD}@vectra-db:5432/vectra
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 500
       DEFAULT_POOL_SIZE: 40
-      AUTH_TYPE: md5
+      AUTH_TYPE: scram-sha-256
       AUTH_FILE: /etc/pgbouncer/userlist.txt
       IGNORE_STARTUP_PARAMETERS: extra_float_digits,search_path
     ports:
@@ -101,7 +102,7 @@ services:
     networks:
       - vectra-net
     healthcheck:
-      test: ['CMD-SHELL', 'bash -c "echo > /dev/tcp/127.0.0.1/6432"']
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 6432']
       interval: 10s
       timeout: 5s
       retries: 5

@@ -8,7 +8,7 @@ import asyncpg
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 from tenauth.schemas import AccessContext
-from tenauth.session import access_scoped_session_ctx
+from tenauth.session import access_scoped_session_ctx, apply_access_context
 
 from .config import get_settings
 
@@ -86,3 +86,10 @@ async def pg_connect(tenant_id: UUID) -> asyncpg.Connection:
         'search_path': f'{settings.db_schema},public',
     }
     return await asyncpg.connect(dsn=dsn, server_settings=server_settings, statement_cache_size=0)
+
+
+async def ensure_access_context(session: AsyncSession, *, verify: bool = False) -> AccessContext:
+    """Reapply tenant/user GUCs for sessions reused across transactions (e.g. pgbouncer)."""
+    access_ctx = AccessContext.from_session(session)
+    await apply_access_context(session, access_context=access_ctx, verify=verify)
+    return access_ctx

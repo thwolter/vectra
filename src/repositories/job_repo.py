@@ -4,11 +4,10 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
+from core.db import ensure_access_context
 from loguru import logger
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from tenauth.schemas import AccessContext
-
 from repositories.models import IngestionRecord, JobRecord
 from repositories.schemas import JobCreate, JobUpdate
 from schemas.upload import JOBS_PENDING
@@ -31,7 +30,7 @@ class JobRepository:
         if not await self._documents.exists(session, document_id=job.document_id):
             raise RecordNotFoundError(f'Document {job.document_id} not found')
 
-        access_ctx = AccessContext.from_session(session)
+        access_ctx = await ensure_access_context(session)
         record = JobRecord(
             created_by=access_ctx.user_id,
             tenant_id=access_ctx.tenant_id,
@@ -53,6 +52,7 @@ class JobRepository:
 
     async def get(self, session: AsyncSession, *, job_id: UUID, refresh: bool = False) -> JobRecord:
         """Fetch a job by ID and eagerly load related entities (document, ingestion) without type issues."""
+        await ensure_access_context(session, verify=False)
         stmt = select(JobRecord).where(JobRecord.id == job_id).execution_options(populate_existing=refresh)
         result = await session.exec(stmt)
         job = result.one_or_none()
@@ -64,6 +64,7 @@ class JobRepository:
         return job
 
     async def update(self, session: AsyncSession, *, job: JobUpdate) -> JobRecord:
+        await ensure_access_context(session, verify=False)
         record = await self.get(session, job_id=job.id)
         record = await update_record(record, data=job)
 
@@ -77,6 +78,7 @@ class JobRepository:
         return record
 
     async def delete(self, session: AsyncSession, *, job_id: UUID) -> bool:
+        await ensure_access_context(session, verify=False)
         # todo: also delete embeddings
         try:
             rec = await session.get(JobRecord, job_id)
@@ -97,6 +99,7 @@ class JobRepository:
         document_id: UUID,
         version: 'IngestionVersion',
     ) -> JobRecord | None:
+        await ensure_access_context(session, verify=False)
         stmt = (
             select(JobRecord)
             .join(IngestionRecord, IngestionRecord.job_id == JobRecord.id)  # type: ignore[bad-argument-type]
@@ -117,6 +120,7 @@ class JobRepository:
         return rows[0]
 
     async def get_active_for_document(self, session: AsyncSession, *, document_id: UUID) -> JobRecord | None:
+        await ensure_access_context(session, verify=False)
         statuses = [s.value for s in JOBS_PENDING]
         stmt = select(JobRecord).where(
             JobRecord.document_id == document_id,

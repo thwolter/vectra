@@ -6,8 +6,8 @@ from uuid import UUID
 from loguru import logger
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from tenauth.schemas import AccessContext
 
+from core.db import ensure_access_context
 from utils.types import SHA256B64
 
 from .exceptions import RecordNotFoundError
@@ -22,7 +22,7 @@ class IngestionRepository:
         pass
 
     async def create(self, session: AsyncSession, *, data: IngestionCreate) -> IngestionRecord:
-        access_ctx = AccessContext.from_session(session)
+        access_ctx = await ensure_access_context(session)
         record = IngestionRecord(
             created_by=access_ctx.user_id,
             tenant_id=access_ctx.tenant_id,
@@ -55,6 +55,7 @@ class IngestionRepository:
         return record
 
     async def get(self, session: AsyncSession, *, ingestion_id: UUID) -> IngestionRecord:
+        await ensure_access_context(session, verify=False)
         ingestion: IngestionRecord | None = await session.get(IngestionRecord, ingestion_id)
         if ingestion is None:
             raise RecordNotFoundError(f'Ingestion {ingestion_id} not found')
@@ -82,8 +83,8 @@ class IngestionRepository:
         collection: str,
         digest: SHA256B64,
         version: IngestionVersion | None = None,
-    ) -> IngestionRecord | None:
-        access_ctx = AccessContext.from_session(session)
+        ) -> IngestionRecord | None:
+        access_ctx = await ensure_access_context(session, verify=False)
         statement = (
             select(IngestionRecord)
             .where(

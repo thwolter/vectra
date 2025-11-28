@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Sequence
+from contextlib import asynccontextmanager, contextmanager
+from typing import Any, AsyncGenerator, Generator, Sequence
 
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_postgres.vectorstores import Base, PGVector
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, ForeignKey, Index, String, select, text
@@ -120,6 +122,18 @@ def _get_tenant_embedding_collection_store(
 class TenantAwarePGVector(PGVector):
     """PGVector variant that uses tenant_id in the primary key/upserts."""
 
+    def __init__(
+        self,
+        embeddings: Embeddings,
+        *,
+        tenant_id: uuid.UUID,
+        search_path: str,
+        **kwargs: Any,
+    ) -> None:
+        self._tenant_id = tenant_id
+        self._search_path = search_path
+        super().__init__(embeddings=embeddings, **kwargs)
+
     def __post_init__(self) -> None:
         if self.create_extension:
             self.create_vector_extension()
@@ -143,6 +157,40 @@ class TenantAwarePGVector(PGVector):
 
             await self.acreate_tables_if_not_exists()
         await self.acreate_collection()
+
+    async def _apply_async_session_settings(self, session: AsyncSession) -> None:
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, false)"),
+            {'tenant_id': str(self._tenant_id)},
+        )
+        await session.execute(
+            text("SELECT set_config('search_path', :search_path, false)"),
+            {'search_path': self._search_path},
+        )
+        session.info['tenant_id'] = self._tenant_id
+
+    def _apply_sync_session_settings(self, session: Session) -> None:
+        session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, false)"),
+            {'tenant_id': str(self._tenant_id)},
+        )
+        session.execute(
+            text("SELECT set_config('search_path', :search_path, false)"),
+            {'search_path': self._search_path},
+        )
+        session.info['tenant_id'] = self._tenant_id
+
+    @asynccontextmanager
+    async def _make_async_session(self) -> AsyncGenerator[AsyncSession, None]:  # type: ignore[override]
+        async with super()._make_async_session() as session:
+            await self._apply_async_session_settings(session)
+            yield session
+
+    @contextmanager
+    def _make_sync_session(self) -> Generator[Session, None, None]:  # type: ignore[override]
+        with super()._make_sync_session() as session:
+            self._apply_sync_session_settings(session)
+            yield session
 
     def _results_to_docs_and_scores(self, results: Sequence[Any]) -> list[tuple[Document, float]]:
         """Support tenant-aware models whose class name differs from PGVector defaults."""

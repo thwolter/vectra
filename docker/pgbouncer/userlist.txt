@@ -1,1 +1,1 @@
-"app_user" "md56106162f49717e4574b1fde16f54eae3"
+"pgbouncer_auth" "SCRAM-SHA-256$4096:slG0wG0hjUUMOTUJXTdYcw==$G+VREdAldC4t4gB3zd89vULvD/OOwv+k2EaDjfqIuRU=:3IQm0boFdyC1A6bJtZQ6Rcb+zyvgBn9z991ZA7xXvlA="

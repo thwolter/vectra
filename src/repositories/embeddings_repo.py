@@ -5,6 +5,7 @@ from loguru import logger
 from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from core.db import ensure_access_context
 from core.config import get_settings
 from utils.types import SHA256B64
 
@@ -37,6 +38,7 @@ class EmbeddingsRepository:
         if unknown:
             raise ValueError(f'Unsupported filters: {", ".join(sorted(unknown))}')
 
+        await ensure_access_context(session, verify=False)
         where = ' AND '.join(f'{self._ALLOWED_FILTERS[k]} = :{k}' for k in filters)
         sql = f"""
                 SELECT EXISTS (
@@ -55,6 +57,7 @@ class EmbeddingsRepository:
         if not collection:
             raise ValueError('collection must be a non-empty string')
 
+        await ensure_access_context(session, verify=False)
         sql = f"""
                 SELECT EXISTS (
                     SELECT 1
@@ -69,6 +72,7 @@ class EmbeddingsRepository:
 
     async def fetch_documents(self, session: AsyncSession, *, collection: str, digest: str) -> list[Document]:
         """Return stored documents for a given collection + digest from PGVector metadata."""
+        await ensure_access_context(session, verify=False)
         sql = f"""
             SELECT e.document, e.cmetadata
             FROM {_LC_EMBEDDING} e
@@ -95,6 +99,7 @@ class EmbeddingsRepository:
         if not digest:
             raise ValueError('digest must be a non-empty string')
 
+        await ensure_access_context(session)
         logger.info(f"Deleting embeddings with digest='{digest}'")
 
         delete_sql = f"DELETE FROM {_LC_EMBEDDING} WHERE cmetadata->>'digest' = :digest"
@@ -117,6 +122,7 @@ class EmbeddingsRepository:
         if not source:
             raise ValueError('source must be a non-empty string')
 
+        await ensure_access_context(session)
         sql = f"""
             UPDATE {_LC_EMBEDDING} e
             SET cmetadata = jsonb_set(
