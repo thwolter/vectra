@@ -6,8 +6,10 @@ x-vectra-common: &vectra-common
       condition: service_healthy
     vectra-db:
       condition: service_healthy
+    pgbouncer:
+      condition: service_healthy
   environment: &vectra-env
-    POSTGRES_URL: postgresql://app_user:app-password@vectra-db:5432/vectra
+    POSTGRES_URL: postgresql://app_user:app-password@pgbouncer:6432/vectra
     ALEMBIC_DATABASE_URL: postgresql://alembic_user:alembic-password@vectra-db:5432/vectra
     REDIS_URL: redis://:redispassword@redis:6379/0
     DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
@@ -63,6 +65,7 @@ services:
       POSTGRES_DB: vectra
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_MAX_CONNECTIONS: 80
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d vectra']
       interval: 10s
@@ -75,6 +78,33 @@ services:
     volumes:
       - ./docker/init:/docker-entrypoint-initdb.d:ro
       - vectra-db-data:/var/lib/postgresql/data
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1
+    restart: unless-stopped
+    depends_on:
+      vectra-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://app_user:app-password@vectra-db:5432/vectra
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 40
+      AUTH_TYPE: md5
+      AUTH_FILE: /etc/pgbouncer/userlist.txt
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,search_path
+    ports:
+      - '6432:6432'
+    volumes:
+      - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    networks:
+      - vectra-net
+    healthcheck:
+      test: ['CMD-SHELL', 'bash -c "echo > /dev/tcp/127.0.0.1/6432"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   vectra-app:
     <<: *vectra-common

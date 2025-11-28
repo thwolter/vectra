@@ -21,7 +21,20 @@ def get_engine() -> AsyncEngine:
     if _engine is None:
         settings = get_settings()
         url = settings.async_postgres_url.get_secret_value()
-        _engine = create_async_engine(url, echo=settings.debug or False, pool_pre_ping=True, pool_recycle=3600)
+        connect_args = {
+            'statement_cache_size': 0,
+            'server_settings': {'search_path': f'{settings.db_schema},public'},
+        }
+        _engine = create_async_engine(
+            url,
+            echo=settings.debug or False,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_timeout=settings.db_pool_timeout,
+            connect_args=connect_args,
+        )
     return _engine
 
 
@@ -68,4 +81,8 @@ async def scoped_session(*, access_context: AccessContext, verify: bool = True) 
 async def pg_connect(tenant_id: UUID) -> asyncpg.Connection:
     settings = get_settings()
     dsn = settings.async_postgres_url.get_secret_value()
-    return await asyncpg.connect(dsn=dsn, server_settings={'app.tenant_id': str(tenant_id)})
+    server_settings = {
+        'app.tenant_id': str(tenant_id),
+        'search_path': f'{settings.db_schema},public',
+    }
+    return await asyncpg.connect(dsn=dsn, server_settings=server_settings, statement_cache_size=0)

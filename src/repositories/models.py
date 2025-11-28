@@ -1,10 +1,11 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import ConfigDict
-from sqlalchemy import Column, Index, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, ForeignKey, Index, String, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.types import UserDefinedType
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 from core.config import get_settings
@@ -21,6 +22,15 @@ from repositories.fields import (
 )
 
 APP_SCHEMA = get_settings().db_schema
+
+
+class VectorType(UserDefinedType):
+    """Lightweight pgvector column descriptor for SQLModel metadata."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **_: Any) -> str:
+        return f'vector({get_settings().embedding.dim})'
 
 
 class BaseSQLModel(SQLModel):
@@ -165,3 +175,31 @@ class IngestionRecord(BaseSQLModel, table=True):
             'foreign_keys': '[IngestionRecord.job_id]',
         },
     )
+
+
+class LangChainEmbedding(BaseSQLModel, table=True):
+    """SQLModel metadata for the partitioned langchain_pg_embedding table."""
+
+    __tablename__ = 'langchain_pg_embedding'  # type: ignore[assignment]
+    __table_args__ = ({'schema': APP_SCHEMA, 'postgresql_partition_by': 'LIST (tenant_id)'},)
+
+    id: str = Field(sa_column=Column(String, primary_key=True))
+    tenant_id: UUID = Field(
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            primary_key=True,
+            nullable=False,
+            server_default=text("current_setting('app.tenant_id', true)::uuid"),
+        )
+    )
+    collection_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            PGUUID(as_uuid=True),
+            ForeignKey(f'{APP_SCHEMA}.langchain_pg_collection.uuid', ondelete='CASCADE'),
+            nullable=True,
+        ),
+    )
+    embedding: list[float] | None = Field(default=None, sa_column=Column(VectorType(), nullable=True))
+    document: str | None = Field(default=None, sa_column=Column(String, nullable=True))
+    cmetadata: dict | None = Field(default=None, sa_column=Column(JSONB, nullable=True))

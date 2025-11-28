@@ -65,9 +65,15 @@ class DocumentRepository:
 
     async def get_for_digest(self, session: AsyncSession, *, digest: SHA256B64, collection: str) -> DocumentRecord:
         """Fetch a document by digest scoped to the current tenant."""
-        statement = select(DocumentRecord).where(
-            DocumentRecord.digest == digest,
-            DocumentRecord.collection == collection,
+        access_ctx = AccessContext.from_session(session)
+        statement = (
+            select(DocumentRecord)
+            .where(
+                DocumentRecord.tenant_id == access_ctx.tenant_id,
+                DocumentRecord.digest == digest,
+                DocumentRecord.collection == collection,
+            )
+            .limit(1)
         )
         result = await session.exec(statement)
         row = result.one_or_none()

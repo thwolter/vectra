@@ -20,6 +20,8 @@ async def test_search_builds_filters_and_filters_scores(monkeypatch):
 
     monkeypatch.setattr('services.retrieval_service.get_vectorstore', lambda **kwargs: vectorstore)
 
+    collection_exists = AsyncMock(return_value=True)
+
     payload = ChunkSearchRequest(
         collection='default',
         query='profit',
@@ -32,6 +34,7 @@ async def test_search_builds_filters_and_filters_scores(monkeypatch):
     access = AccessContext(tenant_id=uuid4(), user_id=uuid4())
 
     service = RetrievalService()
+    service._collection_exists = collection_exists
     response = await service.search(payload=payload, access=access)
 
     vectorstore.asimilarity_search_with_score.assert_awaited_once()
@@ -45,6 +48,7 @@ async def test_search_builds_filters_and_filters_scores(monkeypatch):
         ]
     }
 
+    collection_exists.assert_awaited_once_with(collection='default', access=access)
     assert len(response.results) == 1
     match = response.results[0]
     assert match.chunk_id == '1'

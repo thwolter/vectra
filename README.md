@@ -62,6 +62,12 @@ uv run dramatiq src.worker.actors --processes 1 --threads 1
 
 Use the `/healthz` and `/readyz` endpoints to confirm service status.
 
+### Vector Store Performance
+
+- `langchain_pg_embedding` is now partitioned by `tenant_id` (with a default catch-all) and ships with a cosine HNSW index on `embedding vector(1536)`; run `uv run alembic upgrade head` to apply the migrations.
+- A pgBouncer sidecar (transaction pooling on port `6432`) fronts Postgres; `POSTGRES_URL` now targets pgBouncer while Alembic continues to point at the primary instance.
+- Database pooling is tuned for pgBouncer (`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`) and prepared-statement caches are disabled to keep transaction pooling safe.
+
 ## Testing & Quality Gates
 
 - Unit tests: `uv run pytest -m "unit"`

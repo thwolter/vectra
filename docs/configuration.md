@@ -6,7 +6,7 @@ VecAPI reads configuration from environment variables via `src/core/config.Setti
 
 | Variable | Description |
 | --- | --- |
-| `POSTGRES_URL` | SQLModel + PGVector connection string (e.g. `postgresql://user:pass@host:5432/vectra`). |
+| `POSTGRES_URL` | SQLModel + PGVector connection string (e.g. `postgresql://user:pass@host:6432/vectra` via pgBouncer). |
 | `REDIS_URL` | Redis broker URL for Dramatiq (e.g. `redis://redis:6379/0`). |
 | `OPENAI_API_KEY` | API key for the default embeddings provider. Required unless you override embeddings. |
 | `AWS__ACCESS_KEY_ID`, `AWS__SECRET_ACCESS_KEY`, `AWS__REGION`, `AWS__S3_BUCKET` | Credentials for storing artifacts in S3 when `DOCUMENT_STORE=s3`. |
@@ -30,6 +30,9 @@ Local development can switch to the filesystem provider with `DOCUMENT_STORE=loc
 | --- | --- | --- |
 | `POSTGRES_URL` | **required** | Automatically normalised to `postgresql+asyncpg://` for async sessions. |
 | `DB_SCHEMA` | `vectra` | Sets the Postgres schema used by SQLModel and PGVector search path. |
+| `DB_POOL_SIZE` | `20` | Base SQLAlchemy pool size tuned for pgBouncer transaction pooling. |
+| `DB_MAX_OVERFLOW` | `20` | Burst capacity beyond the base pool. |
+| `DB_POOL_TIMEOUT` | `30` | Seconds to wait for a pooled connection before raising. |
 | `CORS_ALLOW_ORIGINS` | `()` | Comma or space separated origins; parsed into a tuple. |
 
 Sessions are wrapped by `tenauth` so tenant metadata is injected into the connection (`app.tenant_id`, search path).

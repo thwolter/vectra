@@ -83,9 +83,11 @@ class IngestionRepository:
         digest: SHA256B64,
         version: IngestionVersion | None = None,
     ) -> IngestionRecord | None:
+        access_ctx = AccessContext.from_session(session)
         statement = (
             select(IngestionRecord)
             .where(
+                IngestionRecord.tenant_id == access_ctx.tenant_id,
                 IngestionRecord.collection == collection,
                 IngestionRecord.digest == digest,
             )
