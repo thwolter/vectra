@@ -1,3 +1,14 @@
+## 0.6.0 (2025-11-29)
+
+### Feat
+
+- **db + pgbouncer**: add new app user to pgBouncer userlist
+
+### Refactor
+
+- **db + pgbouncer**: rename app_user to vectra_user for consistency
+- **db + pgbouncer**: remove SCRAM authentication and simplify credentials management
+
 ## 0.5.0 (2025-11-29)
 
 ### Feat
