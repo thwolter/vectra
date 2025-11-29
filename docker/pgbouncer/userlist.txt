@@ -1,2 +1,2 @@
- "pgbouncer_auth" "pgbouncer_auth_password""pgbouncer_auth" "pgbouncer_auth_password"
 "pgbouncer_auth" "pgbouncer_auth_password"
+"app_user" "app-password"
