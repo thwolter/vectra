@@ -1,3 +1,13 @@
+## 0.5.0 (2025-11-29)
+
+### Feat
+
+- **db + init**: modularize SQL role creation and improve psql placeholder support
+- **db + pgbouncer**: integrate SCRAM authentication and enhance tenant access management
+- **db + api**: enhance tenant-aware embeddings and optimize partitioning
+- **api + docker**: configure shared temporary upload directory and update docker-compose
+- **search + services**: add collection existence check in chunk search responses
+
 ## 0.4.0 (2025-11-17)
 
 ### Feat
