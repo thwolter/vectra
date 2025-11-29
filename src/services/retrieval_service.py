@@ -20,6 +20,10 @@ def _chunk_id_from_metadata(metadata: dict[str, Any]) -> str | None:
 
 
 class RetrievalService:
+    async def _collection_exists(self, *, collection: str, access: AccessContext) -> bool:
+        async with scoped_session(access_context=access) as session:
+            return await embeddings_repository.collection_exists(session, collection=collection)
+
     async def search(self, *, payload: ChunkSearchRequest, access: AccessContext) -> ChunkSearchResponse:
         collection_exists = await self._collection_exists(collection=payload.collection, access=access)
         if not collection_exists:
@@ -51,10 +55,6 @@ class RetrievalService:
             matches = [match for match in matches if match.score >= payload.score_threshold]
 
         return ChunkSearchResponse(results=matches, collection_exists=True)
-
-    async def _collection_exists(self, *, collection: str, access: AccessContext) -> bool:
-        async with scoped_session(access_context=access) as session:
-            return await embeddings_repository.collection_exists(session, collection=collection)
 
 
 __all__ = ['RetrievalService']

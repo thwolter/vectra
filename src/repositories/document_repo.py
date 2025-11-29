@@ -8,6 +8,7 @@ from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+
 from core.db import ensure_access_context
 from repositories.exceptions import RecordAlreadyExistsError
 from utils.types import SHA256B64

@@ -83,7 +83,7 @@ class IngestionRepository:
         collection: str,
         digest: SHA256B64,
         version: IngestionVersion | None = None,
-        ) -> IngestionRecord | None:
+    ) -> IngestionRecord | None:
         access_ctx = await ensure_access_context(session, verify=False)
         statement = (
             select(IngestionRecord)

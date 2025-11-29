@@ -3,7 +3,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-import pytest
 from langchain_core.documents import Document
 from tenauth.schemas import AccessContext
 

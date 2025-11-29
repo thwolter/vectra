@@ -39,7 +39,7 @@ class TemporaryUploadFile:
     content_type: str
 
     @classmethod
-    def from_upload(cls, file: UploadFile) -> 'TemporaryUploadFile':
+    def from_upload(cls, file: UploadFile | StarletteUploadFile) -> 'TemporaryUploadFile':
         if not (isinstance(file, UploadFile) or isinstance(file, StarletteUploadFile)):
             raise ValueError(f'Expected UploadFile, got {type(file)}')
 

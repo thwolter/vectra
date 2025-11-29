@@ -1,14 +1,8 @@
 from typing import Protocol
-from uuid import UUID
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from schemas.upload import (
-    ContinueProcessingInput,
-    JobStatusResponse,
-    StartUploadInput,
-    UploadInitResponse,
-)
+from schemas.upload import ContinueProcessingInput, StartUploadInput, UploadInitResponse
 
 
 class UploadServiceProtocol(Protocol):

@@ -9,8 +9,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_postgres.vectorstores import Base, PGVector
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, ForeignKey, Index, String, select, text
-from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, relationship
 
@@ -197,11 +196,20 @@ class TenantAwarePGVector(PGVector):
         docs: list[tuple[Document, float]] = []
         model_key = self.EmbeddingStore.__name__
 
+        def _as_float(value: Any) -> float | None:
+            if value is None:
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
         for result in results:
             mapping = getattr(result, '_mapping', None)
+            distance: float | None = None
             if mapping:
                 embedding_row = mapping.get(self.EmbeddingStore) or mapping.get(model_key)
-                distance = mapping.get('distance')
+                distance = _as_float(mapping.get('distance'))
             else:
                 embedding_row = None
                 distance = None
@@ -214,13 +222,15 @@ class TenantAwarePGVector(PGVector):
                 embedding_row = result[0]
 
             if distance is None and hasattr(result, 'distance'):
-                distance = result.distance  # type: ignore[attr-defined]
+                distance = _as_float(result.distance)  # type: ignore[attr-defined]
             if distance is None and isinstance(result, (list, tuple)) and len(result) > 1:
-                distance = result[1]
+                distance = _as_float(result[1])
 
             if embedding_row is None:
                 continue
 
+            # PGVector callers expect a float score even if the query omits distance.
+            score = distance if distance is not None else 0.0
             docs.append(
                 (
                     Document(
@@ -228,7 +238,7 @@ class TenantAwarePGVector(PGVector):
                         page_content=embedding_row.document,
                         metadata=embedding_row.cmetadata,
                     ),
-                    distance if self.embeddings is not None else None,
+                    score,
                 )
             )
 

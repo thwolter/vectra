@@ -4,10 +4,11 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
-from core.db import ensure_access_context
 from loguru import logger
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+from core.db import ensure_access_context
 from repositories.models import IngestionRecord, JobRecord
 from repositories.schemas import JobCreate, JobUpdate
 from schemas.upload import JOBS_PENDING

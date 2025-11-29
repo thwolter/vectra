@@ -5,8 +5,8 @@ from loguru import logger
 from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from core.db import ensure_access_context
 from core.config import get_settings
+from core.db import ensure_access_context
 from utils.types import SHA256B64
 
 APP_SCHEMA = get_settings().db_schema

@@ -4,7 +4,8 @@ from uuid import UUID
 
 from pydantic import ConfigDict
 from sqlalchemy import Column, ForeignKey, Index, String, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.types import UserDefinedType
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
 import os
 import re
 from pathlib import Path
+from typing import Mapping
 
 from sqlalchemy import URL, text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -16,6 +18,7 @@ from core.config import get_settings
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INIT_SQL_DIR = PROJECT_ROOT / 'docker' / 'init'
 TEST_SEED_DIR = PROJECT_ROOT / 'tests' / 'fixtures' / 'init_sql'
+DEFAULT_PGBOUNCER_AUTH_PASSWORD = 'pgbouncer-password'
 
 
 _RE_META = re.compile(r'^\s*\\')  # psql meta-commands: \set, \if, \getenv, \endif, ...
@@ -23,9 +26,43 @@ _RE_COMMENT = re.compile(r'^\s*--')  # SQL comments
 _RE_TXN = re.compile(r'^\s*(BEGIN|COMMIT)\s*;?\s*$', re.IGNORECASE)
 _RE_SET_LOCAL = re.compile(r'^\s*SET\s+LOCAL\s+app\.[a-z_]+\s+TO\s+:.+?;\s*$', re.IGNORECASE)
 _RE_DOLLAR = re.compile(r'\$(?P<tag>[A-Za-z_][A-Za-z0-9_]*)?\$')
+_RE_PLACEHOLDER = re.compile(r":'(?P<name>[A-Za-z_][A-Za-z0-9_]*)'")
 
 
-def _filter_psql_directives(sql_text: str) -> str:
+def _build_sql_placeholder_replacements() -> dict[str, str]:
+    replacements: dict[str, str] = {}
+
+    password_b64 = os.environ.get('PGBOUNCER_AUTH_PASSWORD_B64')
+    if not password_b64:
+        password = os.environ.get('PGBOUNCER_AUTH_PASSWORD', DEFAULT_PGBOUNCER_AUTH_PASSWORD)
+        password_b64 = base64.b64encode(password.encode('utf-8')).decode('ascii')
+
+    replacements['PGBOUNCER_AUTH_PASSWORD_B64'] = password_b64
+    return replacements
+
+
+SQL_PLACEHOLDER_REPLACEMENTS = _build_sql_placeholder_replacements()
+
+
+def _replace_psql_placeholders(sql_text: str, replacements: Mapping[str, str] | None) -> str:
+    def _sub(match: re.Match[str]) -> str:
+        name = match.group('name')
+        value: str | None = None
+        if replacements and name in replacements:
+            value = replacements[name]
+        else:
+            value = os.environ.get(name)
+
+        if value is None:
+            raise ValueError(f"psql placeholder :'{name}' requires a value (set env or pass replacements)")
+
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+
+    return _RE_PLACEHOLDER.sub(_sub, sql_text)
+
+
+def _filter_psql_directives(sql_text: str, *, replacements: Mapping[str, str] | None = None) -> str:
     """
     Make a psql-oriented init script safe for asyncpg/SQLAlchemy:
       - drop psql meta-commands and comments
@@ -60,11 +97,16 @@ def _filter_psql_directives(sql_text: str) -> str:
                 continue
 
         out_lines.append(line)
-        sql_text = '\n'.join(out_lines).strip() + '\n'
-        if re.search(r":'\w+'", sql_text):
-            raise ValueError("psql placeholders like :'name' remain in SQL after filtering")
 
-    return sql_text
+    sql_text = '\n'.join(out_lines).strip()
+    if sql_text:
+        sql_text += '\n'
+
+    filtered = _replace_psql_placeholders(sql_text, replacements)
+    if _RE_PLACEHOLDER.search(filtered):
+        raise ValueError("psql placeholders like :'name' remain in SQL after filtering")
+
+    return filtered
 
 
 async def _load_seed_data(session: AsyncSession) -> None:
@@ -72,7 +114,7 @@ async def _load_seed_data(session: AsyncSession) -> None:
         return
 
     for sql_path in sorted(TEST_SEED_DIR.glob('*.sql')):
-        sql_text = _filter_psql_directives(sql_path.read_text())
+        sql_text = _filter_psql_directives(sql_path.read_text(), replacements=SQL_PLACEHOLDER_REPLACEMENTS)
         if sql_text.strip():
             await session.exec(text(sql_text))  # type: ignore[no-matching-overload]
             await session.commit()
@@ -110,7 +152,7 @@ async def _execute_sql_scripts(connection_url: URL, directory: Path) -> None:
     try:
         async with AsyncSession(engine) as session:
             for sql_path in sorted(directory.glob('*.sql')):
-                sql_text = _filter_psql_directives(sql_path.read_text())
+                sql_text = _filter_psql_directives(sql_path.read_text(), replacements=SQL_PLACEHOLDER_REPLACEMENTS)
                 if sql_text.strip():
                     await session.exec(text(sql_text))  # type: ignore[no-matching-overload]
                     await session.commit()
