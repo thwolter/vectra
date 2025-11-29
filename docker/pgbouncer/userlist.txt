@@ -1,1 +1,2 @@
-"pgbouncer_auth" "SCRAM-SHA-256$4096:slG0wG0hjUUMOTUJXTdYcw==$G+VREdAldC4t4gB3zd89vULvD/OOwv+k2EaDjfqIuRU=:3IQm0boFdyC1A6bJtZQ6Rcb+zyvgBn9z991ZA7xXvlA="
+ "pgbouncer_auth" "pgbouncer_auth_password""pgbouncer_auth" "pgbouncer_auth_password"
+"pgbouncer_auth" "pgbouncer_auth_password"

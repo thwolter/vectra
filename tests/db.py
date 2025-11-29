@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import os
 import re
 from pathlib import Path
@@ -18,7 +17,7 @@ from core.config import get_settings
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INIT_SQL_DIR = PROJECT_ROOT / 'docker' / 'init'
 TEST_SEED_DIR = PROJECT_ROOT / 'tests' / 'fixtures' / 'init_sql'
-DEFAULT_PGBOUNCER_AUTH_PASSWORD = 'pgbouncer-password'
+PGBOUNCER_AUTH_PASSWORD = 'pgbouncer_auth_password'
 
 
 _RE_META = re.compile(r'^\s*\\')  # psql meta-commands: \set, \if, \getenv, \endif, ...
@@ -31,13 +30,7 @@ _RE_PLACEHOLDER = re.compile(r":'(?P<name>[A-Za-z_][A-Za-z0-9_]*)'")
 
 def _build_sql_placeholder_replacements() -> dict[str, str]:
     replacements: dict[str, str] = {}
-
-    password_b64 = os.environ.get('PGBOUNCER_AUTH_PASSWORD_B64')
-    if not password_b64:
-        password = os.environ.get('PGBOUNCER_AUTH_PASSWORD', DEFAULT_PGBOUNCER_AUTH_PASSWORD)
-        password_b64 = base64.b64encode(password.encode('utf-8')).decode('ascii')
-
-    replacements['PGBOUNCER_AUTH_PASSWORD_B64'] = password_b64
+    replacements['pgbouncer_auth_password'] = PGBOUNCER_AUTH_PASSWORD
     return replacements
 
 

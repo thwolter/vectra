@@ -68,7 +68,6 @@ dev = [
     "isort>=6.0.1",
     "ssort>=0.15.0",
     "ty>=0.0.1a17",
-    "vulture>=2.14",
     "typer>=0.16.0",
     "pyrefly>=0.31.1",
     "testcontainers>=4.13.2",

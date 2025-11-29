@@ -1,3 +1,4 @@
+
 DO $vectra_users$
 DECLARE
     app_user                 text := 'app_user';
@@ -5,7 +6,7 @@ DECLARE
     alembic_user             text := 'alembic_user';
     alembic_password         text := 'alembic-password';
     pgbouncer_auth_user      text := 'pgbouncer_auth';
-    pgbouncer_auth_password  text := convert_from(decode(:'PGBOUNCER_AUTH_PASSWORD_B64', 'base64'), 'UTF8');
+    pgbouncer_auth_password  text := 'pgbouncer_auth_password';
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = app_user) THEN
         EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', app_user, app_password);

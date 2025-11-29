@@ -70,13 +70,13 @@ Use the `/healthz` and `/readyz` endpoints to confirm service status.
 
 ### pgBouncer Credentials
 
-Set `PGBOUNCER_AUTH_PASSWORD` in `.env`, then render the credentials file once (or whenever you rotate the secret):
+Create `docker/pgbouncer/userlist.txt` (ignored by git) that contains pgBouncer's fixed dev credentials:
 
-```bash
-scripts/generate_pgbouncer_userlist.py
+```
+"pgbouncer_auth" "pgbouncer_auth_password"
 ```
 
-The script writes `docker/pgbouncer/userlist.txt` with a fresh SCRAM secret; the file stays out of git but is still mounted into the pgBouncer container.
+Mounting this file keeps dev ergonomics simple. In production you can provision the same plaintext `userlist.txt` directly on the host, rotating the password if desired.
 
 ## Testing & Quality Gates
 
