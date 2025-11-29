@@ -2,7 +2,7 @@ DO
 $vectra_schema$
     DECLARE
         app_schema       text := 'vectra';
-        app_user         text := 'app_user';
+        vectra_user         text := 'vectra_user';
         alembic_user     text := 'alembic_user';
         current_db       text := current_database();
 
@@ -40,7 +40,7 @@ $vectra_schema$
 
         EXECUTE format(
                 'ALTER ROLE %I IN DATABASE %I SET search_path = %I, public',
-                app_user,
+                vectra_user,
                 current_db,
                 app_schema
                 );

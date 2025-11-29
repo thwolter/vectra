@@ -156,7 +156,7 @@ async def _execute_sql_scripts(connection_url: URL, directory: Path) -> None:
 async def prepare_database(base_url: URL) -> tuple[URL, URL]:
     await _execute_sql_scripts(base_url, INIT_SQL_DIR)
 
-    app_url = base_url.set(username='app_user', password='app-password')
+    app_url = base_url.set(username='vectra_user', password='app-password')
     alembic_url = base_url.set(username='alembic_user', password='alembic-password')
     return app_url, alembic_url
 
