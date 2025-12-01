@@ -22,7 +22,6 @@ def get_engine() -> AsyncEngine:
         settings = get_settings()
         url = settings.async_postgres_url.get_secret_value()
         connect_args = {
-            'statement_cache_size': 0,
             'server_settings': {'search_path': f'{settings.db_schema},public'},
         }
         _engine = create_async_engine(

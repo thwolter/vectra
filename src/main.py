@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from api.v1 import ROUTERS
 from core.config import get_settings
+from core.db import get_engine
 from core.logging import configure_logging
 from core.observability import get_tracer, init_otel_fastapi
 
@@ -26,6 +27,23 @@ middleware = [
 logger.info(f'CORS origins: {settings.cors_allow_origins}')
 
 
+async def test_db_connection() -> None:
+    """Test database connectivity at startup.
+
+    Raises:
+        RuntimeError: if the database connection fails.
+    """
+    try:
+        engine = get_engine()
+        logger.info(engine.url.render_as_string(hide_password=False))
+        async with engine.connect() as conn:
+            pass
+        logger.info('Database connection test successful')
+    except Exception as exc:
+        logger.exception('Database connection test failed')
+        raise RuntimeError('Failed to connect to database') from exc
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """App lifespan hook to initialize database and ensure schema once.
@@ -35,6 +53,9 @@ async def lifespan(app: FastAPI):
     migrations should be responsible for schema, but this provides a
     safety net and satisfies test environment needs.
     """
+
+    await test_db_connection()
+
     tracer = get_tracer(__name__)
     with tracer.start_as_current_span(
         'src.startup',
