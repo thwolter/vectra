@@ -18,7 +18,7 @@ branch_labels = None
 depends_on = None
 
 
-APP_SCHEMA = get_settings().db_schema
+APP_SCHEMA = get_settings().app_schema
 
 # Note: We mirror the schema used by langchain_postgres PGVector backend.
 # Tables are only created if they do not already exist to avoid conflicts

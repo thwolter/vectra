@@ -25,7 +25,7 @@ def get_vectorstore(
     if not embeddings:
         embeddings = OpenAIEmbeddings(model=settings.embedding.model)
 
-    search_path = f'{settings.db_schema},public'
+    search_path = f'{settings.app_schema},public'
 
     engine_args = {
         'pool_size': settings.db_pool_size,

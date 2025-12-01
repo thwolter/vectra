@@ -84,7 +84,7 @@ uv run alembic downgrade -1  # rollback one revision
 
 - Database connectivity:
   - Ensure the target role enforces row-level security; superuser connections raise `RlsNotEnforcedError`.
-  - Configure default schema via `DB_SCHEMA`.
+  - Configure default schema via `app_schema`.
 
 ## Secrets & Environment
 

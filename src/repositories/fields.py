@@ -8,7 +8,7 @@ from sqlmodel import Field
 
 from core.config import get_settings
 
-APP_SCHEMA = get_settings().db_schema
+APP_SCHEMA = get_settings().app_schema
 
 
 def uuid_pk() -> Any:

@@ -29,7 +29,7 @@ Local development can switch to the filesystem provider with `DOCUMENT_STORE=loc
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `POSTGRES_URL` | **required** | Automatically normalised to `postgresql+asyncpg://` for async sessions. |
-| `DB_SCHEMA` | `vectra` | Sets the Postgres schema used by SQLModel and PGVector search path. |
+| `app_schema` | `vectra` | Sets the Postgres schema used by SQLModel and PGVector search path. |
 | `DB_POOL_SIZE` | `20` | Base SQLAlchemy pool size tuned for pgBouncer transaction pooling. |
 | `DB_MAX_OVERFLOW` | `20` | Burst capacity beyond the base pool. |
 | `DB_POOL_TIMEOUT` | `30` | Seconds to wait for a pooled connection before raising. |

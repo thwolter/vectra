@@ -17,7 +17,7 @@ down_revision = '20250929_00_lc_pg_tables'
 branch_labels = None
 depends_on = None
 
-APP_SCHEMA = get_settings().db_schema
+APP_SCHEMA = get_settings().app_schema
 
 _ADD_TENANT_COL_TEMPLATE = """
 DO $$

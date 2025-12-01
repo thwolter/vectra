@@ -9,7 +9,7 @@ from core.config import get_settings
 from core.db import ensure_access_context
 from utils.types import SHA256B64
 
-APP_SCHEMA = get_settings().db_schema
+APP_SCHEMA = get_settings().app_schema
 
 _LC_COLLECTION = f'{APP_SCHEMA}.langchain_pg_collection'
 _LC_EMBEDDING = f'{APP_SCHEMA}.langchain_pg_embedding'

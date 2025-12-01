@@ -1,13 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from loguru import logger
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from api.v1 import ROUTERS
 from core.config import get_settings
-from core.db import get_engine
+from core.db import test_db_connection
 from core.logging import configure_logging
 from core.observability import get_tracer, init_otel_fastapi
 
@@ -25,23 +25,6 @@ middleware = [
 ]
 
 logger.info(f'CORS origins: {settings.cors_allow_origins}')
-
-
-async def test_db_connection() -> None:
-    """Test database connectivity at startup.
-
-    Raises:
-        RuntimeError: if the database connection fails.
-    """
-    try:
-        engine = get_engine()
-        logger.info(engine.url.render_as_string(hide_password=False))
-        async with engine.connect() as conn:
-            pass
-        logger.info('Database connection test successful')
-    except Exception as exc:
-        logger.exception('Database connection test failed')
-        raise RuntimeError('Failed to connect to database') from exc
 
 
 @asynccontextmanager
@@ -102,16 +85,20 @@ for router, prefix in ROUTERS:
     app.include_router(router, prefix=prefix)
 
 
-@app.get('/health', tags=['health'], deprecated=True)
-async def health_check():
-    return {'status': 'ok'}
-
-
 @app.get('/healthz', tags=['health'])
 async def healthz():
+    try:
+        await test_db_connection()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
     return {'status': 'ok'}
 
 
 @app.get('/readyz', tags=['health'])
 async def readyz():
+    return {'status': 'ready'}
+
+
+@app.get('/readyz/worker')
+async def readyz_worker():  # pragma: no cover - lightweight healthcheck
     return {'status': 'ready'}

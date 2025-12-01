@@ -114,12 +114,12 @@ async def _load_seed_data(session: AsyncSession) -> None:
 
 
 async def reset_database_state() -> None:
-    alembic_url = os.environ.get('ALEMBIC_DATABASE_URL')
+    alembic_url = os.environ.get('ALEMBIC_URL')
     if not alembic_url:
         return
 
     engine = create_async_engine(alembic_url)
-    schema = get_settings().db_schema
+    schema = get_settings().app_schema
     try:
         async with AsyncSession(engine) as session:
             await session.exec(text(f'TRUNCATE TABLE {schema}.documents RESTART IDENTITY CASCADE'))  # type: ignore[no-matching-overload]
@@ -129,12 +129,7 @@ async def reset_database_state() -> None:
     finally:
         await engine.dispose()
 
-    if core_db._engine is not None:
-        await core_db._engine.dispose()
-        core_db._engine = None
-        # Also reset sessionmaker to avoid cross-event-loop issues with cached session factories
-        if getattr(core_db, '_sessionmaker', None) is not None:
-            core_db._sessionmaker = None
+    await core_db.dispose_engines()
 
 
 async def _execute_sql_scripts(connection_url: URL, directory: Path) -> None:

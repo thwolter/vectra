@@ -1,4 +1,3 @@
-import os
 from logging.config import fileConfig
 from pathlib import Path
 from typing import Any, cast
@@ -30,22 +29,7 @@ from repositories import (  # noqa: F401,E402  Ensure models import for metadata
 
 target_metadata = SQLModel.metadata
 
-
-def _normalize_sync_url(url: str) -> str:
-    # Trim accidental whitespace that can produce invalid DB names like "test "
-    url = url.strip()
-    if url.startswith('postgres://'):
-        url = url.replace('postgres://', 'postgresql://', 1)
-    if url.startswith('postgresql+asyncpg://'):
-        url = url.replace('postgresql+asyncpg://', 'postgresql+psycopg2://', 1)
-    return url
-
-
-alembic_url = os.getenv('ALEMBIC_DATABASE_URL') or env_values.get('ALEMBIC_DATABASE_URL')
-if alembic_url is None:
-    raise RuntimeError('ALEMBIC_DATABASE_URL must be defined in .env, or the environment for Alembic migrations.')
-
-config.set_main_option('sqlalchemy.url', _normalize_sync_url(alembic_url))
+config.set_main_option('sqlalchemy.url', settings.migration_url.get_secret_value())
 
 
 def run_migrations_offline() -> None:
@@ -57,7 +41,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         include_schemas=True,
         version_table='alembic_version',
-        version_table_schema=settings.db_schema,
+        version_table_schema=settings.app_schema,
         dialect_opts={'paramstyle': 'named'},
         compare_server_default=True,
     )
@@ -71,17 +55,17 @@ def run_migrations_online() -> None:
     section = cast(dict[str, Any], config.get_section(config.config_ini_section) or {})
     connectable = engine_from_config(section, poolclass=pool.NullPool)
 
-    db_schema = settings.db_schema
+    app_schema = settings.app_schema
 
     with connectable.connect() as connection:
-        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{db_schema}"'))
+        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{app_schema}"'))
         connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             include_schemas=True,
             version_table='alembic_version',
-            version_table_schema=db_schema,
+            version_table_schema=app_schema,
             compare_server_default=True,
         )
 

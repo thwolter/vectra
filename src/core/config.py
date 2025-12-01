@@ -1,13 +1,13 @@
 from functools import lru_cache
-from typing import Any, List, Literal
+from typing import List, Literal
 
-from dotenv import load_dotenv
-from pydantic import Field, SecretStr, field_validator
+from nexor.config.settings import ServiceSettings
+from pydantic import Field, SecretStr
 from pydantic_settings import SettingsConfigDict
 
 from core.utils import FingerprintMixin
 
-from .utils import ValidatedModel, ValidatedSettings, load_version, parse_cors_origins
+from .utils import ValidatedModel, load_version
 
 
 class AllowedUploadFiles(ValidatedModel):
@@ -69,26 +69,28 @@ class AWSSettings(ValidatedModel):
     s3_path: str = 'documents'
 
 
-class Settings(ValidatedSettings):
-    required_keys = ['postgres_url', 'redis_url', 'openai_api_key', 'dramatiq_broker_url']
+class Settings(ServiceSettings):
+    required_keys = ServiceSettings.required_keys + ['redis_url', 'openai_api_key', 'dramatiq_broker_url']
 
-    model_config = SettingsConfigDict(env_nested_delimiter='__')
+    model_config = SettingsConfigDict(
+        env_file='.env',  # let pydantic-settings read .env
+        case_sensitive=False,  # typical for envs
+        extra='ignore',  # ignore unknown env vars
+        env_nested_delimiter='__',
+    )
+
+    app_schema: str = 'vectra'
 
     env: Literal['development', 'production', 'testing'] = 'production'
     app_name: str = 'Vectra'
-    debug: bool = True
+    debug: bool | None = True
     version: str = Field(default_factory=load_version)
     admin_email: str = 'support@riskary.de'
 
     default_profile: str = 'default'
     default_parser: Literal['docling', 'llama', 'test'] = 'llama'
 
-    postgres_url: SecretStr | None = None
     redis_url: SecretStr | None = None
-    db_schema: str = 'vectra'
-    db_pool_size: int = 20
-    db_max_overflow: int = 20
-    db_pool_timeout: int = 30
 
     # ChatDoc API configuration
     chatdoc_api_key: SecretStr | None = None
@@ -150,35 +152,7 @@ class Settings(ValidatedSettings):
 
     cors_allow_origins: tuple[str, ...] = ()
 
-    @field_validator('cors_allow_origins', mode='before')
-    @classmethod
-    def _normalize_cors_origins(cls, value: Any) -> tuple[str, ...]:
-        return parse_cors_origins(value)
-
-    @field_validator('postgres_url', mode='before')
-    @classmethod
-    def _normalise_postgres_url(cls, url) -> SecretStr:
-        if not url:
-            return SecretStr('')
-        if url.startswith('postgres://'):
-            url = url.replace('postgres://', 'postgresql://', 1)
-        return SecretStr(url)
-
-    @property
-    def async_postgres_url(self) -> SecretStr:
-        if not self.postgres_url:
-            return SecretStr('')
-        dsn = self.postgres_url.get_secret_value()
-        if dsn.startswith('postgresql://'):
-            dsn = dsn.replace('postgresql://', 'postgresql+asyncpg://', 1)
-        if dsn.startswith('postgres://'):
-            dsn = dsn.replace('postgres://', 'postgresql+asyncpg://', 1)
-        return SecretStr(dsn)
-
 
 @lru_cache
 def get_settings() -> Settings:
-    load_dotenv()
-    settings = Settings()
-    settings.check_missing_keys()
-    return settings
+    return Settings()

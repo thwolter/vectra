@@ -58,7 +58,7 @@ async def integration_environment() -> AsyncGenerator[None, None]:
         redis_url = f'redis://{redis.get_container_host_ip()}:{redis.get_exposed_port(6379)}/0'
 
         os.environ['POSTGRES_URL'] = app_dsn.render_as_string(hide_password=False)
-        os.environ['ALEMBIC_DATABASE_URL'] = alembic_dsn.render_as_string(hide_password=False)
+        os.environ['ALEMBIC_URL'] = alembic_dsn.render_as_string(hide_password=False)
 
         os.environ['REDIS_URL'] = redis_url
         os.environ['DRAMATIQ_BROKER_URL'] = redis_url
@@ -79,12 +79,8 @@ async def integration_environment() -> AsyncGenerator[None, None]:
         worker_actors.broker = new_broker
         worker_actors.process_upload.broker = new_broker
 
-        if core_db._engine is not None:
-            await core_db._engine.dispose()
-        core_db._engine = None
-        # Reset sessionmaker to avoid cross-event-loop reuse
-        if getattr(core_db, '_sessionmaker', None) is not None:
-            core_db._sessionmaker = None
+        # Dispose any cached engines/sessionmakers managed by nexor before migrations.
+        await core_db.dispose_engines()
 
         run_migrations()
         await reset_database_state()

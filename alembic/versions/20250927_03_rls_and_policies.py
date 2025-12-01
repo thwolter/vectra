@@ -17,7 +17,7 @@ down_revision = '20250927_02_init_schema'
 branch_labels = None
 depends_on = None
 
-APP_SCHEMA = get_settings().db_schema
+APP_SCHEMA = get_settings().app_schema
 
 
 APP_TENANT_TABLES = (

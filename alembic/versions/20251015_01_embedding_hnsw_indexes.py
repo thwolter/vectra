@@ -17,7 +17,7 @@ down_revision = '20251015_00_partition_lc_embeddings'
 branch_labels = None
 depends_on = None
 
-APP_SCHEMA = get_settings().db_schema
+APP_SCHEMA = get_settings().app_schema
 EMBED_DIM = get_settings().embedding.dim
 
 

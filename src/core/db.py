@@ -1,90 +1,39 @@
-from __future__ import annotations
-
 from contextlib import asynccontextmanager
-from typing import AsyncContextManager, AsyncIterator
-from uuid import UUID
+from typing import AsyncIterator
 
-import asyncpg
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
+from nexor.infrastructure import db as nexor_db
 from sqlmodel.ext.asyncio.session import AsyncSession
 from tenauth.schemas import AccessContext
-from tenauth.session import access_scoped_session_ctx, apply_access_context
+from tenauth.session import apply_access_context
 
-from .config import get_settings
-
-_engine: AsyncEngine | None = None
-_sessionmaker: async_sessionmaker[AsyncSession] | None = None
-
-
-def get_engine() -> AsyncEngine:
-    global _engine
-    if _engine is None:
-        settings = get_settings()
-        url = settings.async_postgres_url.get_secret_value()
-        connect_args = {
-            'server_settings': {'search_path': f'{settings.db_schema},public'},
-        }
-        _engine = create_async_engine(
-            url,
-            echo=settings.debug or False,
-            pool_pre_ping=True,
-            pool_recycle=3600,
-            pool_size=settings.db_pool_size,
-            max_overflow=settings.db_max_overflow,
-            pool_timeout=settings.db_pool_timeout,
-            connect_args=connect_args,
-        )
-    return _engine
+from core.config import get_settings
 
 
 @asynccontextmanager
-async def _session_context() -> AsyncIterator[AsyncSession]:
-    global _sessionmaker
-
-    if _sessionmaker is None:
-        _sessionmaker = async_sessionmaker(bind=get_engine(), class_=AsyncSession, expire_on_commit=False)
-
-    session = _sessionmaker()
-    try:
-        yield session
-    except Exception:
-        await session.rollback()
-        raise
-    finally:
-        await session.close()
-
-
-def session_factory() -> AsyncContextManager[AsyncSession]:
+async def session_factory() -> AsyncIterator[AsyncSession]:
     """Return a fresh async session context manager each time it is invoked."""
-    return _session_context()
+    settings = get_settings()
+    async with nexor_db.session_factory(settings) as session:
+        yield session
 
 
 @asynccontextmanager
 async def scoped_session(*, access_context: AccessContext, verify: bool = True) -> AsyncIterator[AsyncSession]:
-    async with access_scoped_session_ctx(
-        session_factory=session_factory,
+    settings = get_settings()
+    async with nexor_db.scoped_session(
+        settings=settings,
         access_context=access_context,
         verify=verify,
     ) as session:
-        exc: Exception | None = None
-        try:
-            yield session
-        except Exception as err:
-            exc = err
-            raise
-        finally:
-            if exc is None:
-                await session.commit()
+        yield session
 
 
-async def pg_connect(tenant_id: UUID) -> asyncpg.Connection:
-    settings = get_settings()
-    dsn = settings.async_postgres_url.get_secret_value()
-    server_settings = {
-        'app.tenant_id': str(tenant_id),
-        'search_path': f'{settings.db_schema},public',
-    }
-    return await asyncpg.connect(dsn=dsn, server_settings=server_settings, statement_cache_size=0)
+async def dispose_engines(*, loop=None) -> None:
+    await nexor_db.dispose_engines(loop=loop)
+
+
+async def test_db_connection() -> None:
+    await nexor_db.test_db_connection(get_settings())
 
 
 async def ensure_access_context(session: AsyncSession, *, verify: bool = False) -> AccessContext:

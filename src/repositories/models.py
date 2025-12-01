@@ -22,7 +22,7 @@ from repositories.fields import (
     uuid_pk,
 )
 
-APP_SCHEMA = get_settings().db_schema
+APP_SCHEMA = get_settings().app_schema
 
 
 class VectorType(UserDefinedType):
