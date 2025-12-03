@@ -11,15 +11,19 @@ from loguru import logger
 from redis import Redis
 
 from core.config import get_settings
-from core.logging import configure_logging
-from core.observability import get_tracer, init_otel_worker
+from core.logging_config import build_log_export_settings
+from nexor.logging import configure_loguru_logging
+from nexor.observability import get_tracer, init_otel_worker
 from schemas.upload import ContinueProcessingInput
 from services.factory import get_upload_service
 
 from .broker import broker  # noqa: F401  Ensures broker is configured
 
-configure_logging()
 settings = get_settings()
+configure_loguru_logging(
+    settings=settings,
+    exporter_settings=build_log_export_settings(settings, service_name=getattr(settings, 'service_name_worker', None)),
+)
 
 # Initialise OpenTelemetry for the Dramatiq worker process (distinct service from the web src)
 init_otel_worker(

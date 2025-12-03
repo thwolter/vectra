@@ -9,7 +9,7 @@ VecAPI emits traces, metrics, and logs via the OpenTelemetry (OTEL) SDK. This gu
 | FastAPI service | `src/main.py` | `init_otel_fastapi()` sets a `TracerProvider`/`MeterProvider`, instruments FastAPI, and bridges Loguru logs. |
 | Dramatiq worker | `src/worker/actors.py` | Calls `init_otel_worker()` and wraps each job in spans (`prepare_payload`, `process_upload_message`). |
 | Metrics | `src/monitoring/middleware.py` | Custom Dramatiq middleware updates counters/histograms defined in `monitoring.metrics`. |
-| Logs | `src/core/logging.configure_logging()` | Optional OTLP log export via `OTEL_LOGS_EXPORTER`. |
+| Logs | `nexor.logging.configure_loguru_logging()` | Optional OTLP log export via `OTEL_LOGS_EXPORTER`. |
 
 Instrumentation is opt-in: set `OTEL_ENABLED=false` or `MONITORING_ENABLED=false` to disable it entirely (useful for tests).
 

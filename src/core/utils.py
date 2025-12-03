@@ -1,22 +1,9 @@
-from __future__ import annotations
-
 import pathlib
 import tomllib
 from functools import lru_cache
 from typing import Any, ClassVar
 
 from nexor import utils as nexor_utils
-
-
-@lru_cache(maxsize=1)
-def load_version() -> str:
-    try:
-        path = pathlib.Path(__file__).resolve().parents[2] / 'pyproject.toml'
-        with open(path, 'rb') as f:
-            data = tomllib.load(f)
-        return data['project']['version']
-    except FileNotFoundError:
-        return 'unknown'
 
 
 class ValidatedSettings(nexor_utils.ValidatedSettings):

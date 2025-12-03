@@ -2,17 +2,25 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from loguru import logger
+from nexor import logging
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from api.v1 import ROUTERS
 from core.config import get_settings
 from core.db import test_db_connection
-from core.logging import configure_logging
-from core.observability import get_tracer, init_otel_fastapi
+from core.logging_config import build_log_export_settings
+from nexor.logging import configure_loguru_logging
+from nexor.observability import get_tracer, init_otel_fastapi
 
 settings = get_settings()
-configure_logging()
+configure_loguru_logging(
+    settings=settings,
+    exporter_settings=build_log_export_settings(
+        settings,
+        service_name=getattr(settings, 'service_name_app', None)
+    )
+)
 
 middleware = [
     Middleware(
@@ -38,6 +46,7 @@ async def lifespan(app: FastAPI):
     """
 
     await test_db_connection()
+    logger.info('DB_READY: database is ready to accept connections')
 
     tracer = get_tracer(__name__)
     with tracer.start_as_current_span(
@@ -50,24 +59,8 @@ async def lifespan(app: FastAPI):
         },
     ) as span:
         span.add_event('startup.begin')
-        logger.bind(
-            component='src',
-            service=settings.service_name_app,
-            namespace=settings.service_namespace,
-            env=settings.deployment_env,
-            version=settings.version,
-        ).info('APP_STARTUP: initialising database and validating schema')
-
         span.add_event('startup.ready')
-
-        # Dedicated, searchable startup log entry for Grafana/Loki or stdout
-        logger.bind(
-            component='src',
-            service=settings.service_name_app,
-            namespace=settings.service_namespace,
-            env=settings.deployment_env,
-            version=settings.version,
-        ).info('APP_STARTED: application is ready to accept traffic')
+        logger.info('APP_STARTED: application is ready to accept traffic')
     yield
 
 

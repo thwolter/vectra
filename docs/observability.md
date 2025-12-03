@@ -4,7 +4,7 @@ VecAPI instruments logs, metrics, and traces with OpenTelemetry so operators can
 
 ## Logging
 
-- Logging is configured centrally in `src/core/logging.py`. On import it:
+- Logging is configured centrally via `nexor.logging.configure_loguru_logging`. It:
   - Removes Loguru’s default sink to prevent duplicate messages when Uvicorn configures logging.
   - Adds a human-readable console sink (stderr) honouring `LOG_LEVEL`, `LOG_ENQUEUE`, `LOG_BACKTRACE`, and `LOG_DIAGNOSE`.
   - Optionally bridges Loguru into Python’s stdlib logging when `OTEL_LOGS_EXPORTER != 'none'`, enabling OTLP log export.
@@ -13,8 +13,8 @@ VecAPI instruments logs, metrics, and traces with OpenTelemetry so operators can
 
 ## Distributed Tracing
 
-- `src/core/observability.init_otel_fastapi` installs a global `TracerProvider` and instruments FastAPI handlers when the app boots.
-- `src/worker/actors.py` initialises the worker with `init_otel_worker`. Dramatiq actors manually create spans (`prepare_payload`, `process_upload_message`) for each job.
+- `nexor.observability.init_otel_fastapi` installs a global `TracerProvider` and instruments FastAPI handlers when the app boots.
+- `nexor.observability.init_otel_worker` initialises the worker with instrumentation helpers. Dramatiq actors manually create spans (`prepare_payload`, `process_upload_message`) for each job.
 - Spans include resource attributes set by environment variables: `SERVICE_NAME_APP`, `SERVICE_NAME_WORKER`, `SERVICE_NAMESPACE`, and `DEPLOYMENT_ENV`.
 - When exporting to Grafana Cloud, Honeycomb, Tempo, or another OTLP receiver, provide `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <token>"`.
 

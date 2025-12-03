@@ -2,12 +2,13 @@ from functools import lru_cache
 from typing import List, Literal
 
 from nexor.config.settings import ServiceSettings
+from nexor.utils import get_app_version, get_app_name
 from pydantic import Field, SecretStr
 from pydantic_settings import SettingsConfigDict
 
 from core.utils import FingerprintMixin
 
-from .utils import ValidatedModel, load_version
+from .utils import ValidatedModel
 
 
 class AllowedUploadFiles(ValidatedModel):
@@ -82,9 +83,9 @@ class Settings(ServiceSettings):
     app_schema: str = 'vectra'
 
     env: Literal['development', 'production', 'testing'] = 'production'
-    app_name: str = 'Vectra'
+    app_name: str = Field(default_factory=get_app_name)
     debug: bool | None = True
-    version: str = Field(default_factory=load_version)
+    version: str = Field(default_factory=get_app_version)
     admin_email: str = 'support@riskary.de'
 
     default_profile: str = 'default'
@@ -153,6 +154,6 @@ class Settings(ServiceSettings):
     cors_allow_origins: tuple[str, ...] = ()
 
 
-@lru_cache
+# @lru_cache
 def get_settings() -> Settings:
     return Settings()
