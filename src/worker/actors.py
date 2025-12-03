@@ -8,12 +8,12 @@ import time
 
 import dramatiq
 from loguru import logger
+from nexor.logging import configure_loguru_logging
+from nexor.observability import get_tracer, init_otel_worker
 from redis import Redis
 
 from core.config import get_settings
-from core.logging_config import build_log_export_settings
-from nexor.logging import configure_loguru_logging
-from nexor.observability import get_tracer, init_otel_worker
+from core.logging import build_log_export_settings
 from schemas.upload import ContinueProcessingInput
 from services.factory import get_upload_service
 

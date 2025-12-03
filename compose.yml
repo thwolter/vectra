@@ -10,7 +10,7 @@ x-vectra-common: &vectra-common
       condition: service_healthy
   environment: &vectra-env
     POSTGRES_URL: postgresql://vectra_user:app-password@pgbouncer:6432/vectra
-    ALEMBIC_DATABASE_URL: postgresql://alembic_user:alembic-password@vectra-db:5432/vectra
+    ALEMBIC_URL: postgresql://alembic_user:alembic-password@vectra-db:5432/vectra
     REDIS_URL: redis://:redispassword@redis:6379/0
     DRAMATIQ_BROKER_URL: redis://:redispassword@redis:6379/0
   env_file:

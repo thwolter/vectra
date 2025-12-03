@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import List, Literal
 
 from nexor.config.settings import ServiceSettings
-from nexor.utils import get_app_version, get_app_name
+from nexor.utils import get_app_name, get_app_version
 from pydantic import Field, SecretStr
 from pydantic_settings import SettingsConfigDict
 
@@ -154,6 +154,6 @@ class Settings(ServiceSettings):
     cors_allow_origins: tuple[str, ...] = ()
 
 
-# @lru_cache
+@lru_cache
 def get_settings() -> Settings:
     return Settings()

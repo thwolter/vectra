@@ -33,6 +33,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+# Clone the shared `nexor` helper library so the build can install it directly.
+RUN git clone --depth 1 --branch main https://github.com/thwolter/nexor.git /app/nexor
+
 # Copy only resolver inputs to maximise cache hits
 COPY pyproject.toml ./
 
@@ -40,6 +43,7 @@ COPY pyproject.toml ./
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m venv "${VIRTUAL_ENV}" \
     && "${VIRTUAL_ENV}/bin/pip" install --upgrade pip setuptools wheel \
+    && "${VIRTUAL_ENV}/bin/pip" install /app/nexor \
     && "${VIRTUAL_ENV}/bin/pip" install .
 
 # ---------- Final runtime image ----------
