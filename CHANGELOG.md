@@ -1,3 +1,18 @@
+## 0.7.0 (2025-12-04)
+
+### Feat
+
+- **tests + config**: integrate LocalStack for S3 testing and simplify AWS settings
+- **api + services**: implement job cancellation and cleanup logic
+- **services + integration**: implement document deletion with cascading cleanup
+- **db + pgbouncer**: update pool mode and add db connection health check
+
+### Refactor
+
+- **core + observability**: remove unused observability module and streamline setup
+- **logging + otel**: migrate logging setup to nexor utilities
+- **db + alembic**: remove embeddings permissions and streamline schema handling
+
 ## 0.6.0 (2025-11-29)
 
 ### Feat
