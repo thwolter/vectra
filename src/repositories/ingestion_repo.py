@@ -57,7 +57,7 @@ class IngestionRepository:
 
     # noinspection PyMethodMayBeStatic
     async def get(self, session: AsyncSession, *, ingestion_id: UUID) -> IngestionRecord:
-        await ensure_access_context(session, verify=False)
+        await ensure_access_context(session)
         ingestion: IngestionRecord | None = await session.get(IngestionRecord, ingestion_id)
         if ingestion is None:
             raise RecordNotFoundError(f'Ingestion {ingestion_id} not found')
@@ -67,9 +67,7 @@ class IngestionRepository:
 
     async def delete(self, session: AsyncSession, *, ingestion_id: UUID) -> bool:
         try:
-            rec = await self.get(session, ingestion_id=ingestion_id)
-            if rec is None:
-                return False
+            rec: IngestionRecord = await self.get(session, ingestion_id=ingestion_id)
             await session.delete(rec)
             await session.commit()
             return True

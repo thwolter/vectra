@@ -11,7 +11,7 @@ from repositories import job_repository as default_job_repository
 from repositories.exceptions import RecordNotFoundError
 from repositories.models import IngestionRecord, JobRecord
 from repositories.schemas import JobCreate, JobUpdate
-from schemas.upload import JobProgress, JobStatus, JobStatusResponse
+from schemas.upload import JOBS_PENDING, JobProgress, JobStatus, JobStatusResponse
 
 from .utils import normalise_progress
 
@@ -129,6 +129,18 @@ class JobService:
             warnings=list(job.warnings or []),
             errors=list(job.errors or []),
         )
+
+    async def get_job(self, session: AsyncSession, *, job_id: UUID) -> JobRecord:
+        """Fetch the full job record."""
+        return await self.repo.get(session=session, job_id=job_id)
+
+    async def is_job_active(self, session: AsyncSession, *, job_id: UUID) -> bool:
+        """Determine whether a job is still in a pending state."""
+        try:
+            job = await self.get_job(session=session, job_id=job_id)
+        except RecordNotFoundError:
+            return False
+        return JobStatus(job.status) in JOBS_PENDING
 
     async def get_pending_job(self, session: AsyncSession, *, document_id: UUID) -> JobRecord | None:
         job = await self.repo.get_active_for_document(session, document_id=document_id)

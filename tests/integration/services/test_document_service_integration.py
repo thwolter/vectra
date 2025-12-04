@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from api.file import TemporaryUploadFile
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
+from api.file import TemporaryUploadFile
 from repositories import (
     document_repository,
     embeddings_repository,

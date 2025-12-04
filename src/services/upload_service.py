@@ -13,6 +13,7 @@ from tenauth.session import access_scoped_session_ctx
 
 from core.db import session_factory
 from repositories import ingestion_repository, job_repository
+from repositories.exceptions import RecordNotFoundError
 from repositories.models import DocumentRecord, JobRecord
 from repositories.schemas import DocumentCreate, IngestionVersion, JobCreate
 from schemas.jobs import JobCtx
@@ -172,10 +173,29 @@ class UploadService:
             already_running=already_running,
         )
 
-    async def _run_step(self, session: AsyncSession, job_id: UUID, ctx: JobCtx, step: _Step) -> JobCtx | None:
-        await self.job_service.update_progress(session, job_id=job_id, percent=step.percent, step=step.step)
+    async def _rollback_canceled_job(self, session: AsyncSession, ctx: JobCtx) -> None:
+        """Remove any document artifacts created before a cancellation signal."""
+
         try:
+            await self.document_service.delete(session, document_id=ctx.document_id)
+        except RecordNotFoundError:
+            logger.debug('Document %s already removed while rolling back job %s', ctx.document_id, ctx.job_id)
+        except Exception as exc:
+            logger.error(
+                'Failed to rollback artifacts for canceled job %s (%s): %s',
+                ctx.job_id,
+                ctx.document_id,
+                exc,
+            )
+
+    async def _run_step(self, session: AsyncSession, job_id: UUID, ctx: JobCtx, step: _Step) -> JobCtx | None:
+        try:
+            await self.job_service.update_progress(session, job_id=job_id, percent=step.percent, step=step.step)
             return await step.call(ctx)
+        except RecordNotFoundError:
+            logger.info('Job %s no longer active; rolling back processed artifacts.', job_id)
+            await self._rollback_canceled_job(session, ctx)
+            return None
         except Exception as e:
             logger.exception(f'Background processing failed for job {job_id} ({step.step}): {e}')
             await self.job_service.fail_job(session, job_id=job_id, exc=e, last_step=step.step)
@@ -227,14 +247,28 @@ class UploadService:
             ]
 
             for s in steps:
+                if not await self.job_service.is_job_active(session, job_id=job_id):
+                    logger.info(
+                        'Job %s canceled before executing %s; rolling back artifacts.',
+                        job_id,
+                        s.step,
+                    )
+                    await self._rollback_canceled_job(session, ctx)
+                    return
+
                 result = await self._run_step(session, job_id, ctx, s)
                 if result is None:
                     return
                 ctx = result
 
-            await self.job_service.update_status(
-                session,
-                job_id=job_id,
-                status=JobStatus.COMPLETED,
-            )
+            try:
+                await self.job_service.update_status(
+                    session,
+                    job_id=job_id,
+                    status=JobStatus.COMPLETED,
+                )
+            except RecordNotFoundError:
+                logger.info('Job %s canceled before completion; rolling back artifacts.', job_id)
+                await self._rollback_canceled_job(session, ctx)
+                return
             logger.success(f'Finalized job {job_id}')
