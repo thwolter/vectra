@@ -14,6 +14,7 @@ pytest_plugins = [
     'tests.fixtures.store',
     'tests.fixtures.document',
     'tests.fixtures.ingestion',
+    'tests.fixtures.aws_localstack',
 ]
 
 if TYPE_CHECKING:
@@ -29,7 +30,20 @@ DEFAULT_ENV_VARS = {
     'JWT_SECRET': 'test-secret',
     'ENV': 'testing',
     'DOCUMENT_STORE': 'local',
+    'POSTGRES_URL': 'postgresql://localhost/test',
+    'REDIS_URL': 'redis://localhost:6379/0',
+    'DRAMATIQ_BROKER_URL': 'redis://localhost:6379/1',
+    'LLAMA_CLOUD__API_KEY': 'test-llama-key',
+    'AWS__ACCESS_KEY_ID': 'testcontainers-localstack',
+    'AWS__SECRET_ACCESS_KEY': 'testcontainers-localstack',
+    'AWS__S3_BUCKET': 'vectra-documents-localstack',
+    'AWS__REGION': 'us-west-1',
+    'AWS__ENDPOINT_URL': 'http://localhost:4566',
 }
+
+
+for key, value in DEFAULT_ENV_VARS.items():
+    os.environ.setdefault(key, value)
 
 
 def pytest_ignore_collect(path, config):

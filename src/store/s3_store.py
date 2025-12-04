@@ -16,30 +16,32 @@ from core.config import get_settings
 from store.mixins import StoreKeyHelpers
 from store.schemas import ArtifactInfo, FileInfo, StoredFiles
 
-settings = get_settings()
-
 
 def get_client():
+    settings = get_settings()
     session = aioboto3.Session()
     aws_access_key_id = settings.aws.access_key_id.get_secret_value() if settings.aws.access_key_id else None
-    awx_secret_access_key = (
+    aws_secret_access_key = (
         settings.aws.secret_access_key.get_secret_value() if settings.aws.secret_access_key else None
     )
     return session.client(
         service_name='s3',
         aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=awx_secret_access_key,
+        aws_secret_access_key=aws_secret_access_key,
         region_name=settings.aws.region,
+        endpoint_url=settings.aws.endpoint_url,
     )
 
 
 class S3Store(StoreKeyHelpers):
     def __init__(self, collection: str, *, base_path: str | Path | None = None):
+        settings = get_settings()
         self.collection = collection
         self.base_path = str(base_path or settings.aws.s3_path)
         self.client_factory = get_client
 
     def make_uri(self, key: str) -> str:
+        settings = get_settings()
         return f's3://{settings.aws.s3_bucket}/{key}'
 
     async def save_original(
@@ -51,6 +53,7 @@ class S3Store(StoreKeyHelpers):
         tenant_id: UUID,
         compress: bool | None = None,
     ) -> ArtifactInfo:
+        settings = get_settings()
         ext = (Path(file.filename).suffix or '').lower()
         is_pdf = ext == '.pdf'
         gzip_enabled = bool(compress) and is_pdf
@@ -133,6 +136,7 @@ class S3Store(StoreKeyHelpers):
         Raises:
             Exception: Propagates underlying aioboto3/botocore exceptions.
         """
+        settings = get_settings()
         key = self._markdown_key(tenant_id=tenant_id, digest=digest)
         async with self.client_factory() as s3:
             try:
@@ -193,6 +197,7 @@ class S3Store(StoreKeyHelpers):
             - Original key detection is prefix-based and covers both `.ext` and `.ext.gz` variants.
         """
         prefix = self._prefix(tenant_id=tenant_id, digest=digest)
+        settings = get_settings()
 
         async with self.client_factory() as s3:
             try:
@@ -241,6 +246,7 @@ class S3Store(StoreKeyHelpers):
         Raises:
             Exception: Propagates underlying aioboto3/botocore exceptions when not found or inaccessible.
         """
+        settings = get_settings()
         async with self.client_factory() as s3:
             try:
                 resp = await s3.get_object(Bucket=settings.aws.s3_bucket, Key=key)
@@ -252,6 +258,7 @@ class S3Store(StoreKeyHelpers):
 
     async def head(self, key: str) -> FileInfo:
         """Return object metadata as FileInfo for a given key."""
+        settings = get_settings()
         async with self.client_factory() as s3:
             resp = await s3.head_object(Bucket=settings.aws.s3_bucket, Key=key)
             last_modified = resp.get('LastModified')
@@ -267,6 +274,8 @@ class S3Store(StoreKeyHelpers):
 
     def stream(self, key: str, *, chunk_size: int = 65536) -> AsyncIterator[bytes]:
         """Async streaming iterator for an S3 object without buffering fully."""
+
+        settings = get_settings()
 
         async def _gen() -> AsyncIterator[bytes]:
             async with self.client_factory() as s3:
@@ -292,6 +301,7 @@ class S3Store(StoreKeyHelpers):
         This lists objects under the document prefix and builds FileInfo entries using head().
         """
         prefix = self._prefix(tenant_id=tenant_id, digest=digest)
+        settings = get_settings()
         async with self.client_factory() as s3:
             try:
                 resp = await s3.list_objects_v2(Bucket=settings.aws.s3_bucket, Prefix=prefix)

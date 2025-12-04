@@ -68,6 +68,7 @@ class AWSSettings(ValidatedModel):
     region: str = 'eu-west-1'
     s3_bucket: str = 'vecapi-documents'
     s3_path: str = 'documents'
+    endpoint_url: str | None = None
 
 
 class Settings(ServiceSettings):

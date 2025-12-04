@@ -140,16 +140,15 @@ class UploadService:
                 existing_job = (
                     await self._fetch_job_by_id(session, job_id=ingestion.job_id) if ingestion.job_id else None
                 )
-                existing_completed = existing_job and JobStatus(existing_job.status) == JobStatus.COMPLETED
-                if existing_completed or existing_job is None:
-                    job_id = existing_job.id if existing_job else ingestion.job_id or document.id
+                if existing_job:
+                    completed = JobStatus(existing_job.status) == JobStatus.COMPLETED
                     return UploadInitResponse(
-                        job_id=job_id,
+                        job_id=existing_job.id,
                         document_id=document.id,
                         status=JobStatus.DUPLICATED,
                         digest=digest,
                         original_filename=payload.file.filename,
-                        already_running=False,
+                        already_running=not completed,
                     )
 
         if created:

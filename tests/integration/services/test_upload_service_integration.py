@@ -23,7 +23,18 @@ async def job_uploaded(auth_session, apple_report_first_page_upload, monkeypatch
         async def to_markdown(self) -> str:
             return '\n\n'.join(doc.page_content for doc in self._docs if doc.page_content)
 
+    class _FakeEmbeddings:
+        def __init__(self, *args, **kwargs):
+            self.dim = 1536
+
+        async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+            return [[float(idx % 2)] * self.dim for idx, _ in enumerate(texts)]
+
+        async def embed_query(self, text: str) -> list[float]:
+            return [0.0] * self.dim
+
     monkeypatch.setattr('services.upload_steps.LlamaParser', _FakeParser)
+    monkeypatch.setattr('vector.factory.OpenAIEmbeddings', _FakeEmbeddings)
 
     file = TemporaryUploadFile.from_upload(apple_report_first_page_upload)
     service = get_upload_service()

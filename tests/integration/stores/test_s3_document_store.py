@@ -6,10 +6,12 @@ import pytest
 from fastapi import UploadFile
 
 from api.file import TemporaryUploadFile
+from core.config import get_settings
 from schemas.enums import CollectionEnum
-from store import s3_store as module
 from store.protocols import StoreProtocol
 from store.s3_store import S3Store
+
+pytestmark = pytest.mark.usefixtures('localstack_s3')
 
 
 @pytest.fixture
@@ -42,7 +44,6 @@ def test_local_store_conforms_runtime(tmp_path):
     assert isinstance(store, StoreProtocol)
 
 
-@pytest.mark.needs_aws
 async def test_save_original_and_delete_success(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     saved = await store.save_original(
@@ -66,7 +67,6 @@ async def test_save_original_and_delete_success(store, file, tenant_id, document
     assert result is True
 
 
-@pytest.mark.needs_aws
 async def test_save_markdown_then_load_and_delete_success(store, tenant_id, document_digest):
     content = '# Title\nHello world'
     document_id = uuid.uuid4()
@@ -105,7 +105,6 @@ async def test_save_markdown_then_load_and_delete_success(store, tenant_id, docu
     assert ok is True
 
 
-@pytest.mark.needs_aws
 async def test_info_with_both_files_success(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     await store.save_original(
@@ -138,22 +137,19 @@ async def test_info_with_both_files_success(store, file, tenant_id, document_dig
     ) is True
 
 
-@pytest.mark.needs_aws
 async def test_load_failure_nonexistent_key_raises(store):
     with pytest.raises(Exception):
         await store.load('tests/nonexistent/key.txt')
 
 
-@pytest.mark.integration
-@pytest.mark.needs_aws
 async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
     # Create a store with valid base_prefix but force an invalid bucket name to trigger error
 
+    aws_settings = get_settings().aws
     monkeypatch.setattr(
-        module.settings.aws,
+        aws_settings,
         's3_bucket',
         'definitely-nonexistent-bucket-vecapi-tests-12345',
-        raising=False,
     )
     bad_store = S3Store(CollectionEnum.DEFAULT.value, base_path=base_prefix)
     with pytest.raises(Exception):
@@ -164,15 +160,14 @@ async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
         )
 
 
-@pytest.mark.needs_aws
 async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_report_first_page_upload: UploadFile):
     # Force invalid bucket to cause save operations to fail
 
+    aws_settings = get_settings().aws
     monkeypatch.setattr(
-        module.settings.aws,
+        aws_settings,
         's3_bucket',
         'definitely-nonexistent-bucket-vecapi-tests-67890',
-        raising=False,
     )
     bad_store = S3Store(CollectionEnum.DEFAULT.value, base_path=base_prefix)
 
@@ -197,7 +192,6 @@ async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_repo
         )
 
 
-@pytest.mark.needs_aws
 async def test_head_returns_expected_metadata_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     saved_orig = await store.save_original(
@@ -235,6 +229,8 @@ async def test_head_returns_expected_metadata_s3(store, file, tenant_id, documen
         if isinstance(orig_meta, dict)
         else getattr(orig_meta, 'content_encoding', None)
     )
+    if orig_cenc == '':
+        orig_cenc = None
     orig_size = orig_meta.get('size') if isinstance(orig_meta, dict) else getattr(orig_meta, 'size', 0)
     assert str(orig_ctype).startswith('application/pdf')
     assert orig_cenc in (None, 'gzip')
@@ -244,7 +240,6 @@ async def test_head_returns_expected_metadata_s3(store, file, tenant_id, documen
     await store.delete(document_id, digest=document_digest, tenant_id=tenant_id)
 
 
-@pytest.mark.needs_aws
 async def test_stream_matches_load_for_both_files_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
     saved_orig = await store.save_original(

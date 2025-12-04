@@ -35,7 +35,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.58b0",
     "llama-parse>=0.6.73",
     "tenauth>=0.1.2",
-    "nexor"
+    "nexor",
 ]
 
 [dependency-groups]
