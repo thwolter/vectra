@@ -21,6 +21,7 @@ class IngestionRepository:
     def __init__(self) -> None:
         pass
 
+    # noinspection PyMethodMayBeStatic
     async def create(self, session: AsyncSession, *, data: IngestionCreate) -> IngestionRecord:
         access_ctx = await ensure_access_context(session)
         record = IngestionRecord(
@@ -54,6 +55,7 @@ class IngestionRepository:
             raise Exception(f'Failed to create ingestion: {e}')
         return record
 
+    # noinspection PyMethodMayBeStatic
     async def get(self, session: AsyncSession, *, ingestion_id: UUID) -> IngestionRecord:
         await ensure_access_context(session, verify=False)
         ingestion: IngestionRecord | None = await session.get(IngestionRecord, ingestion_id)
@@ -76,6 +78,7 @@ class IngestionRepository:
             logger.error(f'Failed to delete ingestion version {ingestion_id}: {e}')
             return False
 
+    # noinspection PyMethodMayBeStatic
     async def find(
         self,
         session: AsyncSession,
@@ -113,6 +116,13 @@ class IngestionRepository:
     ) -> bool:
         record = await self.find(session, collection=collection, digest=digest, version=version)
         return record is not None
+
+    # noinspection PyMethodMayBeStatic
+    async def list_ids_for_document(self, session: AsyncSession, *, document_id: UUID) -> list[UUID]:
+        await ensure_access_context(session, verify=False)
+        stmt = select(IngestionRecord.id).where(IngestionRecord.document_id == document_id)
+        result = await session.exec(stmt)
+        return list(result.all())
 
 
 ingestion_repository = IngestionRepository()

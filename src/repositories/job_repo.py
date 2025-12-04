@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
@@ -9,12 +7,12 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from core.db import ensure_access_context
-from repositories.models import IngestionRecord, JobRecord
-from repositories.schemas import JobCreate, JobUpdate
 from schemas.upload import JOBS_PENDING
 
 from .document_repo import DocumentRepository, document_repository
 from .exceptions import RecordNotFoundError
+from .models import IngestionRecord, JobRecord
+from .schemas import JobCreate, JobUpdate
 from .utils import update_record
 
 if TYPE_CHECKING:
@@ -51,9 +49,10 @@ class JobRepository:
             raise Exception(f'Failed to create job: {e}')
         return record
 
+    # noinspection PyMethodMayBeStatic
     async def get(self, session: AsyncSession, *, job_id: UUID, refresh: bool = False) -> JobRecord:
         """Fetch a job by ID and eagerly load related entities (document, ingestion) without type issues."""
-        await ensure_access_context(session, verify=False)
+        await ensure_access_context(session)
         stmt = select(JobRecord).where(JobRecord.id == job_id).execution_options(populate_existing=refresh)
         result = await session.exec(stmt)
         job = result.one_or_none()
@@ -65,7 +64,7 @@ class JobRepository:
         return job
 
     async def update(self, session: AsyncSession, *, job: JobUpdate) -> JobRecord:
-        await ensure_access_context(session, verify=False)
+        await ensure_access_context(session)
         record = await self.get(session, job_id=job.id)
         record = await update_record(record, data=job)
 
@@ -78,8 +77,9 @@ class JobRepository:
             logger.error(f'Failed to update progress for job {job.id}: {e}')
         return record
 
+    # noinspection PyMethodMayBeStatic
     async def delete(self, session: AsyncSession, *, job_id: UUID) -> bool:
-        await ensure_access_context(session, verify=False)
+        await ensure_access_context(session)
         # todo: also delete embeddings
         try:
             rec = await session.get(JobRecord, job_id)
@@ -93,6 +93,7 @@ class JobRepository:
             logger.error(f'Failed to delete job {job_id}: {e}')
             return False
 
+    # noinspection PyMethodMayBeStatic
     async def get_for_version(
         self,
         session: AsyncSession,
@@ -100,7 +101,7 @@ class JobRepository:
         document_id: UUID,
         version: 'IngestionVersion',
     ) -> JobRecord | None:
-        await ensure_access_context(session, verify=False)
+        await ensure_access_context(session)
         stmt = (
             select(JobRecord)
             .join(IngestionRecord, IngestionRecord.job_id == JobRecord.id)  # type: ignore[bad-argument-type]
@@ -120,8 +121,9 @@ class JobRepository:
             raise ValueError('Multiple JobRecords found for document and ingestion key; expected at most one.')
         return rows[0]
 
+    # noinspection PyMethodMayBeStatic
     async def get_active_for_document(self, session: AsyncSession, *, document_id: UUID) -> JobRecord | None:
-        await ensure_access_context(session, verify=False)
+        await ensure_access_context(session)
         statuses = [s.value for s in JOBS_PENDING]
         stmt = select(JobRecord).where(
             JobRecord.document_id == document_id,
@@ -130,11 +132,19 @@ class JobRepository:
         res = await session.exec(stmt)
         return res.first()
 
+    # noinspection PyMethodMayBeStatic
     async def exists(self, session: AsyncSession, *, job_id: UUID) -> bool:
         try:
             return await session.get(JobRecord, job_id) is not None
         except RecordNotFoundError:
             return False
+
+    # noinspection PyMethodMayBeStatic
+    async def list_ids_for_document(self, session: AsyncSession, *, document_id: UUID) -> list[UUID]:
+        await ensure_access_context(session)
+        stmt = select(JobRecord.id).where(JobRecord.document_id == document_id)
+        result = await session.exec(stmt)
+        return list(result.all())
 
 
 job_repository = JobRepository()

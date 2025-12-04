@@ -42,7 +42,6 @@ def test_local_store_conforms_runtime(tmp_path):
     assert isinstance(store, StoreProtocol)
 
 
-@pytest.mark.integration
 @pytest.mark.needs_aws
 async def test_save_original_and_delete_success(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
@@ -67,7 +66,6 @@ async def test_save_original_and_delete_success(store, file, tenant_id, document
     assert result is True
 
 
-@pytest.mark.integration
 @pytest.mark.needs_aws
 async def test_save_markdown_then_load_and_delete_success(store, tenant_id, document_digest):
     content = '# Title\nHello world'
@@ -107,7 +105,6 @@ async def test_save_markdown_then_load_and_delete_success(store, tenant_id, docu
     assert ok is True
 
 
-@pytest.mark.integration
 @pytest.mark.needs_aws
 async def test_info_with_both_files_success(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
@@ -141,7 +138,6 @@ async def test_info_with_both_files_success(store, file, tenant_id, document_dig
     ) is True
 
 
-@pytest.mark.integration
 @pytest.mark.needs_aws
 async def test_load_failure_nonexistent_key_raises(store):
     with pytest.raises(Exception):
@@ -168,7 +164,6 @@ async def test_info_failure_invalid_bucket(monkeypatch, base_prefix):
         )
 
 
-@pytest.mark.integration
 @pytest.mark.needs_aws
 async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_report_first_page_upload: UploadFile):
     # Force invalid bucket to cause save operations to fail
@@ -202,7 +197,6 @@ async def test_save_failures_invalid_bucket(monkeypatch, base_prefix, apple_repo
         )
 
 
-@pytest.mark.integration
 @pytest.mark.needs_aws
 async def test_head_returns_expected_metadata_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()
@@ -250,7 +244,6 @@ async def test_head_returns_expected_metadata_s3(store, file, tenant_id, documen
     await store.delete(document_id, digest=document_digest, tenant_id=tenant_id)
 
 
-@pytest.mark.integration
 @pytest.mark.needs_aws
 async def test_stream_matches_load_for_both_files_s3(store, file, tenant_id, document_digest):
     document_id = uuid.uuid4()

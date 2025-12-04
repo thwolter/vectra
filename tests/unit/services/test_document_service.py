@@ -5,8 +5,14 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from repositories.document_repo import DocumentRepository
-from repositories.embeddings_repo import EmbeddingsRepository
+import pytest
+
+from repositories import (
+    DocumentRepository,
+    EmbeddingsRepository,
+    IngestionRepository,
+    JobRepository,
+)
 from schemas.documents import DocumentListFilters
 from services.document_service import DocumentService
 
@@ -33,7 +39,16 @@ async def test_list_documents_resolves_profile_and_pagination():
 async def test_update_original_filename_updates_repositories():
     repo = AsyncMock(spec=DocumentRepository)
     embeddings_repo = AsyncMock(spec=EmbeddingsRepository)
-    service = DocumentService(repo=repo, embeddings_repo=embeddings_repo)
+    ingestion_repo = AsyncMock(spec=IngestionRepository)
+    job_repo = AsyncMock(spec=JobRepository)
+    ingestion_repo.list_ids_for_document.return_value = []
+    job_repo.list_ids_for_document.return_value = []
+    service = DocumentService(
+        repo=repo,
+        embeddings_repo=embeddings_repo,
+        ingestion_repo=ingestion_repo,
+        job_repo=job_repo,
+    )
     session = AsyncMock()
 
     document_id = uuid4()
@@ -73,3 +88,75 @@ async def test_update_original_filename_updates_repositories():
     )
 
     assert response.original_filename == 'renamed.pdf'
+
+
+async def test_delete_cleanup_runs_store_and_embeddings():
+    repo = AsyncMock(spec=DocumentRepository)
+    embeddings_repo = AsyncMock(spec=EmbeddingsRepository)
+    ingestion_repo = AsyncMock(spec=IngestionRepository)
+    job_repo = AsyncMock(spec=JobRepository)
+    ingestion_repo.list_ids_for_document.return_value = []
+    job_repo.list_ids_for_document.return_value = []
+    service = DocumentService(
+        repo=repo,
+        embeddings_repo=embeddings_repo,
+        ingestion_repo=ingestion_repo,
+        job_repo=job_repo,
+    )
+    document_id = uuid4()
+    tenant_id = uuid4()
+    record = SimpleNamespace(
+        id=document_id,
+        digest='abc',
+        collection='default',
+        tenant_id=tenant_id,
+    )
+    repo.get.return_value = record
+    repo.delete.return_value = True
+
+    store = AsyncMock()
+    store.delete.return_value = True
+    service._get_store = lambda _: store  # type: ignore[assignment]
+
+    session = AsyncMock()
+    await service.delete(session, document_id=document_id)
+
+    store.delete.assert_awaited_once_with(document_id=document_id, digest=record.digest, tenant_id=tenant_id)
+    embeddings_repo.delete.assert_awaited_once_with(session, digest=record.digest)
+    repo.delete.assert_awaited_once_with(session, document_id=document_id)
+
+
+async def test_delete_raises_when_repository_cleanup_fails():
+    repo = AsyncMock(spec=DocumentRepository)
+    embeddings_repo = AsyncMock(spec=EmbeddingsRepository)
+    ingestion_repo = AsyncMock(spec=IngestionRepository)
+    job_repo = AsyncMock(spec=JobRepository)
+    ingestion_repo.list_ids_for_document.return_value = []
+    job_repo.list_ids_for_document.return_value = []
+    service = DocumentService(
+        repo=repo,
+        embeddings_repo=embeddings_repo,
+        ingestion_repo=ingestion_repo,
+        job_repo=job_repo,
+    )
+    document_id = uuid4()
+    tenant_id = uuid4()
+    record = SimpleNamespace(
+        id=document_id,
+        digest='abc',
+        collection='default',
+        tenant_id=tenant_id,
+    )
+    repo.get.return_value = record
+    repo.delete.return_value = False
+
+    store = AsyncMock()
+    store.delete.return_value = True
+    service._get_store = lambda _: store  # type: ignore[assignment]
+
+    session = AsyncMock()
+    with pytest.raises(RuntimeError, match='Failed to delete document metadata'):
+        await service.delete(session, document_id=document_id)
+
+    embeddings_repo.delete.assert_awaited_once_with(session, digest=record.digest)
+    repo.delete.assert_awaited_once_with(session, document_id=document_id)

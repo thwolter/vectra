@@ -8,8 +8,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from repositories import (
     DocumentRepository,
     EmbeddingsRepository,
+    IngestionRepository,
+    JobRepository,
     document_repository,
     embeddings_repository,
+    ingestion_repository,
+    job_repository,
 )
 from repositories.models import DocumentRecord
 from repositories.schemas import DocumentCreate, DocumentUpdate
@@ -29,9 +33,13 @@ class DocumentService:
         *,
         repo: DocumentRepository | None = None,
         embeddings_repo: EmbeddingsRepository | None = None,
+        job_repo: JobRepository | None = None,
+        ingestion_repo: IngestionRepository | None = None,
     ) -> None:
         self.repo = repo or document_repository
         self.embeddings_repo = embeddings_repo or embeddings_repository
+        self.job_repo = job_repo or job_repository
+        self.ingestion_repo = ingestion_repo or ingestion_repository
 
     async def ensure_canonical_document(self, session, *, data: DocumentCreate) -> Tuple[DocumentRecord, bool]:
         return await self.repo.get_or_create(session, data=data)
@@ -149,10 +157,27 @@ class DocumentService:
         docs = await self.repo.get_many(session, filters=repo_filters)
         return DocumentListResponse.model_validate(docs)
 
+    async def _cleanup_jobs(self, session: AsyncSession, *, document_id: UUID) -> None:
+        """Ensure upload jobs tied to the document are removed."""
+        job_ids = await self.job_repo.list_ids_for_document(session, document_id=document_id)
+        for job_id in job_ids:
+            await self.job_repo.delete(session, job_id=job_id)
+
+    async def _cleanup_ingestions(self, session: AsyncSession, *, document_id: UUID) -> None:
+        """Ensure ingestion versions tied to the document are removed."""
+        ingestion_ids = await self.ingestion_repo.list_ids_for_document(session, document_id=document_id)
+        for ingestion_id in ingestion_ids:
+            await self.ingestion_repo.delete(session, ingestion_id=ingestion_id)
+
     async def delete(self, session: AsyncSession, *, document_id: UUID) -> None:
         record = await self.repo.get(session, document_id=document_id)
         store = self._get_store(record.collection)
         deleted = await store.delete(document_id=document_id, digest=record.digest, tenant_id=record.tenant_id)
         if not deleted:
             raise RuntimeError('Failed to delete stored artifacts for document')
-        await self.repo.delete(session, document_id=document_id)
+        await self.embeddings_repo.delete(session, digest=record.digest)
+        await self._cleanup_ingestions(session, document_id=document_id)
+        await self._cleanup_jobs(session, document_id=document_id)
+        deleted_record = await self.repo.delete(session, document_id=document_id)
+        if not deleted_record:
+            raise RuntimeError(f'Failed to delete document metadata {document_id}')
