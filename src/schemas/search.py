@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from utils.types import SHA256B64
 
@@ -37,6 +38,29 @@ class ChunkSearchRequest(BaseModel):
         if len(filters) == 1:
             return filters[0]
         return {'$and': filters}
+
+
+class DocumentAvailabilityRequest(BaseModel):
+    document_id: UUID | None = Field(
+        default=None,
+        description='Document UUID scoped to the current tenant.',
+    )
+    digest: SHA256B64 | None = Field(
+        default=None,
+        description='SHA256 digest for the desired document version.',
+    )
+    collection: str = Field(
+        default='default',
+        min_length=1,
+        max_length=255,
+        description='Collection that should contain the document.',
+    )
+
+    @model_validator(mode='after')
+    def ensure_identifier(cls, values: 'DocumentAvailabilityRequest') -> 'DocumentAvailabilityRequest':
+        if not values.document_id and not values.digest:
+            raise ValueError('Either document_id or digest is required')
+        return values
 
 
 class ChunkSearchResult(BaseModel):

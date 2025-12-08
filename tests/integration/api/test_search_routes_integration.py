@@ -122,3 +122,70 @@ async def test_search_chunks_missing_collection(auth_client, auth_session, diges
 
     exists_after = await embeddings_repository.collection_exists(auth_session, collection=missing_collection)
     assert exists_after is False
+
+
+async def test_document_availability_by_document_id(auth_client, document_created):
+    response = await auth_client.post(
+        '/api/v1/search/document-availability',
+        json={
+            'document_id': str(document_created.id),
+            'collection': document_created.collection,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload['id'] == str(document_created.id)
+    assert payload['digest'] == document_created.digest
+
+
+async def test_document_availability_by_digest(auth_client, document_created):
+    response = await auth_client.post(
+        '/api/v1/search/document-availability',
+        json={
+            'digest': document_created.digest,
+            'collection': document_created.collection,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload['id'] == str(document_created.id)
+
+
+async def test_document_availability_collection_mismatch(auth_client, document_created):
+    response = await auth_client.post(
+        '/api/v1/search/document-availability',
+        json={
+            'document_id': str(document_created.id),
+            'collection': 'other-collection',
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert 'does not belong to collection' in response.json()['detail']
+
+
+async def test_document_availability_digest_mismatch(auth_client, document_created, digest_from):
+    mismatch_digest = digest_from('availability-mismatch')
+    response = await auth_client.post(
+        '/api/v1/search/document-availability',
+        json={
+            'document_id': str(document_created.id),
+            'collection': document_created.collection,
+            'digest': mismatch_digest,
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert 'does not match document' in response.json()['detail']
+
+
+async def test_document_availability_missing(auth_client, digest_from):
+    response = await auth_client.post(
+        '/api/v1/search/document-availability',
+        json={'digest': digest_from('missing-doc'), 'collection': 'default'},
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()['detail'] == 'Document not found'
